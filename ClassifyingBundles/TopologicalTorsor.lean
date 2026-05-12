@@ -1,8 +1,7 @@
 import ClassifyingBundles.Torsor
 import Mathlib.Topology.Algebra.Monoid
 
-/-!
-# Topological torsors
+/-! # Topological torsors
 
 In this file we provide API for topological torsors of multiplicative groups (i.e. multiplicative
 torsors in which `•` and `/ₛ` are continuous). Mathlib already provides this API for additive
