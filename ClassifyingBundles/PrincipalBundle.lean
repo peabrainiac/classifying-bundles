@@ -17,6 +17,46 @@ notation:25 X " ≃ₑ[" φ:25 "] " Y:0 => MulActionEquiv φ X Y
 /-- `M`-equivariant bijections `X ≃ Y`. This is the same as `X ≃ₑ[Equiv.refl M] Y`. -/
 notation:25 X " ≃[" M:25 "] " Y:0 => MulActionEquiv (Equiv.refl M) X Y
 
+lemma MulActionEquiv.toEquiv_injective {M N : Type*} {φ : M ≃ N} {X Y : Type*}
+    [SMul M X] [SMul N Y] : (toEquiv : (X ≃ₑ[φ] Y) → X ≃ Y).Injective
+  | ⟨⟨f, _⟩, f', _, _⟩, ⟨⟨g, _⟩, g', _, _⟩, h => by
+    convert rfl
+    · exact congrArg (fun f ↦ f.toFun) h.symm
+    · exact congrArg (fun f ↦ f.invFun) h.symm
+
+lemma MulActionEquiv.toMulActionHom_injective {M N : Type*} {φ : M ≃ N} {X Y : Type*}
+    [SMul M X] [SMul N Y] : (toMulActionHom : (X ≃ₑ[φ] Y) → X →ₑ[φ] Y).Injective
+  | ⟨⟨_, _⟩, _, _, _⟩, ⟨⟨_, _⟩, _, _, _⟩, h =>
+    toEquiv_injective <| Equiv.coe_inj.1 <| congrArg (fun f ↦ f.toFun) h
+
+instance {M N : Type*} (φ : M ≃ N) (X Y : Type*) [SMul M X] [SMul N Y] :
+    EquivLike (X ≃ₑ[φ] Y) X Y where
+  coe e := e.toFun
+  inv e := e.invFun
+  left_inv e := e.left_inv
+  right_inv e := e.right_inv
+  coe_injective' e e' h h := by
+    obtain ⟨⟨_, _⟩, _, _, _⟩ := e
+    obtain ⟨⟨_, _⟩, _, _, _⟩ := e'
+    convert rfl <;> symm <;> assumption
+
+instance {M N : Type*} (φ : M ≃ N) (X Y : Type*) [SMul M X] [SMul N Y] :
+    MulActionSemiHomClass (X ≃ₑ[φ] Y) φ X Y where
+  map_smulₛₗ e m x := e.map_smul' m x
+
+@[ext]
+theorem MulActionEquiv.ext {M N : Type*} {φ : M ≃ N} {X Y : Type*} [SMul M X] [SMul N Y]
+    {e e' : X ≃ₑ[φ] Y} (h : ∀ x, e x = e' x) : e = e' :=
+  DFunLike.ext _ _ h
+
+lemma MulActionEquiv.map_smul'' {M N : Type*} {φ : M ≃ N} {X Y : Type*} [SMul M X] [SMul N Y]
+    (e : X ≃ₑ[φ] Y) (m : M) (x : X) : e (m • x) = φ m • e x :=
+  e.map_smul' m x
+
+lemma MulActionEquiv.map_smul {M : Type*} {X Y : Type*} [SMul M X] [SMul M Y]
+    (e : X ≃[M] Y) (m : M) (x : X) : e (m • x) = m • e x :=
+  e.toMulActionHom.map_smul m x
+
 /-- The identity as an equivariant bijection. -/
 @[simps!]
 def MulActionEquiv.refl (M : Type*) (X : Type*) [SMul M X] : X ≃[M] X where
@@ -50,6 +90,10 @@ lemma MulActionHom.fromTorsor_smul {G : Type*} [Group G] {X Y : Type*} [Torsor G
   ext x'
   simp [sdiv_smul_eq_sdiv_div, div_eq_mul_inv, mul_smul]
 
+lemma MulActionHom.eq_fromTorsor {G : Type*} [Group G] {X Y : Type*} [Torsor G X] [MulAction G Y]
+    (f : X →[G] Y) (x : X) : f = fromTorsor x (f x) := by
+  ext x'; simp [← f.map_smul]
+
 instance {G : Type*} [Group G] {X : Type*} [Torsor G X] : IsCancelSMul G X where
   right_cancel' g g' x hx := by rw [← smul_sdiv g x, ← smul_sdiv g' x, hx]
 
@@ -76,9 +120,48 @@ noncomputable def MulActionHom.toEquiv {G : Type*} [Group G] {X Y : Type*} [Tors
     (f : X →[G] Y) : X ≃[G] Y :=
   { f, Equiv.ofBijective f ⟨f.injective, f.surjective⟩ with }
 
--- TODO: figure out how to best put a topology here
-instance {G : Type*} [Group G] {X Y : Type*} [Torsor G X] [Torsor G Y] :
-    TopologicalSpace (X ≃[G] Y) := sorry
+@[simp]
+-- this really should have come from `@[simps!]`, but I couldn't get it to work
+lemma MulActionHom.toEquiv_apply {G : Type*} [Group G] {X Y : Type*} [Torsor G X] [Torsor G Y]
+    (f : X →[G] Y) {x' : X} : f.toEquiv x' = f x' := rfl
+
+@[simp]
+lemma MulActionHom.coe_mk {M N : Type*} {φ : M → N} {X : Type*} [SMul M X] {Y : Type*} [SMul N Y]
+    (f : X → Y) (hf : ∀ (m : M) (x : X), f (m • x) = φ m • f x) :
+    MulActionHom.mk f hf = f := rfl
+
+/-- Every equivariant map out of a topological torsor is continuous. -/
+lemma MulActionHom.continuous {G : Type*} [TopologicalSpace G] [Group G] {X Y : Type*}
+    [TopologicalSpace X] [TopologicalSpace Y] [Torsor G X] [IsTopologicalTorsor X] [MulAction G Y]
+    [ContinuousSMul G Y] (f : X →[G] Y) : Continuous f := by
+  rw [f.eq_fromTorsor Torsor.nonempty.some]
+  dsimp [fromTorsor]
+  fun_prop
+
+/-- For each `x : X`, evaluation at `X` defines a bijection `(X ≃[G] Y) ≃ Y`. -/
+@[simps]
+noncomputable def MulActionEquiv.evalEquiv {G : Type*} [Group G] {X Y : Type*} [Torsor G X]
+    [Torsor G Y] (x : X) : (X ≃[G] Y) ≃ Y where
+  toFun e := e x
+  invFun y := (MulActionHom.fromTorsor x y).toEquiv
+  left_inv e := by ext x'; simp [← e.map_smul]
+  right_inv y := by simp
+
+noncomputable instance {G : Type*} [Group G] {X Y : Type*} [Torsor G X] [Torsor G Y]
+    [TopologicalSpace Y] : TopologicalSpace (X ≃[G] Y) :=
+  .induced (MulActionEquiv.evalEquiv Torsor.nonempty.some) inferInstance
+
+/-- `MulActionEquiv.evalEquiv x` is a homeomorphism for every `x`. -/
+@[simps!]
+noncomputable def MulActionEquiv.evalHomeo {G : Type*} [TopologicalSpace G] [Group G]
+    {X Y : Type*} [TopologicalSpace Y] [Torsor G X] [Torsor G Y] [ContinuousConstSMul G Y]
+    (x : X) : (X ≃[G] Y) ≃ₜ Y :=
+  (evalEquiv x).toHomeomorphOfIsInducing <| by
+    let x' : X := Torsor.nonempty.some
+    rw [show ⇑(evalEquiv x) = (evalEquiv x').trans ((evalEquiv x').symm.trans (evalEquiv x)) by
+      simp [← Equiv.trans_assoc], Equiv.coe_trans]
+    refine .comp ?_ ⟨rfl⟩
+    simpa [Equiv.coe_trans, Function.comp_def] using (Homeomorph.smul (x /ₛ x')).isInducing
 
 end
 
