@@ -44,8 +44,14 @@ instance {M N : Type*} (φ : M ≃ N) (X Y : Type*) [SMul M X] [SMul N Y] :
     MulActionSemiHomClass (X ≃ₑ[φ] Y) φ X Y where
   map_smulₛₗ e m x := e.map_smul' m x
 
+@[simp]
+lemma MulActionEquiv.coe_mk {M N : Type*} {φ : M ≃ N} {X Y : Type*} [SMul M X] [SMul N Y]
+    {f : X →ₑ[φ] Y} {f' : Y → X} {left_inv : Function.LeftInverse f' f}
+    {right_inv : Function.LeftInverse f f'} :
+    (MulActionEquiv.mk f f' left_inv right_inv : X → Y) = f := rfl
+
 @[ext]
-theorem MulActionEquiv.ext {M N : Type*} {φ : M ≃ N} {X Y : Type*} [SMul M X] [SMul N Y]
+lemma MulActionEquiv.ext {M N : Type*} {φ : M ≃ N} {X Y : Type*} [SMul M X] [SMul N Y]
     {e e' : X ≃ₑ[φ] Y} (h : ∀ x, e x = e' x) : e = e' :=
   DFunLike.ext _ _ h
 
@@ -76,6 +82,10 @@ instance {α : Type*} : CompTriple.IsId (Equiv.refl α) :=
 def MulActionEquiv.trans {M : Type*} {X Y Z : Type*} [SMul M X] [SMul M Y] [SMul M Z]
     (e : X ≃[M] Y) (e' : Y ≃[M] Z) : X ≃[M] Z :=
   { e'.toMulActionHom.comp e.toMulActionHom, e.toEquiv.trans e'.toEquiv with }
+
+@[simp]
+lemma MulActionEquiv.trans_apply {M : Type*} {X Y Z : Type*} [SMul M X] [SMul M Y] [SMul M Z]
+    {e : X ≃[M] Y} {e' : Y ≃[M] Z} {x : X} : e.trans e' x = e' (e x) := by rfl
 
 /-- The unique equivariant map from a `G`-torsor `X` to a `G`-set `Y` mapping `x` to `y`. -/
 @[simps]
@@ -201,11 +211,26 @@ noncomputable def Bundle.Trivialization.coordChangeₑ (e e' : Trivialization F 
   if hb : b ∈ e.baseSet ∩ e'.baseSet then
     (e.mulActionEquivAt hb.1).symm.trans (e'.mulActionEquivAt hb.2) else .refl G F
 
+variable [FiberBundle F E] [Torsor G F] [IsTopologicalTorsor F]
+    [∀ b, Torsor G (E b)] [∀ b, IsTopologicalTorsor (E b)]
+
 variable (G F E) in
-class PrincipalBundle [FiberBundle F E] [Torsor G F] [IsTopologicalTorsor F]
-    [∀ b, Torsor G (E b)] [∀ b, IsTopologicalTorsor (E b)] : Prop where
-  trivialization_equivariant' (e : Trivialization F (π F E)) [MemTrivializationAtlas e] :
+class IsPrincipalBundle : Prop where
+  trivialization_equivariant (e : Trivialization F (π F E)) [MemTrivializationAtlas e] :
     e.IsEquivariant G
-  continuousOn_coordChange' (e : Trivialization F (π F E)) (e' : Trivialization F (π F E))
+
+attribute [instance] IsPrincipalBundle.trivialization_equivariant
+
+omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+lemma Bundle.Trivialization.continuousOn_coordChangeₑ [IsPrincipalBundle G F E]
+    (e : Trivialization F (π F E)) (e' : Trivialization F (π F E))
     [MemTrivializationAtlas e] [MemTrivializationAtlas e'] :
-    ContinuousOn (Trivialization.coordChangeₑ (G := G) e e') (e.baseSet ∩ e'.baseSet)
+      ContinuousOn (coordChangeₑ (G := G) e e') (e.baseSet ∩ e'.baseSet) := by
+  have z : F := Torsor.nonempty.some
+  refine ((MulActionEquiv.evalHomeo z).comp_continuousOn_iff _ _).1 ?_
+  refine .congr (f := fun x ↦ (e' ⟨x, e.symm x z⟩).2) ?_ fun x hx ↦ by
+    simp [coordChangeₑ, hx, mulActionEquivAt]; rfl
+  refine continuous_snd.comp_continuousOn ?_
+  refine e'.continuousOn.comp ?_ fun x ↦ by simp [e'.source_eq]
+  refine .mono ?_ Set.inter_subset_left
+  exact e.continuousOn_symm.comp (f := fun x ↦ (x, z)) (by fun_prop) (by intro; simp)
