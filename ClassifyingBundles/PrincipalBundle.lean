@@ -1,7 +1,7 @@
 import ClassifyingBundles.TopologicalTorsor
 import Mathlib.Topology.VectorBundle.Basic
 
-open Bundle
+open Bundle FiberBundle
 
 /- Some prerequisites on action homomorphisms / equivariant maps.
 TODO: move to a better fitting file. -/
@@ -215,6 +215,8 @@ variable [FiberBundle F E] [Torsor G F] [IsTopologicalTorsor F]
     [∀ b, Torsor G (E b)] [∀ b, IsTopologicalTorsor (E b)]
 
 variable (G F E) in
+/-- A `G`-principal bundle is a fiber bundle whose standard fiber `F` and fibers `E b` are
+`G`-torsors, and whose bundle atlas has the property that changes of charts are `G`-equivariant. -/
 class IsPrincipalBundle : Prop where
   trivialization_equivariant (e : Trivialization F (π F E)) [MemTrivializationAtlas e] :
     e.IsEquivariant G
@@ -234,3 +236,33 @@ lemma Bundle.Trivialization.continuousOn_coordChangeₑ [IsPrincipalBundle G F E
   refine e'.continuousOn.comp ?_ fun x ↦ by simp [e'.source_eq]
   refine .mono ?_ Set.inter_subset_left
   exact e.continuousOn_symm.comp (f := fun x ↦ (x, z)) (by fun_prop) (by intro; simp)
+
+/-- For every `G`-principal bundle `E` with standard fiber `F`, `TotalSpace F E` carries a
+`G`-action assembled from the actions of `G` on the fibers `E b`. -/
+instance [IsPrincipalBundle G F E] : SMul G (TotalSpace F E) where
+  smul g x := ⟨_, g • x.2⟩
+
+/-- The action of `G` on the total space on any `G`-principal bundle is continuous. -/
+instance [IsPrincipalBundle G F E] : ContinuousSMul G (TotalSpace F E) where
+  continuous_smul := by
+    suffices h : ∀ b, ContinuousOn (fun x : G × TotalSpace F E ↦ x.1 • x.2)
+        (.univ ×ˢ (π F E ⁻¹' (trivializationAt F E b).baseSet)) from
+      continuous_iff_continuousAt.2 fun ⟨g, x⟩ ↦ (h x.1).continuousAt <|
+        prod_mem_nhds Filter.univ_mem <| ((trivializationAt F E x.1).open_baseSet.preimage <|
+          continuous_proj F E).mem_nhds <| mem_baseSet_trivializationAt F E _
+    refine fun b ↦ .congr (f := fun x ↦ ⟨_, (trivializationAt F E b).symm x.2.1
+        (x.1 • (trivializationAt F E b x.2).2)⟩) ?_ fun ⟨g, x⟩ ⟨_, hx⟩ ↦ by
+      ext
+      · rfl
+      · simp only [heq_eq_eq, ← Trivialization.IsEquivariant.map_smul hx]
+        exact ((trivializationAt F E b).symm_proj_apply ⟨x.1, g • x.2⟩ hx).symm
+    refine (trivializationAt F E b).continuousOn_symm.comp
+      (f := (fun x : G × TotalSpace F E ↦ ⟨x.2.1, x.1 • (trivializationAt F E b x.2).2⟩)) ?_ ?_
+    · refine ((continuous_proj F E).comp continuous_snd).continuousOn.prodMk ?_
+      refine continuous_smul.comp_continuousOn ?_
+        (f := fun x : G × TotalSpace F E ↦ (x.1, (trivializationAt F E b x.2).2))
+      refine continuousOn_id.prodMap (g := fun x ↦ (trivializationAt F E b x).2) ?_
+      refine continuous_snd.comp_continuousOn ?_
+      rw [← (trivializationAt F E b).source_eq]
+      exact (trivializationAt F E b).continuousOn
+    · exact fun ⟨g, x⟩ ⟨_, hx⟩ ↦ ⟨hx, trivial⟩
