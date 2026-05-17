@@ -1,6 +1,22 @@
 import ClassifyingBundles.TopologicalTorsor
 import Mathlib.Topology.VectorBundle.Basic
 
+/-! `G`-principal bundles
+
+Mathematically, a `G`-principal bundle for a topological group `G` is a fiber bundle `p : E → B`
+with generic fiber `G` and a continuous `G`-action on `E` that preserves the fibers of `p` and turns
+them into topological `G`-torsors. Equivalently, `G`-principal bundles can also be defined as
+fiber bundles with generic fiber a `G`-torsor `F` and a bundle atlas for which all changes of charts
+are `G`-equivariant. In this sense, `G`-principal bundles are to `G`-torsors as vector bundles are
+to vector spaces.
+
+In this file, we formalize `G`-principal bundles using the second definition: to avoid the
+type-theoretical difficulties that come from restricting a global `G`-action to individual fibers,
+we instead start with a bundle `E : B → Type*` whose fibers `E b` are `G`-torsors and assemble a
+`G`-action on the total space from that. Hence, for our purposes a `G`-principal bundle is a
+bundle of `G`-torsors equipped with a bundle atlas with `G`-equivariant changes of charts.
+-/
+
 open Bundle FiberBundle
 
 /- Some prerequisites on action homomorphisms / equivariant maps.
@@ -216,7 +232,11 @@ variable [FiberBundle F E] [Torsor G F] [IsTopologicalTorsor F]
 
 variable (G F E) in
 /-- A `G`-principal bundle is a fiber bundle whose standard fiber `F` and fibers `E b` are
-`G`-torsors, and whose bundle atlas has the property that changes of charts are `G`-equivariant. -/
+`G`-torsors, and whose bundle atlas has the property that changes of charts are `G`-equivariant.
+
+Note that in this definition we have `G` acting on the left; under the usual convention that
+`G`-principal bundles are acted on from the right, this is really a `Gᵐᵒᵖ`-principal bundle.
+`G`-principal bundles are instead captured by `IsPrincipalBundle Gᵐᵒᵖ F E`. -/
 class IsPrincipalBundle : Prop where
   trivialization_equivariant (e : Trivialization F (π F E)) [MemTrivializationAtlas e] :
     e.IsEquivariant G
