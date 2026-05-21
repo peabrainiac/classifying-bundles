@@ -1,5 +1,6 @@
 import ClassifyingBundles.ClassifyingSpace
 import ClassifyingBundles.ContMDiffSMul
+import ClassifyingBundles.ContinuousSection
 import ClassifyingBundles.PrincipalBundle
 import ClassifyingBundles.TopologicalTorsor
 import ClassifyingBundles.Torsor
