@@ -1,5 +1,6 @@
 import ClassifyingBundles.ClassifyingSpace
 import ClassifyingBundles.ContMDiffSMul
+import ClassifyingBundles.ContinuousBundleActionHom
 import ClassifyingBundles.ContinuousBundleHom
 import ClassifyingBundles.ContinuousSection
 import ClassifyingBundles.MulActionEquiv

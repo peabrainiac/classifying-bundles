@@ -1,4 +1,5 @@
 import ClassifyingBundles.ContinuousSection
+import ClassifyingBundles.ContinuousBundleActionHom
 import ClassifyingBundles.MulActionEquiv
 import Mathlib.Topology.ContinuousMap.Algebra
 
@@ -85,11 +86,6 @@ lemma Bundle.Trivialization.continuousOn_coordChangeₑ [IsPrincipalBundle G F E
   refine e'.continuousOn.comp ?_ fun x ↦ by simp [e'.source_eq]
   refine .mono ?_ Set.inter_subset_left
   exact e.continuousOn_symm.comp (f := fun x ↦ (x, z)) (by fun_prop) (by intro; simp)
-
-/-- For every `G`-principal bundle `E` with standard fiber `F`, `TotalSpace F E` carries a
-`G`-action assembled from the actions of `G` on the fibers `E b`. -/
-instance [IsPrincipalBundle G F E] : SMul G (TotalSpace F E) where
-  smul g x := ⟨_, g • x.2⟩
 
 /-- The action of `G` on the total space on any `G`-principal bundle is continuous. -/
 instance [IsPrincipalBundle G F E] : ContinuousSMul G (TotalSpace F E) where

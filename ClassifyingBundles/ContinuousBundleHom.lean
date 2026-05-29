@@ -46,12 +46,6 @@ theorem coeFn_mk {f : B → B'} (f' : ∀ b, E b → E' (f b))
     (hf : Continuous (TotalSpace.map F F' f')) :
     (mk f' hf : ∀ _, _) = f' := rfl
 
-theorem coe_inj {f : B → B'} {g g' : Cᶠ[f]⟮F, E; F', E'⟯} (h : (g : ∀ _, _) = g') : g = g' :=
-  DFunLike.ext' h
-
-theorem coe_injective {f : B → B'} : Injective ((↑) : Cᶠ[f]⟮F, E; F', E'⟯ → ∀ _, _) :=
-  fun _ _  ↦ coe_inj
-
 @[ext]
 theorem ext {f : B → B'} {g g' : Cᶠ[f]⟮F, E; F', E'⟯} (h : ∀ b x, g b x = g' b x) : g = g' :=
   DFunLike.ext _ _ fun b ↦ funext <| h b
