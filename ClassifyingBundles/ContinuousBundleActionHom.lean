@@ -83,9 +83,8 @@ def mulActionHomAt (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) (b : B) : E b →ₑ[
 variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
   [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E']
 
-@[simps]
-instance {f : B' → B} {b' : B'} [SMul G (E (f b'))] : SMul G ((f *ᵖ E) b') where
-  smul g x := SMul.smul (α := E (f b')) g x
+instance {f : B' → B} {b' : B'} [SMul G (E (f b'))] : SMul G ((f *ᵖ E) b') :=
+  inferInstanceAs (SMul G (E (f b')))
 
 /-- Continuous fibrewise equivariant maps from a bundle `E` over `B` to a bundle `E'` over `B'`
 relative to a map `B → B'` are equivalently continuous fibrewise equivariant maps from `E` to the

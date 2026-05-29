@@ -161,3 +161,24 @@ instance [IsPrincipalBundle G F E] [Nonempty Cₛ⟮F, E⟯] : Torsor C(B, G) C�
   smul_sdiv' f s := by ext; simp
 
 end Bundle.ContinuousSection
+
+section Pullback
+
+instance Bundle.Trivialization.IsEquivariant.pullback {B' : Type*} [TopologicalSpace B']
+    {K : Type*} [FunLike K B' B] [ContinuousMapClass K B' B] {f : K} (e : Trivialization F (π F E))
+    [e.IsEquivariant G] : (e.pullback f).IsEquivariant G where
+  map_smul {b} hb {g x} :=
+    Trivialization.IsEquivariant.map_smul (by simpa using hb : f b ∈ e.baseSet)
+
+instance {B' : Type*} {f : B' → B} {b' : B'} [Torsor G (E (f b'))] : Torsor G ((f *ᵖ E) b') :=
+  inferInstanceAs (Torsor G (E (f b')))
+
+/-- Pullbacks of `G`-principal bundles along continuous maps are `G`-principal bundles. -/
+instance IsPrincipalBundle.pullback [IsPrincipalBundle G F E] {B' : Type*} [TopologicalSpace B']
+    {K : Type*} [FunLike K B' B] [ContinuousMapClass K B' B] {f : K} :
+    IsPrincipalBundle G F (f *ᵖ E) where
+  trivialization_equivariant e he := by
+    obtain ⟨⟨e, he, rfl⟩⟩ := he
+    exact (trivialization_equivariant e).pullback
+
+end Pullback
