@@ -27,7 +27,7 @@ scoped[Bundle] notation "Cᶠₑ[" φ "]⟮" F ", " E "; " F' ", " E' "⟯" =>
   ContinuousBundleActionHom F E F' E' φ id
 
 /-- A continuous fibrewise equivariant map between bundles over the same base space. -/
-scoped[Bundle] notation "Cᶠₑ[" G "]⟮" F ", " E "; " F' ", " E' "⟯" =>
+scoped[Bundle] notation "Cᶠ[" G "]⟮" F ", " E "; " F' ", " E' "⟯" =>
   ContinuousBundleActionHom F E F' E' (@id G) id
 
 
@@ -79,5 +79,24 @@ TODO: upgrade this to a `ContinuousMulActionHom` once that is defined. -/
 def mulActionHomAt (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) (b : B) : E b →ₑ[φ] E' (f b) where
   toFun := f' b
   map_smul' g x := f'.map_smul g x
+
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E']
+
+@[simps]
+instance {f : B' → B} {b' : B'} [SMul G (E (f b'))] : SMul G ((f *ᵖ E) b') where
+  smul g x := SMul.smul (α := E (f b')) g x
+
+/-- Continuous fibrewise equivariant maps from a bundle `E` over `B` to a bundle `E'` over `B'`
+relative to a map `B → B'` are equivalently continuous fibrewise equivariant maps from `E` to the
+pullback `f *ᵖ E'` of `E'` to `B`. -/
+@[simps!]
+def pullbackEquiv : Cᶠₑ[φ, f]⟮F, E; F', E'⟯ ≃ Cᶠₑ[φ]⟮F, E; F', f *ᵖ E'⟯ where
+  toFun f' := ⟨ContinuousBundleHom.pullbackEquiv f'.toContinuousBundleHom,
+    fun g _ x ↦ f'.map_smul g x⟩
+  invFun f' := ⟨ContinuousBundleHom.pullbackEquiv.invFun f'.toContinuousBundleHom,
+    fun g _ x ↦ f'.map_smul g x⟩
+  left_inv _ := rfl
+  right_inv _ := rfl
 
 end ContinuousBundleActionHom
