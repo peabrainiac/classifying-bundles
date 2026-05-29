@@ -3,6 +3,7 @@ import ClassifyingBundles.ContMDiffSMul
 import ClassifyingBundles.ContinuousBundleActionHom
 import ClassifyingBundles.ContinuousBundleHom
 import ClassifyingBundles.ContinuousSection
+import ClassifyingBundles.GBundle
 import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.PrincipalBundle
 import ClassifyingBundles.TopologicalTorsor

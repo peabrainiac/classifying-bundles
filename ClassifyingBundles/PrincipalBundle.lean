@@ -61,7 +61,7 @@ variable [FiberBundle F E] [Torsor G F] [IsTopologicalTorsor F]
     [∀ b, Torsor G (E b)] [∀ b, IsTopologicalTorsor (E b)]
 
 variable (G F E) in
-/-- A `G`-principal bundle is a fiber bundle whose standard fiber `F` and fibers `E b` are
+/-- A (left) `G`-principal bundle is a fiber bundle whose standard fiber `F` and fibers `E b` are
 `G`-torsors, and whose bundle atlas has the property that changes of charts are `G`-equivariant.
 
 Note that in this definition we have `G` acting on the left; under the usual convention that
