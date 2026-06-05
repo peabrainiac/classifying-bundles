@@ -1,6 +1,11 @@
+/-
+Copyright (c) 2026 Ben Eltschig. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Ben Eltschig
+-/
 import Mathlib.AlgebraicTopology.SingularSet
 import Mathlib.CategoryTheory.Monoidal.Closed.Basic
-import Mathlib.CategoryTheory.Monoidal.Grp_
+import Mathlib.CategoryTheory.Monoidal.Grp
 import Mathlib.Topology.Category.TopCat.Monoidal
 
 /-! # Classifying spaces of topological monoids
@@ -43,11 +48,13 @@ def CategoryTheory.Mon.nerve {C : Type*} [Category* C] [MonoidalCategory C] :
     app X := by sorry }
 
 open Finset in
-noncomputable def topologicalMonoidNerve (M : Type u) [TopologicalSpace M] [Monoid M] [ContinuousMul M] :
-    SimplicialObject TopCat.{u} where
+noncomputable def topologicalMonoidNerve (M : Type u) [TopologicalSpace M] [Monoid M]
+    [ContinuousMul M] : SimplicialObject TopCat.{u} where
   obj X :=  .of (Fin X.unop.len → M)
-  map {n m} f := ⟨fun g i ↦ Finset.Ico (hom f.unop i.castSucc) (hom f.unop i.succ)|>.preimage
+  map {n m} f := ofHom ⟨fun g i ↦ Finset.Ico (hom f.unop i.castSucc) (hom f.unop i.succ)|>.preimage
     Fin.castSucc (Fin.castSucc_injective _).injOn|>.sort.map g|>.prod, sorry⟩
+  map_id := by sorry
+  map_comp := by sorry
 
 /-- The nerve functor from topological monoids to simplicial topological spaces. Specialised to
 `TopCat` instead of more general categories for now. -/

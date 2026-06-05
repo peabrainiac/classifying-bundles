@@ -1,4 +1,13 @@
+/-
+Copyright (c) 2026 Ben Eltschig. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Ben Eltschig
+-/
 import ClassifyingBundles.PrincipalBundle
+
+/-! # `G`-structures on fibre bundles
+In this file we define `G`-structures on fibre bundles.
+-/
 
 open Bundle FiberBundle
 
@@ -50,6 +59,7 @@ lemma _root_.Bundle.Trivialization.pullback_unpullback [∀ b, Zero (E b)] {B' :
     e.unpullback.pullback f = e :=
   ‹MemTrivializationAtlas e›.out.choose_spec.choose_spec.symm
 
+/-- The pullback of a `G`-structure to the pullback bundle along a continuous map. -/
 noncomputable instance GStructure.pullback [GStructure G F E] [∀ b, Zero (E b)] {B' : Type*}
     [TopologicalSpace B'] {K : Type*} [FunLike K B' B] [ContinuousMapClass K B' B] (f : K) :
     GStructure G F (f *ᵖ E) where
