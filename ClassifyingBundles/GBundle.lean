@@ -14,7 +14,7 @@ open Bundle FiberBundle
 variable (G : Type*) [Group G] [TopologicalSpace G]
   (F : Type*) [TopologicalSpace F] {B : Type*} [TopologicalSpace B]
   (E : B → Type*) [∀ b, TopologicalSpace (E b)] [TopologicalSpace (Bundle.TotalSpace F E)]
-  [FiberBundle F E] [SMul G F]
+  [FiberBundle F E] [MulAction G F]
 
 namespace FiberBundle
 
@@ -34,7 +34,14 @@ class GStructure where
     [MemTrivializationAtlas e'], ContinuousOn (g e e') (e.baseSet ∩ e'.baseSet)
   coordChange_apply_eq_smul (e e' : Trivialization F (π F E)) [MemTrivializationAtlas e]
     [MemTrivializationAtlas e'] {b : B} (hb : b ∈ e.baseSet ∩ e'.baseSet) (x : F) :
-    e.coordChange e' b x = g e e' b • x
+    e'.coordChange e b x = g e e' b • x
+
+/-- A typeclass stating that the fibre bundle given by `F` and `E` admits a `G`-structure without
+carrying one as data. For faithful / effective actions this distinction does not matter since there
+is at most one `G`-structure anyway (at least up to differing junk values), but for e.g. spin
+structures that is not the case. -/
+class IsGBundle where
+  out : Nonempty (GStructure G F E)
 
 protected lemma GStructure.g_eq_one [GStructure G F E] (e : Trivialization F (π F E))
     [MemTrivializationAtlas e] {b : B} (hb : b ∈ e.baseSet) : g e e b (G := G) = 1 := by
@@ -89,5 +96,137 @@ noncomputable def _root_.PrincipalBundle.toGStructure [TopologicalSpace (Bundle.
   g_mul_g e e' e'' _ _ _ b hb := by simp
   continuousOn_g := by sorry
   coordChange_apply_eq_smul := by sorry
+
+section Faithful
+
+variable [FaithfulSMul G F]
+
+/-- When `G` acts faithfully, every set of continuous `G`-valued transition functions can be
+assembled into a `G`-structure: compatibility on triple intersections follows automatically. -/
+@[implicit_reducible] def GStructure.mkOfFaithful (g : ∀ (e e' : Trivialization F (π F E))
+      [MemTrivializationAtlas e] [MemTrivializationAtlas e'], B → G)
+    (hg : ∀ (e e' : _) [MemTrivializationAtlas e] [MemTrivializationAtlas e'],
+      ContinuousOn (g e e') (e.baseSet ∩ e'.baseSet))
+    (hg' : ∀ (e e' : _) [MemTrivializationAtlas e] [MemTrivializationAtlas e'],
+      ∀ b ∈ e.baseSet ∩ e'.baseSet, ∀ x : F, e'.coordChange e b x = g e e' b • x) :
+    GStructure G F E where
+  g := g
+  g_mul_g e e' e'' _ _ _ b hb := by
+    refine FaithfulSMul.eq_of_smul_eq_smul fun x : F ↦ ?_
+    rw [mul_smul, ← hg' e' e'' b ⟨hb.1.2, hb.2⟩, ← hg' e e' b hb.1, ← hg' e e'' b ⟨hb.1.1, hb.2⟩]
+    exact Trivialization.coordChange_coordChange _ _ _ hb.2 hb.1.2 x
+  continuousOn_g := hg
+  coordChange_apply_eq_smul := hg'
+
+/-- When `G` acts faithfully, `E` admits a `G`-structure iff between any two local trivialisations
+there exists a continuous `G`-valued transition map. -/
+lemma isGBundle_iff_of_faithful : IsGBundle G F E ↔
+    ∀ (e e' : Trivialization F (π F E)) [MemTrivializationAtlas e] [MemTrivializationAtlas e'],
+      ∃ g : B → G, ContinuousOn g (e.baseSet ∩ e'.baseSet) ∧
+        ∀ b ∈ e.baseSet ∩ e'.baseSet, ∀ x : F, e'.coordChange e b x = g b • x := by
+  refine ⟨fun ⟨⟨_⟩⟩ e e' _ _ ↦ ⟨GStructure.g e e', GStructure.continuousOn_g e e',
+    fun b hb x ↦ GStructure.coordChange_apply_eq_smul e e' hb x⟩, fun h ↦ ⟨⟨?_⟩⟩⟩
+  exact .mkOfFaithful G F E (fun e e' _ _ ↦ (h e e').choose)
+    (fun e e' _ _ ↦ (h e e').choose_spec.1) (fun e e' _ _ ↦ (h e e').choose_spec.2)
+
+/-- Left multiplication by `g` as a continuous map. -/
+@[simps]
+def _root_.ContinuousMap.constSMul {G X : Type*} [TopologicalSpace X] [SMul G X]
+    [ContinuousConstSMul G X] (g : G) : C(X, X) where
+  toFun x := g • x
+  continuous_toFun := by fun_prop
+
+/-- We call an action "inducing" if `fun x ↦ g • x` is a continuous map for each `g` and the
+resulting map `G → C(X, X)` is topologically inducing. -/
+class _root_.InducingSMul (G X : Type*) [TopologicalSpace G] [TopologicalSpace X] [SMul G X] extends
+    ContinuousConstSMul G X where
+  isInducing_constSMul : Topology.IsInducing (ContinuousMap.constSMul : G → C(X, X))
+
+instance _root_.InducingSMul.continuousSMul {G X : Type*} [TopologicalSpace G] [TopologicalSpace X]
+    [LocallyCompactSpace X] [SMul G X] [InducingSMul G X] : ContinuousSMul G X where
+  continuous_smul :=
+    ContinuousMap.continuous_uncurry_of_continuous ⟨_, InducingSMul.isInducing_constSMul.continuous⟩
+
+lemma _root_.continuous_uncurry_iff {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [TopologicalSpace Z] [LocallyCompactSpace Y] {f : X → C(Y, Z)} :
+    Continuous (Function.uncurry fun x y ↦ f x y) ↔ Continuous f := by
+  exact ⟨ContinuousMap.continuous_of_continuous_uncurry f,
+    fun h ↦ ContinuousMap.continuous_uncurry_of_continuous ⟨_, h⟩⟩
+
+lemma _root_.continuousOn_uncurry_iff {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [TopologicalSpace Z] [LocallyCompactSpace Y] {f : X → C(Y, Z)} {s : Set X} :
+    ContinuousOn (Function.uncurry fun x y ↦ f x y) (s ×ˢ .univ) ↔ ContinuousOn f s := by
+  refine ⟨fun h ↦ ContinuousMap.continuousOn_of_continuousOn_uncurry f h, fun h ↦ ?_⟩
+  rw [continuousOn_iff_continuous_restrict] at h ⊢
+  exact (continuous_uncurry_iff.2 h).comp ((Homeomorph.Set.prod s (Set.univ : Set Y)).trans
+    (.prodCongr (.refl _) (Homeomorph.Set.univ _))).continuous
+
+/-- When the action of `G` on `X` is inducing, a map `f : Y → G` is continuous iff the map
+`Y × X → X` corresponding to the resulting action of `Ỳ` on `X` is. -/
+lemma _root_.InducingSMul.continuous_iff {G X Y : Type*} [TopologicalSpace G] [TopologicalSpace X]
+    [TopologicalSpace Y] [LocallyCompactSpace X] [SMul G X] [InducingSMul G X] {f : Y → G} :
+    Continuous f ↔ Continuous (fun x : Y × X ↦ f x.1 • x.2) := by
+  rw [(InducingSMul.isInducing_constSMul (G := G) (X := X)).continuous_iff]
+  exact continuous_uncurry_iff.symm
+
+/-- When the action of `G` on `X` is inducing, a map `f : Y → G` is continuous iff the map
+`Y × X → X` corresponding to the resulting action of `Ỳ` on `X` is. -/
+lemma _root_.InducingSMul.continuousOn_iff {G X Y : Type*} [TopologicalSpace G] [TopologicalSpace X]
+    [TopologicalSpace Y] [LocallyCompactSpace X] [SMul G X] [InducingSMul G X] {f : Y → G}
+    {s : Set Y} : ContinuousOn f s ↔ ContinuousOn (fun x : Y × X ↦ f x.1 • x.2) (s ×ˢ .univ) := by
+  rw [(InducingSMul.isInducing_constSMul (G := G) (X := X)).continuousOn_iff]
+  exact continuousOn_uncurry_iff.symm
+
+lemma _root_.Bundle.Trivialization.continuousOn_coordChange {B : Type*} {F : Type*}
+    {Z : Type*} [TopologicalSpace B] [TopologicalSpace F] {proj : Z → B} [TopologicalSpace Z]
+    (e e' : Trivialization F proj) :
+    ContinuousOn (fun x : B × F ↦ e.coordChange e' x.1 x.2)
+      ((e.baseSet ∩ e'.baseSet) ×ˢ .univ) := by
+  unfold Trivialization.coordChange
+  apply continuous_snd.comp_continuousOn ?_
+  refine e'.toOpenPartialHomeomorph.continuousOn.comp ?_ fun x hx ↦ by
+    rw [Set.inter_prod] at hx
+    rw [e'.source_eq, Set.mem_preimage, e.proj_symm_apply (e.target_eq ▸ hx).1]
+    exact hx.2.1
+  refine e.toOpenPartialHomeomorph.symm.continuousOn.mono ?_
+  rw [e.symm_source, e.target_eq]
+  exact Set.prod_mono_left <| Set.inter_subset_left
+
+/-- When `G` acts faithfully and the topology on it is induced by the action map to `C(F, F)`,
+every set of `G`-valued transition functions can be assembled into a `G`-structure:
+continuity and compatibility on triple intersections follows automatically. -/
+@[implicit_reducible] def GStructure.mkOfInducing [InducingSMul G F] [LocallyCompactSpace F]
+    (g : ∀ (e e' : Trivialization F (π F E))
+      [MemTrivializationAtlas e] [MemTrivializationAtlas e'], B → G)
+    (hg : ∀ (e e' : _) [MemTrivializationAtlas e] [MemTrivializationAtlas e'],
+      ∀ b ∈ e.baseSet ∩ e'.baseSet, ∀ x : F, e'.coordChange e b x = g e e' b • x) :
+    GStructure G F E where
+  g := g
+  g_mul_g e e' e'' _ _ _ b hb := by
+    refine FaithfulSMul.eq_of_smul_eq_smul fun x : F ↦ ?_
+    rw [mul_smul, ← hg e' e'' b ⟨hb.1.2, hb.2⟩, ← hg e e' b hb.1, ← hg e e'' b ⟨hb.1.1, hb.2⟩]
+    exact Trivialization.coordChange_coordChange _ _ _ hb.2 hb.1.2 x
+  continuousOn_g e e' _ _ := by
+    rw [InducingSMul.continuousOn_iff (X := F)]
+    refine .congr (f := fun x ↦ e'.coordChange e x.1 x.2) ?_ fun x hx ↦ (hg e e' x.1 hx.1 _).symm
+    rw [Set.inter_comm]
+    exact e'.continuousOn_coordChange e
+  coordChange_apply_eq_smul := hg
+
+/-- When `G` acts faithfully and the topology on it is induced by the action map to `C(F, F)`,
+`E` admits a `G`-structure iff the transition map between any two local trivializations can at any
+point be written as the action of some `g : G`. -/
+lemma isGBundle_iff_of_inducing [InducingSMul G F] [LocallyCompactSpace F] : IsGBundle G F E ↔
+    ∀ (e e' : Trivialization F (π F E)) [MemTrivializationAtlas e] [MemTrivializationAtlas e'],
+      ∀ b ∈ e.baseSet ∩ e'.baseSet, ∃ g : G, ∀ x : F, e'.coordChange e b x = g • x := by
+  refine ⟨fun ⟨⟨_⟩⟩ e e' _ _ b hb ↦
+    ⟨GStructure.g e e' b, GStructure.coordChange_apply_eq_smul e e' hb⟩, fun h ↦ ⟨⟨?_⟩⟩⟩
+  classical
+  refine .mkOfInducing G F E
+    (fun e e' _ _ b ↦ if hb : b ∈ e.baseSet ∩ e'.baseSet then (h e e' b hb).choose else 1)
+    fun e e' _ _ b hb x ↦ ?_
+  simpa [hb] using (h e e' b hb).choose_spec x
+
+end Faithful
 
 end FiberBundle
