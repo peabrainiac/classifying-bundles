@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import Mathlib.Analysis.Calculus.ContDiff.Comp
+import Mathlib.Analysis.Normed.Ring.Units
+import Mathlib.Topology.Algebra.IsOpenUnits
 import Mathlib.Topology.Algebra.Module.FiniteDimension
 
 /-! # Topologically inducing group actions
@@ -115,7 +117,7 @@ lemma Topology.IsInducing.inducingSMul {G G' X X' : Type*} [TopologicalSpace G]
     [SMul G X] [SMul G' X'] {φ : G → G'} (hφ : IsInducing φ) (f : X ≃ₜ X')
     (h : ∀ {g : G} {x : X}, f (g • x) = φ g • f x)
     [InducingSMul G' X'] : InducingSMul G X where
-  continuous_const_smul := (f.isInducing.continuousConstSMul φ h).continuous_const_smul
+  toContinuousConstSMul := f.isInducing.continuousConstSMul φ h
   isInducing_constSMul := by
     rw [← (f.arrowCongr f).isInducing.of_comp_iff]
     convert InducingSMul.isInducing_constSMul (X := X') |>.comp hφ
@@ -146,3 +148,50 @@ instance {𝕜 : Type*} [NontriviallyNormedField 𝕜] [CompleteSpace 𝕜] [Loc
   · rw [← continuous_uncurry_iff]
     simp only [ContinuousMap.constSMul_apply, ContinuousLinearMap.smul_def]
     fun_prop
+
+lemma Units.inducingSMul_iff_isInducing_val {M : Type*} [Monoid M] [TopologicalSpace M]
+    [InducingSMul M M] : InducingSMul Mˣ M ↔ IsInducing (Units.val : Mˣ → M) := by
+  rw [← (InducingSMul.isInducing_constSMul (G := M) (X := M)).of_comp_iff]
+  exact ⟨fun ⟨h⟩ ↦ h, fun h ↦ ⟨h⟩⟩
+
+instance {M X : Type*} [Monoid M] [TopologicalSpace M] [TopologicalSpace X] [SMul M X]
+    [InducingSMul M X] [IsOpenUnits M] : InducingSMul Mˣ X :=
+  IsOpenUnits.isOpenEmbedding_unitsVal.inducingSMul (.refl _) (by simp [Units.smul_def])
+
+lemma Topology.IsOpenEmbedding.units_map {M N : Type*} [TopologicalSpace M] [TopologicalSpace N]
+    [Monoid M] [Monoid N] {f : M →* N} (hf : IsOpenEmbedding f) :
+    IsOpenEmbedding (Units.map f) := by
+  refine ⟨hf.isEmbedding.units_map, ?_⟩
+  convert (hf.isOpen_range.preimage Units.continuous_val).inter
+    (hf.isOpen_range.preimage Units.continuous_coe_inv)
+  ext n
+  refine ⟨fun ⟨m, hm⟩ ↦ by simp [← hm], fun ⟨⟨m, hm⟩, ⟨m', hm'⟩⟩ ↦ ?_⟩
+  refine ⟨⟨m, m', hf.injective ?_, hf.injective ?_⟩, by ext; simp [hm]⟩
+    <;> simp [f.map_mul, hm, hm']
+
+/-- Transport an `IsOpenUnits`-instance along an isomorphism. -/
+lemma ContinuousMulEquiv.isOpenUnits {M N : Type*} [TopologicalSpace M] [TopologicalSpace N]
+    [Monoid M] [Monoid N] (e : M ≃ₜ* N) [IsOpenUnits N] : IsOpenUnits M where
+  isOpenEmbedding_unitsVal := by
+    convert e.symm.isOpenEmbedding.comp <| IsOpenUnits.isOpenEmbedding_unitsVal.comp <|
+      e.isOpenEmbedding.units_map (f := e.toMonoidHom)
+    ext m
+    exact (e.symm_apply_apply m).symm
+
+/-- For any finite-dimensional Hausdorff topological vector space `E`, the general linear group
+`(E →L[𝕜] E)ˣ` is open in `E →L[𝕜] E` and equipped with the subspace topology. -/
+instance {𝕜 : Type*} [NontriviallyNormedField 𝕜] [CompleteSpace 𝕜] [LocallyCompactSpace 𝕜]
+    {E : Type*} [AddCommGroup E] [Module 𝕜 E] [TopologicalSpace E] [IsTopologicalAddGroup E]
+    [ContinuousSMul 𝕜 E] [T2Space E] [FiniteDimensional 𝕜 E] : IsOpenUnits (E →L[𝕜] E) := by
+  have : ∀ n, IsOpenUnits ((Fin n → 𝕜) →L[𝕜] (Fin n → 𝕜)) := fun n ↦ ⟨Units.isOpenEmbedding_val⟩
+  exact ContinuousMulEquiv.isOpenUnits {
+      ((Module.finBasis 𝕜 E).equivFunL.arrowCongr (Module.finBasis 𝕜 E).equivFunL).toHomeomorph with
+    map_mul' := by intros; ext; simp }
+
+/-- For every finite-dimensional Hausdorff topological vector space `E` over a sufficiently nice
+field `𝕜` the canonical action of `E →L[𝕜] E` on `E` is inducing. -/
+example {𝕜 : Type*} [NontriviallyNormedField 𝕜] [CompleteSpace 𝕜] [LocallyCompactSpace 𝕜]
+    {E : Type*} [AddCommGroup E] [Module 𝕜 E] [TopologicalSpace E] [IsTopologicalAddGroup E]
+    [ContinuousSMul 𝕜 E] [T2Space E] [FiniteDimensional 𝕜 E] :
+    InducingSMul (E →L[𝕜] E)ˣ E :=
+  inferInstance

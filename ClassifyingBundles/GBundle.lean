@@ -8,6 +8,9 @@ import ClassifyingBundles.PrincipalBundle
 
 /-! # `G`-structures on fibre bundles
 In this file we define `G`-structures on fibre bundles.
+
+Our first main example are vector bundles: every vector bundle with standard fibre `F` is a
+`(F →L[𝕜] F)ˣ`-bundle.
 -/
 
 open Bundle FiberBundle
@@ -179,6 +182,25 @@ lemma isGBundle_iff_of_inducing [InducingSMul G F] [LocallyCompactSpace F] : IsG
     (fun e e' _ _ b ↦ if hb : b ∈ e.baseSet ∩ e'.baseSet then (h e e' b hb).choose else 1)
     fun e e' _ _ b hb x ↦ ?_
   simpa [hb] using (h e e' b hb).choose_spec x
+
+/-- Every vector bundle is a `(F →L[𝕜] F)ˣ`-bundle.
+
+The converse is true mathematically, but can't usefully be stated here for technical reasons:
+`IsGBundle (F →L[𝕜] F)ˣ F E` only requires a vector space structure on `F`, while
+`VectorBundle 𝕜 F E` also requires compatible vector space structures on all fibres `E b`.
+The assumption of these being compatible with the vector space structure on `F` already implies
+that the bundle is a vector bundle, so there is not point in assuming that and then stating that
+`IsGBundle (F →L[𝕜] F)ˣ F E` implies `VectorBundle 𝕜 F E`. -/
+instance {𝕜 : Type*} [NontriviallyNormedField 𝕜] [CompleteSpace 𝕜] [LocallyCompactSpace 𝕜]
+    (F : Type*) [NormedAddCommGroup F] [NormedSpace 𝕜 F] [FiniteDimensional 𝕜 F]
+    (E : B → Type*) [∀ b, NormedAddCommGroup (E b)] [∀ b, NormedSpace 𝕜 (E b)]
+    [TopologicalSpace (TotalSpace F E)] [FiberBundle F E] [VectorBundle 𝕜 F E] :
+    IsGBundle (F →L[𝕜] F)ˣ F E := by
+  have := LocallyCompactSpace.of_finiteDimensional_of_complete 𝕜 F
+  refine (isGBundle_iff_of_inducing _ F E).2 fun e e' _ _ b hb ↦
+    ⟨(e'.coordChangeL 𝕜 e b).toUnit, fun x ↦ ?_⟩
+  simp [Units.smul_def, ContinuousLinearEquiv.toUnit, e'.coordChangeL_apply' e ⟨hb.2, hb.1⟩ x,
+    Trivialization.coordChange]
 
 end Faithful
 
