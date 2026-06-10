@@ -4,6 +4,7 @@ import ClassifyingBundles.ContinuousBundleHom
 import ClassifyingBundles.ContinuousSection
 import ClassifyingBundles.GBundle
 import ClassifyingBundles.InducingSMul
+import ClassifyingBundles.Join
 import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.PrincipalBundle
 import ClassifyingBundles.TopologicalTorsor
