@@ -30,6 +30,7 @@ in the `Topology` namespace to avoid confusion.
 * `Homeomorph.isEmptyJoin`: the homeomorphism `X ⋆ Y ≃ₜ Y` when `X` is empty.
 * `Homeomorph.joinComm`: the homeomorphism `X ⋆ Y ≃ₜ Y ⋆ X` swapping the two factors.
 * The join of compact spaces is compact.
+* The join of Hausdorff spaces is Hausdorff.
 
 ## TODO:
 * prove `X ⋆ Y ≃ₜ X` when `Y` is empty
@@ -307,6 +308,39 @@ instance [CompactSpace X] [CompactSpace Y] : CompactSpace (X ⋆ Y) := by
     · exact Homeomorph.joinIsEmpty.symm.compactSpace
     · rw [← isCompact_univ_iff, ← π_surjective.range_eq]
       exact isCompact_range continuous_π
+
+/-- The join of Hausdorff spaces is Hausdorff. -/
+instance [T2Space X] [T2Space Y] : T2Space (X ⋆ Y) := by
+  refine ⟨fun p p' h ↦ ?_⟩
+  by_cases h' : p.t = p'.t
+  · by_cases h'' : p.fst = p'.fst
+    · have h''' : p.snd ≠ p'.snd := by contrapose h; ext <;> simp_all
+      have h'''' : p.t ≠ 0 := by
+        contrapose h'''; rw [p.snd_eq_none_iff.2 h''', p'.snd_eq_none_iff.2 <| h'.symm.trans h''']
+      have ⟨y, hy⟩ : ∃ y, p.snd = some y := by simpa [h''''] using p.snd.eq_none_or_eq_some
+      have ⟨y', hy'⟩ : ∃ y', p'.snd = some y' := by
+        simpa [← h', h''''] using p'.snd.eq_none_or_eq_some
+      replace h''' : y ≠ y' := ne_of_apply_ne Option.some <| by rwa [hy, hy'] at h'''
+      obtain ⟨u, v, hu, hv, hu', hv', huv⟩ := t2_separation h'''
+      exact ⟨_, _,
+        (Option.isOpenEmbedding_some_excludedPointTopology'.isOpenMap _ hu).preimage continuous_snd,
+        (Option.isOpenEmbedding_some_excludedPointTopology'.isOpenMap _ hv).preimage continuous_snd,
+        by simp [hy, hu'], by simp [hy', hv'],
+        (Set.disjoint_image_of_injective (Option.some_injective _) huv).preimage _⟩
+    · have h''' : p.t ≠ 1 := by
+        contrapose h''; rw [p.fst_eq_none_iff.2 h'', p'.fst_eq_none_iff.2 <| h'.symm.trans h'']
+      have ⟨x, hx⟩ : ∃ x, p.fst = some x := by simpa [h'''] using p.fst.eq_none_or_eq_some
+      have ⟨x', hx'⟩ : ∃ x', p'.fst = some x' := by
+        simpa [← h', h'''] using p'.fst.eq_none_or_eq_some
+      replace h'' : x ≠ x' := ne_of_apply_ne Option.some <| by rwa [hx, hx'] at h''
+      obtain ⟨u, v, hu, hv, hu', hv', huv⟩ := t2_separation h''
+      exact ⟨_, _,
+        (Option.isOpenEmbedding_some_excludedPointTopology'.isOpenMap _ hu).preimage continuous_fst,
+        (Option.isOpenEmbedding_some_excludedPointTopology'.isOpenMap _ hv).preimage continuous_fst,
+        by simp [hx, hu'], by simp [hx', hv'],
+        (Set.disjoint_image_of_injective (Option.some_injective _) huv).preimage _⟩
+  · obtain ⟨u, v, hu, hv, hu', hv', huv⟩ := t2_separation h'
+    exact ⟨_, _, hu.preimage continuous_t, hv.preimage continuous_t, hu', hv', huv.preimage _⟩
 
 end Join
 
