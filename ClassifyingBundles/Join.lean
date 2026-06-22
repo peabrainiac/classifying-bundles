@@ -15,14 +15,19 @@ we define here with the structure of a simplicial complex; because of that, we p
 in the `Topology` namespace to avoid confusion.
 
 ## Main definitions & results
-* `Join X Y`: the join of `X` and `Y`, denoted `X ⋆ Y`.
+* `Join X Y`: the join of `X` and `Y`, denoted `X ⋆ Y`. We equip this with the strong topology,
+  i.e. the one induced by the projections `Join.fst`, `Join.snd` and `Join.t`.
+* `Set.join s t`: the join of two sets as a set in the join of the ambient spaces. This is closed /
+  compact when both sets are closed / compact, but not necessarily open when both sets are open.
 * `Join.fst`: the projection `X ⋆ Y → Option X`.
 * `Join.snd`: the projection `X ⋆ Y → Option Y`.
 * `Join.t`: the projection `X ⋆ Y → I`.
-* `Join.inl`: the inclusion `X → X ⋆ Y`.
-* `Join.inr`: the inclusion `Y → X ⋆ Y`.
-* `Join.π`: the projection `X × I × Y → X ⋆ Y`.
-* `Join.map`: the map `X ⋆ Y → X' ⋆ Y'` induced by two maps `X → X'` and `Y → Y'`.
+* `Join.inl`: the inclusion `X → X ⋆ Y`. This map is always a closed embedding.
+* `Join.inr`: the inclusion `Y → X ⋆ Y`. This map is always a closed embedding.
+* `Join.π`: the projection `X × I × Y → X ⋆ Y`. This is a quotient map when `X` and `Y` are nonempty
+  compact Hausdorff, proving that in those cases the strong and
+* `Join.map`: the map `X ⋆ Y → X' ⋆ Y'` induced by two maps `X → X'` and `Y → Y'`. This map is
+  continuous / inducing / an embedding whenever the two maps are.
 * `Join.swap`: the map `X ⋆ Y → Y ⋆ X` swapping the two factors.
 * `Homeomorph.joinCongr`: the homeomorphism `X ⋆ Y ≃ₜ X' ⋆ Y'` induced by
   two homeomorphisms `X ≃ₜ X'` and `Y ≃ₜ Y'`.
@@ -33,9 +38,8 @@ in the `Topology` namespace to avoid confusion.
 * The join of Hausdorff spaces is Hausdorff.
 
 ## TODO:
-* prove `X ⋆ Y ≃ₜ X` when `Y` is empty
 * prove associativity up to homeomorphism
-* show equivalence to the construction as a quotient in the locally compact case
+* can `Join.isQuotientMap_π` be generalised to e.g. the locally compact case?
 -/
 
 namespace Topology
@@ -89,6 +93,20 @@ lemma inl_injective : (inl : X → X ⋆ Y).Injective :=
 lemma inr_injective : (inr : Y → X ⋆ Y).Injective :=
   fun _ _ h ↦ Option.some_injective _ <| congrArg snd h
 
+lemma range_inl : Set.range (inl : X → X ⋆ Y) = t ⁻¹' {0} := by
+  ext p
+  refine ⟨fun ⟨x, hx⟩ ↦ by simp [← hx], fun h ↦ ?_⟩
+  rw [Set.mem_preimage, Set.mem_singleton_iff] at h
+  have ⟨x, hx⟩ : ∃ x, p.fst = some x := by simpa [h] using p.fst.eq_none_or_eq_some
+  use x; ext1 <;> simp [hx, h, p.snd_eq_none_iff.2 h]
+
+lemma range_inr : Set.range (inr : Y → X ⋆ Y) = t ⁻¹' {1} := by
+  ext p
+  refine ⟨fun ⟨y, hy⟩ ↦ by simp [← hy], fun h ↦ ?_⟩
+  rw [Set.mem_preimage, Set.mem_singleton_iff] at h
+  have ⟨y, hy⟩ : ∃ y, p.snd = some y := by simpa [h] using p.snd.eq_none_or_eq_some
+  use y; ext1 <;> simp [hy, h, p.fst_eq_none_iff.2 h]
+
 /-- The projection `X × I × Y → X ⋆ Y`. -/
 @[simps]
 noncomputable def π (p : X × I × Y) : X ⋆ Y :=
@@ -111,6 +129,23 @@ lemma π_surjective [Nonempty X] [Nonempty Y] : (π : X × I × Y → X ⋆ Y).S
 def map (f : X → X') (g : Y → Y') (p : X ⋆ Y) : X' ⋆ Y' :=
   ⟨p.fst.map f, p.snd.map g, p.t, by simp, by simp⟩
 
+/-- For any two injective maps `X → X'` and `Y → Y'`, the induced map `X ⋆ Y → X' ⋆ Y'` is
+injective. -/
+lemma _root_.Function.Injective.joinMap {f : X → X'} {g : Y → Y'} (hf : f.Injective)
+    (hg : g.Injective) : (map f g).Injective := by
+  intro x x' h; ext1
+  · exact Option.map_injective hf (congrArg fst h)
+  · exact Option.map_injective hg (congrArg snd h)
+  · exact (congr_arg t h:)
+
+@[simp]
+lemma map_inl {f : X → X'} {g : Y → Y'} {x : X} : map f g (inl x) = inl (f x) :=
+  rfl
+
+@[simp]
+lemma map_inr {f : X → X'} {g : Y → Y'} {y : Y} : map f g (inr y) = inr (g y) :=
+  rfl
+
 /-- The map `X ⋆ Y → Y ⋆ X` swapping the two factors. -/
 @[simps]
 def swap (p : X ⋆ Y) : Y ⋆ X := ⟨p.snd, p.fst, unitInterval.symm p.t, by simp, by simp⟩
@@ -118,6 +153,52 @@ def swap (p : X ⋆ Y) : Y ⋆ X := ⟨p.snd, p.fst, unitInterval.symm p.t, by s
 @[simp]
 lemma swap_swap (p : X ⋆ Y) : swap (swap p) = p := by
   ext <;> simp
+
+/-- The join of two sets, as a set in the join of the ambient spaces. -/
+def _root_.Set.join (s : Set X) (t : Set Y) : Set (X ⋆ Y) :=
+  fst ⁻¹' (some '' s ∪ {none}) ∩ snd ⁻¹' (some '' t ∪ {none})
+
+lemma _root_.Set.mem_join_iff {s : Set X} {t : Set Y} {p : X ⋆ Y} :
+    p ∈ s.join t ↔ p.fst ∈ some '' s ∪ {none} ∧ p.snd ∈ some '' t ∪ {none} := Iff.rfl
+
+lemma _root_.Set.mem_join_iff' {s : Set X} {t : Set Y} {p : X ⋆ Y} :
+    p ∈ s.join t ↔ (p.t ≠ 1 → ∃ x ∈ s, some x = p.fst) ∧ (p.t ≠ 0 → ∃ y ∈ t, some y = p.snd) := by
+  simp [Set.mem_join_iff, ← or_iff_not_imp_left]
+
+@[simp]
+lemma _root_.Set.join_univ : (Set.univ.join .univ : Set (X ⋆ Y)) = .univ := by
+  ext; simp [Set.mem_join_iff]
+
+@[simp]
+lemma _root_.Set.image_join {f : X → X'} {g : Y → Y'} {s : Set X} {t : Set Y} :
+    map f g '' s.join t = (f '' s).join (g '' t) := by
+  ext p
+  refine ⟨fun ⟨p', hs, h⟩ ↦ h ▸ ?_, fun h ↦ ?_⟩
+  · refine Set.mem_join_iff'.2 ⟨fun h' ↦ ?_, fun h' ↦ ?_⟩ <;> rw [map_t] at h'
+    · have ⟨x, hx⟩ : ∃ x, p'.fst = some x := by simpa [h'] using p'.fst.eq_none_or_eq_some
+      exact ⟨f x, Set.mem_image_of_mem _ <| by simpa [hx] using hs.1, by simp [hx]⟩
+    · have ⟨y, hy⟩ : ∃ y, p'.snd = some y := by simpa [h'] using p'.snd.eq_none_or_eq_some
+      exact ⟨g y, Set.mem_image_of_mem _ <| by simpa [hy] using hs.2, by simp [hy]⟩
+  · rw [Set.mem_join_iff'] at h
+    by_cases h' : p.t = 1
+    · have ⟨y, ⟨y', hy'⟩, hy⟩ := h.2 (by simp [h'])
+      refine ⟨⟨none, y', p.t, by simp [h'], by simp [h']⟩, ?_, ?_⟩
+      · simp [Set.mem_join_iff, hy']
+      · ext <;> simp [*, p.fst_eq_none_iff.2 h']
+    · have ⟨x, ⟨x', hx'⟩, hx⟩ := (h.1 h')
+      by_cases h'' : p.t = 0
+      · refine ⟨⟨x', none, p.t, by simp [h'], by simp [h'']⟩, ?_, ?_⟩
+        · simp [Set.mem_join_iff, hx']
+        · ext <;> simp [*, p.snd_eq_none_iff.2 h'']
+      · have ⟨y, ⟨y', hy'⟩, hy⟩ := h.2 (by simp [h''])
+        refine ⟨⟨x', y', p.t, by simp [h'], by simp [h'']⟩, ?_, ?_⟩
+        · simp [Set.mem_join_iff, hx', hy']
+        · ext <;> simp [*]
+
+@[simp]
+lemma range_map {f : X → X'} {g : Y → Y'} :
+    Set.range (map f g) = (Set.range f).join (Set.range g) := by
+  simp [← Set.image_univ, ← Set.image_join]
 
 variable [TopologicalSpace X] [TopologicalSpace X'] [TopologicalSpace Y] [TopologicalSpace Y']
   [TopologicalSpace Z]
@@ -164,6 +245,23 @@ lemma _root_.Option.isOpen_excludedPointTopology'_iff {s : Set (Option X)} :
     IsOpen s ↔ IsOpen (some ⁻¹' s) ∧ (none ∈ s → s = .univ) :=
   Iff.rfl
 
+lemma _root_.Topology.IsInducing.optionMap_excludedPointTopology' {f : X → Y} (hf : IsInducing f) :
+    IsInducing (Option.map f) := by
+  rw [isInducing_iff]
+  refine le_antisymm (hf.continuous.optionMap_excludedPointTopology'.le_induced) ?_
+  intro u hu
+  rw [Option.isOpen_excludedPointTopology'_iff] at hu
+  by_cases h : none ∈ u
+  · exact ⟨Set.univ, isOpen_univ, by simp [hu.2 h]⟩
+  · have ⟨v, hv⟩ := hf.isOpen_iff.1 hu.1
+    refine ⟨some '' v, ?_, ?_⟩
+    · simp [Option.isOpen_excludedPointTopology'_iff, Option.some_injective, hv.1]
+    · ext1 x
+      simp only [Set.mem_preimage]
+      obtain rfl | ⟨x, rfl⟩ := x.eq_none_or_eq_some
+      · simp [h]
+      · simp [(Option.some_injective _).mem_set_image, ← Set.mem_preimage, hv.2]
+
 lemma _root_.Option.isOpenEmbedding_some_excludedPointTopology' :
     IsOpenEmbedding (Option.some : X → _) := by
   refine .of_continuous_injective_isOpenMap Option.continuous_some_excludedPointTopology'
@@ -171,12 +269,15 @@ lemma _root_.Option.isOpenEmbedding_some_excludedPointTopology' :
   · simpa [Option.some_injective]
   · simp
 
+@[simp]
+lemma _root_.Option.some_preimage_none {X : Type*} : (some ⁻¹' {none} : Set X) = ∅ :=
+  (Set.preimage_singleton_eq_empty (f := Option.some) (y := none)).2 <| by simp
+
 lemma _root_.Option.continuous_excludedPointTopology'_iff {f : Y → Option X} :
     Continuous f ↔ IsOpen (Set.preimage f {none}ᶜ) ∧ ContinuousOn f (Set.preimage f {none}ᶜ) := by
   refine ⟨fun h ↦ ⟨?_, h.continuousOn⟩, fun ⟨h, h'⟩ ↦ ?_⟩
   · refine IsOpen.preimage h ?_
-    simp [-isOpen_compl_iff, Option.isOpen_excludedPointTopology'_iff,
-      (Set.preimage_singleton_eq_empty (f := Option.some) (y := none)).2 <| by simp]
+    simp [-isOpen_compl_iff, Option.isOpen_excludedPointTopology'_iff]
   · refine ⟨fun u hu ↦ ?_⟩
     by_cases h'' : none ∈ u
     · simp [hu.2 h'']
@@ -265,6 +366,27 @@ lemma isEmbedding_inr : IsEmbedding (inr : Y → X ⋆ Y) := by
   simp [Function.comp_def, continuous_const,
     Option.isOpenEmbedding_some_excludedPointTopology'.continuous_iff (f := g)]
 
+lemma isClosedEmbedding_inl : IsClosedEmbedding (inl : X → X ⋆ Y) :=
+  ⟨isEmbedding_inl, range_inl ▸ isClosed_singleton.preimage continuous_t⟩
+
+lemma isClosedEmbedding_inr : IsClosedEmbedding (inr : Y → X ⋆ Y) :=
+  ⟨isEmbedding_inr, range_inr ▸ isClosed_singleton.preimage continuous_t⟩
+
+/-- For any two inducing maps `X → X'` and `Y → Y'`, the induced map `X ⋆ Y → X' ⋆ Y'` is
+inducing. -/
+lemma _root_.Topology.IsInducing.joinMap {f : X → X'} {g : Y → Y'} (hf : IsInducing f)
+    (hg : IsInducing g) : IsInducing (map f g) := by
+  simp_rw [isInducing_iff, instTopologicalSpace, induced_inf, induced_compose,
+    show fst ∘ map f g = Option.map f ∘ fst by ext; simp, show t ∘ map f g = t from rfl,
+    show snd ∘ map f g = Option.map g ∘ snd by ext; simp, ← induced_compose,
+    hf.optionMap_excludedPointTopology'.eq_induced, hg.optionMap_excludedPointTopology'.eq_induced]
+
+/-- For any two embeddings `X → X'` and `Y → Y'`, the induced map `X ⋆ Y → X' ⋆ Y'` is an
+embedding. -/
+lemma _root_.Topology.IsEmbedding.joinMap {f : X → X'} {g : Y → Y'} (hf : IsEmbedding f)
+    (hg : IsEmbedding g) : IsEmbedding (map f g) :=
+  ⟨hf.isInducing.joinMap hg.isInducing, hf.injective.joinMap hg.injective⟩
+
 /-- The join on two homeomorphisms. -/
 def _root_.Homeomorph.joinCongr (e : X ≃ₜ X') (e' : Y ≃ₜ Y') : X ⋆ Y ≃ₜ X' ⋆ Y' where
   toFun := map e e'
@@ -299,6 +421,19 @@ def _root_.Homeomorph.joinComm : X ⋆ Y ≃ₜ Y ⋆ X where
   right_inv _ := by simp
   continuous_toFun := continuous_swap
   continuous_invFun := continuous_swap
+
+/-def _root_.Homeomorph.joinAssoc : (X ⋆ Y) ⋆ Z ≃ₜ X ⋆ (Y ⋆ Z) where
+  toFun p := by
+    refine ⟨p.fst.bind fst,
+      (p.fst.rec (fun _ ↦ some ⟨none, p.snd, 1, by simp, by simp_all⟩) ?_ :
+          (p.fst = none ↔ _) → _) p.fst_eq_none_iff,
+        σ (σ p.t * σ ((p.fst.map t).getD 0)), ?_, ?_⟩
+    · have h := p.fst_eq_none_iff; revert h
+      exact p.fst.rec (by simp) fun _ _ ↦ by simp_all
+    · have h := p.fst_eq_none_iff; revert h
+      --refine p.fst.rec ?_ ?_
+      sorry
+    all_goals sorry-/
 
 /-- The join of compact spaces is compact. -/
 instance [CompactSpace X] [CompactSpace Y] : CompactSpace (X ⋆ Y) := by
@@ -341,6 +476,35 @@ instance [T2Space X] [T2Space Y] : T2Space (X ⋆ Y) := by
         (Set.disjoint_image_of_injective (Option.some_injective _) huv).preimage _⟩
   · obtain ⟨u, v, hu, hv, hu', hv', huv⟩ := t2_separation h'
     exact ⟨_, _, hu.preimage continuous_t, hv.preimage continuous_t, hu', hv', huv.preimage _⟩
+
+/-- Joins of closed sets are closed in the join of the ambient spaces. -/
+lemma _root_.IsClosed.join {s : Set X} {t : Set Y} (hs : IsClosed s) (ht : IsClosed t) :
+    IsClosed (s.join t) := by
+  refine .inter (.preimage continuous_fst ?_) (.preimage continuous_snd ?_)
+    <;> rw [← isOpen_compl_iff, Set.compl_union, Option.isOpen_excludedPointTopology'_iff]
+    <;> simpa [Option.some_injective]
+
+noncomputable def _root_.Homeomorph.Set.join (s : Set X) (t : Set Y) : s.join t ≃ₜ s ⋆ t :=
+  (IsEmbedding.subtypeVal.joinMap .subtypeVal).toHomeomorph.trans (.setCongr <| by simp) |>.symm
+
+lemma _root_.IsCompact.join {s : Set X} {t : Set Y} (hs : IsCompact s) (ht : IsCompact t) :
+    IsCompact (s.join t) := by
+  rw [isCompact_iff_compactSpace] at hs ht ⊢
+  exact (Homeomorph.Set.join s t).symm.compactSpace
+
+/-- When `X` and `Y` are nonempty compact Hausdorff, `π : X × I × Y → X ⋆ Y` exhibits `X ⋆ Y`
+as a quotient of `X × I × Y`. In other words, in this case the strong and weak topology on the join
+agree.
+
+TODO: can this be generalised to locally compact Hausdorff spaces? Some sources
+(e.g. *Homotopical Topology* by Fomenko and Fuchs, which is cited by wikipedia) claim so, but don't
+give a proof. Others (e.g. *Topology and Groupoids*) prove only the compact Hausdorff case.
+I first thought it could be proven using a local argument, but if I'm seeing things right that runs
+into issues at the two ends of the join - joins of locally compact spaces are often not even
+locally compact at those points. -/
+lemma isQuotientMap_π [Nonempty X] [Nonempty Y] [CompactSpace X] [CompactSpace Y]
+    [T2Space X] [T2Space Y] : IsQuotientMap (π : _ → X ⋆ Y) := by
+  refine IsQuotientMap.of_surjective_continuous π_surjective continuous_π
 
 end Join
 
