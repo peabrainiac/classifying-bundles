@@ -4,6 +4,7 @@ import ClassifyingBundles.ContinuousBundleActionHom
 import ClassifyingBundles.ContinuousBundleHom
 import ClassifyingBundles.ContinuousSection
 import ClassifyingBundles.GBundle
+import ClassifyingBundles.IndexedJoin
 import ClassifyingBundles.InducingSMul
 import ClassifyingBundles.Join
 import ClassifyingBundles.MulActionEquiv
