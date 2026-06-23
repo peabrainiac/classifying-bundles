@@ -12,7 +12,6 @@ In this file we define joins of families of topological spaces.
 ## TODO
 * Figure out which topology we actually want on infinite joins, the one induced by the projections
   or the one coinduced by all finite joins
-* Prove associativity
 * Connect to iterated binary joins, use this to prove associativity of binary joins
 -/
 
@@ -143,6 +142,16 @@ lemma map_map {ι' ι'' : Type*} {X' : ι' → Type*} {X'' : ι'' → Type*} {f 
     rw [map_points_apply]
     simp
 
+lemma map_injective {ι' : Type*} {X' : ι' → Type*} {f : ι → ι'} [∀ i, Decidable (∃ i', f i' = i)]
+    (hf : f.Injective) {g : ∀ i, X i → X' (f i)} (hg : ∀ i, (g i).Injective) :
+    (map hf g).Injective := by
+  intro x x' h
+  refine ext ?_ fun i hi ↦ ?_
+  · exact Finsupp.mapDomain_injective hf <| congrArg (fun x : IJoin X' ↦ x.weights) h
+  · have h' := congrArg (fun x ↦ x.points (f i)) h
+    simp only [map_points_apply] at h'
+    exact Option.map_injective (hg i) h'
+
 attribute [local instance] Option.excludedPointTopology'
 
 variable [∀ i, TopologicalSpace (X i)]
@@ -183,6 +192,67 @@ lemma continuous_ofJoin [DecidableEq ι] {i j : ι} (h : i ≠ j) :
     · obtain rfl | h'' := eq_or_ne j i'
       · simpa [h] using Join.continuous_snd
       · simpa [h''.symm, h'.symm] using continuous_const
+
+lemma continuous_map {ι' : Type*} {X' : ι' → Type*} [∀ i, TopologicalSpace (X' i)] {f : ι → ι'}
+    [∀ i, Decidable (∃ i', f i' = i)] (hf : f.Injective) {g : ∀ i, X i → X' (f i)}
+    (hg : ∀ i, Continuous (g i)) : Continuous (map hf g) := by
+  refine continuous_iff.2 ⟨fun i ↦ ?_, fun i ↦ ?_⟩
+  · by_cases h : i ∈ Set.range f
+    · obtain ⟨i', rfl⟩ := h
+      simp [hf, continuous_weights]
+    · simp [Finsupp.mapDomain_notin_range, h, continuous_const]
+  · by_cases h : i ∈ Set.range f
+    · obtain ⟨i', rfl⟩ := h
+      simpa using (hg i').optionMap_excludedPointTopology'.comp continuous_points
+    · simp [h, continuous_const]
+
+/-- The homeomorphism of joins given by a family of homeomorphisms of the factors along a
+bijection between the index types. In particular, when the two index types are the same
+this proves associativity of the join. -/
+@[simps! apply symm_apply_weights]
+noncomputable def _root_.Homeomorph.ijoinCongr {ι' : Type*} {X' : (i : ι') → Type*}
+    [∀ i, TopologicalSpace (X' i)] (e : ι ≃ ι') [∀ i, Decidable (∃ i', e i' = i)]
+    [∀ i, Decidable (∃ i', e.symm i' = i)] (e' : ∀ i, X i ≃ₜ X' (e i)) : IJoin X ≃ₜ IJoin X' where
+  toFun := map e.injective fun i ↦ e' i
+  invFun := map e.symm.injective fun i x ↦ (e' (e.symm i)).symm <|
+    cast (congrArg X' (e.apply_symm_apply i).symm) x
+  left_inv := by
+    refine Function.RightInverse.leftInverse_of_injective (fun x ↦ ?_) <|
+      map_injective e.injective fun i ↦ (e' i).injective
+    classical
+    simp only [map_map, Function.comp_def, Function.comp_apply, Homeomorph.apply_symm_apply]
+    refine ext ?_ fun i _ ↦ ?_
+    · simp [show (fun x : ι' ↦ x) = id from rfl]
+    · obtain ⟨i', rfl⟩ : ∃ i', (e ∘ e.symm) i' = i := ⟨_, e.apply_symm_apply i⟩
+      have : ∀ i j (h : i = j) (f : (i : _) → Option (X' i)),
+          Option.map (fun x ↦ cast (congrArg X' h) x) (f i) = f j := by
+        rintro i j rfl; simp
+      simpa using this _ _ (by simp) _
+  right_inv x := by
+    classical
+    simp only [map_map, Function.comp_def, Function.comp_apply, Homeomorph.apply_symm_apply]
+    refine ext ?_ fun i _ ↦ ?_
+    · simp [show (fun x : ι' ↦ x) = id from rfl]
+    · obtain ⟨i', rfl⟩ : ∃ i', (e ∘ e.symm) i' = i := ⟨_, e.apply_symm_apply i⟩
+      have : ∀ i j (h : i = j) (f : (i : _) → Option (X' i)),
+          Option.map (fun x ↦ cast (congrArg X' h) x) (f i) = f j := by
+        rintro i j rfl; simp
+      simpa using this _ _ (by simp) _
+  continuous_toFun := continuous_map e.injective fun i ↦ (e' i).continuous
+  continuous_invFun := continuous_map e.symm.injective fun i ↦ by
+    have : ∀ i j (h : i = j), Continuous (cast (congrArg X' h)) := by
+      rintro i j rfl; exact continuous_id
+    exact (e' (e.symm i)).symm.continuous.comp (this _ _  <| (e.apply_symm_apply i).symm)
+
+@[simp]
+lemma _root_.Homeomorph.ijoinCongr_symm_apply_points {ι' : Type*} {X' : (i : ι') → Type*}
+    [∀ i, TopologicalSpace (X' i)] (e : ι ≃ ι') [∀ i, Decidable (∃ i', e i' = i)]
+    [∀ i, Decidable (∃ i', e.symm i' = i)] (e' : ∀ i, X i ≃ₜ X' (e i)) {x : IJoin X'} {i : ι} :
+    ((Homeomorph.ijoinCongr e e').symm x).points i = Option.map (e' i).symm (x.points (e i)) := by
+  obtain ⟨x', rfl⟩ : ∃ x', Homeomorph.ijoinCongr e e' x' = x :=
+    ⟨_, (Homeomorph.ijoinCongr e e').apply_symm_apply x⟩
+  rw [Homeomorph.symm_apply_apply]
+  simp
 
 end IJoin
 
