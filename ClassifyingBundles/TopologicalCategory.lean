@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import Mathlib.AlgebraicTopology.SimplicialObject.Basic
+import Mathlib.CategoryTheory.Action
 import Mathlib.CategoryTheory.ComposableArrows.Basic
-import Mathlib.CategoryTheory.SingleObj
 import Mathlib.Tactic.IntervalCases
-import Mathlib.Topology.Algebra.Group.Defs
+import Mathlib.Topology.Algebra.MulAction
 import Mathlib.Topology.Category.TopCat.Basic
 import Mathlib.Topology.Homeomorph.TransferInstance
 
@@ -29,6 +29,10 @@ here instead of working abstractly with category/groupoid objects in `TopCat`.
 * `topologicalNerve C`: the nerve of a topological category as a simplicial topological space.
 * For every topological monoid `M`, `SingleObj M` is a topological category.
 * For every topological group `G`, `SingleObj G` is a topological groupoid.
+* For every continuous action of a monoid `M` on a topological space `X`, `ActionCategory M X` is
+  a topological category.
+* For every continuous action of a group `G` on a topological space `X`, `ActionCategory G X` is
+  a topological groupoid.
 -/
 
 universe u
@@ -212,7 +216,7 @@ lemma continuous_groupoidInv (C : Type*) [Groupoid C] [TopologicalSpace C]
 
 end IsTopologicalGroupoid
 
-section Examples
+section SingleObj
 
 instance {M : Type*} : TopologicalSpace (SingleObj M) := ⊥
 
@@ -270,7 +274,122 @@ instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G] :
     obtain rfl := Subsingleton.elim Y (SingleObj.star G)
     simp [Equiv.homeomorph, SingleObj.inv_as_inv]
 
-end Examples
+end SingleObj
+
+section Action
+
+instance {M : Type*} [Monoid M] {X : Type*} [MulAction M X] [TopologicalSpace X] :
+    TopologicalSpace (ActionCategory M X) :=
+  (ActionCategory.objEquiv M X).symm.topologicalSpace
+
+def ActionCategory.objHomeomorph (M : Type*) [Monoid M] (X : Type*) [MulAction M X]
+    [TopologicalSpace X] : X ≃ₜ ActionCategory M X where
+  __ := ActionCategory.objEquiv M X
+  continuous_toFun := (objEquiv M X).symm.homeomorph.symm.continuous
+  continuous_invFun := (objEquiv M X).symm.homeomorph.continuous
+
+--set_option allowUnsafeReducibility true in
+--attribute [reducible] actionAsFunctor
+
+set_option backward.isDefEq.respectTransparency false in
+def ActionCategory.arrowEquiv (M : Type*) [Monoid M] (X : Type*) [MulAction M X] :
+    Arrow (ActionCategory M X) ≃ M × X where
+  toFun f := (f.hom.1, f.left.2)
+  invFun f := Arrow.mk <|
+    CategoryOfElements.homMk (F := actionAsFunctor M X) ⟨(), f.2⟩ ⟨(), f.1 • f.2⟩ f.1 rfl
+  left_inv f := by
+    obtain ⟨⟨⟨⟩, x⟩, ⟨⟨⟩, y⟩, ⟨f, hf⟩⟩ := f
+    dsimp at f hf ⊢
+    subst hf
+    refine Arrow.ext rfl rfl ?_
+    simp
+    rfl
+  right_inv f := by simp
+
+instance {M : Type*} [Monoid M] [TopologicalSpace M] {X : Type*} [MulAction M X]
+    [TopologicalSpace X] : TopologicalSpace (Arrow (ActionCategory M X)) :=
+  (ActionCategory.arrowEquiv M X).topologicalSpace
+
+def ActionCategory.arrowHomeomorph (M : Type*) [Monoid M] [TopologicalSpace M] (X : Type*)
+    [MulAction M X] [TopologicalSpace X] : Arrow (ActionCategory M X) ≃ₜ M × X where
+  __ := arrowEquiv M X
+  continuous_toFun := (arrowEquiv M X).homeomorph.continuous
+  continuous_invFun := (arrowEquiv M X).homeomorph.symm.continuous
+
+instance {M : Type*} [Monoid M] [TopologicalSpace M] {X : Type*} [MulAction M X]
+    [TopologicalSpace X] {Y Z : ActionCategory M X} : TopologicalSpace (Y ⟶ Z) :=
+  .induced Arrow.mk inferInstance
+
+set_option backward.isDefEq.respectTransparency false in
+/-- The action category of a continuous action is a topological category. -/
+instance {M : Type*} [Monoid M] [TopologicalSpace M] [ContinuousMul M] {X : Type*} [MulAction M X]
+    [TopologicalSpace X] [ContinuousSMul M X] : IsTopologicalCategory (ActionCategory M X) where
+  continuous_arrowLeft :=
+    (ActionCategory.objHomeomorph M X).continuous.comp <|
+      continuous_snd.comp (ActionCategory.arrowHomeomorph M X).continuous
+  continuous_arrowRight := by
+    refine ((ActionCategory.objHomeomorph M X).continuous.comp <| continuous_smul.comp <|
+      (ActionCategory.arrowHomeomorph M X).continuous).congr fun x ↦ ?_
+    simp only [ActionCategory.objHomeomorph, ActionCategory.objEquiv, actionAsFunctor_obj,
+      Homeomorph.homeomorph_mk_coe, Equiv.coe_fn_mk, ActionCategory.arrowHomeomorph,
+      ActionCategory.arrowEquiv, actionAsFunctor_map, TypeCat.hom_ofHom, Function.comp_apply]
+    refine Sigma.ext rfl <| Eq.heq ?_
+    simp_rw [← x.hom.2]
+    rfl
+  continuous_arrowId := by
+    refine ((ActionCategory.arrowHomeomorph M X).symm.continuous.comp <|
+      (Continuous.prodMk_right 1).comp
+        (ActionCategory.objHomeomorph M X).symm.continuous).congr fun x ↦ ?_
+    simp only [ActionCategory.arrowHomeomorph, ActionCategory.arrowEquiv, actionAsFunctor_obj,
+      actionAsFunctor_map, TypeCat.hom_ofHom, Homeomorph.homeomorph_mk_coe_symm, Equiv.symm_mk,
+      Equiv.coe_fn_mk, ActionCategory.objHomeomorph, ActionCategory.objEquiv, Function.comp_apply]
+    rw! [one_smul M x.back]
+    exact Arrow.ext rfl rfl <| Subtype.ext (by simp)
+  continuous_composableArrowsHom := by
+    refine .congr ?_ (fun F ↦ ?_) (f := fun F ↦ (ActionCategory.arrowHomeomorph M X).symm <|
+      ⟨(F.map' 1 2).1 * (F.map' 0 1).1, (ActionCategory.objHomeomorph M X).symm <| F.obj' 0⟩)
+    · refine (ActionCategory.arrowHomeomorph M X).symm.continuous.comp <| .prodMk
+        (.mul ?_ ?_)
+        ((ActionCategory.objHomeomorph M X).symm.continuous.comp
+          (ComposableArrows.continuous_obj' (i := 0)))
+      · exact continuous_fst.comp <| (ActionCategory.arrowHomeomorph M X).continuous.comp <|
+          ComposableArrows.continuous_map'_add_one
+      · exact continuous_fst.comp <| (ActionCategory.arrowHomeomorph M X).continuous.comp <|
+          ComposableArrows.continuous_map'_add_one
+    · obtain ⟨⟨⟨⟩, x⟩, ⟨⟨⟩, y⟩, ⟨⟨⟩, z⟩, ⟨f, hf⟩, ⟨g, hg⟩, rfl⟩ := F.mk₂_surjective
+      dsimp at x y z g hg f hf
+      subst hg hf
+      refine Arrow.ext rfl ?_ <| Subtype.ext ?_
+      · simp [ComposableArrows.Precomp.map, ComposableArrows.Precomp.obj,
+          ActionCategory.arrowHomeomorph, ActionCategory.arrowEquiv, ActionCategory.objHomeomorph,
+          ActionCategory.objEquiv, mul_smul]
+      · simp [ComposableArrows.Precomp.map, ComposableArrows.Precomp.obj,
+          ActionCategory.arrowHomeomorph, ActionCategory.arrowEquiv, ActionCategory.objHomeomorph,
+          ActionCategory.objEquiv,
+          show ∀ i j : ActionCategory M X, ∀ h : i = j, (eqToHom h).1 = (1 : M) by
+            rintro i j rfl; simp]
+  isInducing_arrowMk _ _ := ⟨rfl⟩
+
+set_option backward.isDefEq.respectTransparency false in
+/-- The action category of a continuous group action is a topological groupoid. -/
+instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
+    {X : Type*} [MulAction G X] [TopologicalSpace X] [ContinuousSMul G X] :
+    IsTopologicalGroupoid (ActionCategory G X) where
+  continuous_inv := by
+    refine ((ActionCategory.arrowHomeomorph G X).symm.continuous.comp <|
+      (by fun_prop : Continuous fun gx ↦ (gx.1⁻¹, gx.1 • gx.2)).comp
+        (ActionCategory.arrowHomeomorph G X).continuous).congr fun f ↦ ?_
+    obtain ⟨⟨⟨⟩, x⟩, ⟨⟨⟩, y⟩, ⟨f, hf⟩⟩ := f
+    dsimp at x y f hf
+    subst hf
+    refine Arrow.ext rfl ?_ <| Subtype.ext ?_
+    · simp [ActionCategory.arrowHomeomorph, ActionCategory.arrowEquiv]
+    · simpa [ActionCategory.arrowHomeomorph, ActionCategory.arrowEquiv,
+        show ∀ i j : ActionCategory G X, ∀ h : i = j, (eqToHom h).1 = (1 : G) by
+            rintro i j rfl; simp, ← Groupoid.inv_eq_inv]
+        using (SingleObj.inv_as_inv _ _).symm.trans (Groupoid.inv_eq_inv _).symm
+
+end Action
 
 section Nerve
 
