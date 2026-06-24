@@ -4,9 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import Mathlib.CategoryTheory.ComposableArrows.Basic
-import Mathlib.CategoryTheory.Groupoid
+import Mathlib.CategoryTheory.SingleObj
 import Mathlib.Tactic.IntervalCases
-import Mathlib.Topology.Constructions.SumProd
+import Mathlib.Topology.Algebra.Group.Defs
+import Mathlib.Topology.Homeomorph.TransferInstance
 
 /-! # Topological categories and groupoids
 In this file we define topological categories and groupoids, i.e. categories / groupoids whose
@@ -18,6 +19,13 @@ are continuous. Mathematically this is a special case of internal categories and
 for actually working with them it is more convenient to define them in an unbundled manner as done
 here instead of working abstractly with category/groupoid objects in `TopCat`.
 
+## Main definitions & results
+* `IsTopologicalCategory C`: `Prop`-valued typeclass stating that the source, target, identity and
+  composition maps of `C` are continuous with respect to given topologies on `C` and `Arrow C`.
+* `IsTopologicalGroupoid C`: `Prop`-valued typeclass stating that a category is both a groupoid and
+  a topological category for which the inverse map `Arrow C → Arrow C` is also continuous.
+* For every topological monoid `M`, `SingleObj M` is a topological category.
+* For every topological group `G`, `SingleObj G` is a topological groupoid.
 -/
 
 universe u
@@ -46,6 +54,11 @@ variable {C : Type*} [Category* C] [TopologicalSpace C] [TopologicalSpace (Arrow
 lemma continuous_obj' {n : ℕ} {i : ℕ} (h : i ≤ n := by valid) :
     Continuous (fun F ↦ F.obj' i : ComposableArrows C n → C) :=
   continuous_iff_le_induced.2 <| inf_le_of_left_le <| iInf₂_le _ _
+
+lemma continuous_map'_add_one {C : Type*} [Category* C] [TopologicalSpace C]
+    [TopologicalSpace (Arrow C)] {n : ℕ} {i : ℕ} (h : i < n := by valid) :
+    Continuous (fun F ↦ F.map' i (i + 1) : ComposableArrows C n → Arrow C) :=
+  continuous_iff_le_induced.2 <| inf_le_of_right_le <| iInf₂_le i h
 
 lemma continuous_iff {n : ℕ} {X : Type*} [TopologicalSpace X] {f : X → ComposableArrows C n} :
     Continuous f ↔ (∀ (i : ℕ) (_ : i ≤ n), Continuous fun x ↦ (f x).obj' i) ∧
@@ -155,8 +168,7 @@ lemma continuous_map' {C : Type*} [Category* C] [TopologicalSpace C] [Topologica
     refine (continuous_iff').2 fun l hl ↦ ?_
     interval_cases l
     · exact hk
-    · exact continuous_iff_le_induced.2 <| inf_le_of_right_le <| iInf_le_of_le (i + k) <|
-        iInf_le_of_le (by lia) <| by rfl
+    · exact continuous_map'_add_one
 
 /-- Composing `n` composable arrows is continuous. -/
 lemma continuous_hom {C : Type*} [Category* C] [TopologicalSpace C] [TopologicalSpace (Arrow C)]
@@ -182,5 +194,65 @@ lemma continuous_groupoidInv (C : Type*) [Groupoid C] [TopologicalSpace C]
   simpa using continuous_inv
 
 end IsTopologicalGroupoid
+
+section Examples
+
+instance {M : Type*} : TopologicalSpace (SingleObj M) := ⊥
+
+/-- `Arrow.mk` as a bijection whenever `C` has at most one object. -/
+@[simps]
+def Arrow.mkEquiv {C : Type*} [Category* C] [Subsingleton C] (X Y : C) : (X ⟶ Y) ≃ Arrow C where
+  toFun f := f
+  invFun f := eqToHom (Subsingleton.elim _ _) ≫ f.hom ≫ eqToHom (Subsingleton.elim _ _)
+  left_inv f := by simp
+  right_inv f := by simp
+
+/-- The bijection `ComposableArrows C 2 ≃ (X ⟶ X) × (X ⟶ X)` in any category with only a single
+object `X`. -/
+@[simps]
+def ComposableArrows.equivProd {C : Type*} [Category* C] [Subsingleton C] (X : C) :
+    ComposableArrows C 2 ≃ (X ⟶ X) × (X ⟶ X) where
+  toFun F := (eqToHom (Subsingleton.elim _ _) ≫ F.map' 0 1 ≫ eqToHom (Subsingleton.elim _ _),
+    eqToHom (Subsingleton.elim _ _) ≫ F.map' 1 2 ≫ eqToHom (Subsingleton.elim _ _))
+  invFun f := mk₂ f.1 f.2
+  left_inv F := by refine ComposableArrows.ext₂ ?_ ?_ ?_ rfl rfl <;> apply Subsingleton.elim
+  right_inv f := by ext <;> simp [Precomp.obj, Precomp.map]
+
+instance {M : Type*} [Monoid M] [TopologicalSpace M] : TopologicalSpace (Arrow (SingleObj M)) :=
+  (Arrow.mkEquiv (SingleObj.star M) (SingleObj.star M)).symm.topologicalSpace
+
+attribute [local fun_prop] continuous_of_indiscreteTopology in
+/-- For every topological monoid `M`, `SingleObj M` is a topological category. -/
+instance {M : Type*} [Monoid M] [TopologicalSpace M] [ContinuousMul M] :
+    IsTopologicalCategory (SingleObj M) where
+  continuous_arrowLeft := by fun_prop
+  continuous_arrowRight := by fun_prop
+  continuous_arrowId := by fun_prop
+  continuous_composableArrowsHom := by
+    have h : Continuous (ComposableArrows.equivProd (SingleObj.star M)) := by
+      refine continuous_prodMk.2 ⟨?_, ?_⟩
+      <;> exact (Arrow.mkEquiv _ _).symm.homeomorph.continuous.comp <|
+        ComposableArrows.continuous_map'_add_one (C := SingleObj M)
+    convert (Arrow.mkEquiv _ _).symm.homeomorph.symm.continuous.comp
+      (continuous_mul.comp <| continuous_swap.comp h) with F
+    obtain ⟨f, rfl⟩ := (ComposableArrows.equivProd (SingleObj.star M)).symm.surjective F
+    simp [Equiv.homeomorph, ComposableArrows.Precomp.map, ComposableArrows.Precomp.obj,
+      SingleObj.comp_as_mul]
+  isInducing_arrowMk X Y := by
+    rw [Subsingleton.elim X (SingleObj.star M), Subsingleton.elim Y (SingleObj.star M)]
+    exact (Arrow.mkEquiv (SingleObj.star M) (SingleObj.star M)).symm.homeomorph.symm.isInducing
+
+/-- For every topological group `G`, `SingleObj G` is a topological groupoid. -/
+instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G] :
+    IsTopologicalGroupoid (SingleObj G) where
+  continuous_inv := by
+    have h := (Arrow.mkEquiv (SingleObj.star G) _).symm.homeomorph.symm.continuous.comp <|
+      continuous_inv.comp <| (Arrow.mkEquiv (SingleObj.star G) _).symm.homeomorph.continuous
+    convert h with ⟨X, Y, f⟩
+    obtain rfl := Subsingleton.elim X (SingleObj.star G)
+    obtain rfl := Subsingleton.elim Y (SingleObj.star G)
+    simp [Equiv.homeomorph, SingleObj.inv_as_inv]
+
+end Examples
 
 end CategoryTheory
