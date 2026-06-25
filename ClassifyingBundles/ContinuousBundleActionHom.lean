@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleHom
-import ClassifyingBundles.TopologicalTorsor
+import Mathlib.Topology.Algebra.Group.Torsor
 
 /-! # Bundled continuous fibrewise equivariant maps between fibre bundles-/
 
@@ -49,7 +49,7 @@ variable {G F E H F' E'}
 
 instance instDFunLike : DFunLike Cᶠₑ[φ, f]⟮F, E; F', E'⟯ B (fun b ↦ (E b → E' (f b))) where
   coe f := f.toFun
-  coe_injective' := by rintro ⟨⟨⟩⟩ ⟨⟩ _; congr
+  coe_injective := by rintro ⟨⟨⟩⟩ ⟨⟩ _; congr
 
 @[simp]
 lemma toContinuousBundleHom_coe (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) : ⇑f'.toContinuousBundleHom = f' :=

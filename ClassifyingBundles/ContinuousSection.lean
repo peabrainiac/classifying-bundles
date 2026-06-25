@@ -37,7 +37,7 @@ variable {F E}
 
 instance : DFunLike Cₛ⟮F, E⟯ B E where
   coe := ContinuousSection.toFun
-  coe_injective' := by rintro ⟨⟩ ⟨⟩ h; congr
+  coe_injective := by rintro ⟨⟩ ⟨⟩ h; congr
 
 variable {s t : Cₛ⟮F, E⟯}
 

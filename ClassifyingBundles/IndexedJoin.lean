@@ -203,7 +203,8 @@ lemma continuous_map {ι' : Type*} {X' : ι' → Type*} [∀ i, TopologicalSpace
     · simp [Finsupp.mapDomain_notin_range, h, continuous_const]
   · by_cases h : i ∈ Set.range f
     · obtain ⟨i', rfl⟩ := h
-      simpa using (hg i').optionMap_excludedPointTopology'.comp continuous_points
+      simpa [Function.comp_def] using
+        (hg i').optionMap_excludedPointTopology'.comp continuous_points
     · simp [h, continuous_const]
 
 /-- The homeomorphism of joins given by a family of homeomorphisms of the factors along a

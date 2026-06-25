@@ -10,5 +10,3 @@ import ClassifyingBundles.Join
 import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.PrincipalBundle
 import ClassifyingBundles.TopologicalCategory
-import ClassifyingBundles.TopologicalTorsor
-import ClassifyingBundles.Torsor

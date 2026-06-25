@@ -3,7 +3,7 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
-import ClassifyingBundles.TopologicalTorsor
+import Mathlib.Topology.Algebra.Group.Torsor
 
 /-! # Equivariant isomorphisms
 
@@ -199,4 +199,5 @@ noncomputable def MulActionEquiv.evalHomeo {G : Type*} [TopologicalSpace G] [Gro
     rw [show ⇑(evalEquiv x) = (evalEquiv x').trans ((evalEquiv x').symm.trans (evalEquiv x)) by
       simp [← Equiv.trans_assoc], Equiv.coe_trans]
     refine .comp ?_ ⟨rfl⟩
-    simpa [Equiv.coe_trans, Function.comp_def] using (Homeomorph.smul (x /ₛ x')).isInducing
+    simpa [Equiv.coe_trans, Function.comp_def, Homeomorph.smul, MulAction.toPerm] using
+      (Homeomorph.smul (α := Y) (x /ₛ x')).isInducing

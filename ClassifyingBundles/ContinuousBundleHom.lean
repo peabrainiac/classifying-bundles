@@ -44,7 +44,7 @@ variable {F E F' E'}
 
 instance instDFunLike : DFunLike Cᶠ[f]⟮F, E; F', E'⟯ B (fun b ↦ (E b → E' (f b))) where
   coe f := f.toFun
-  coe_injective' := by rintro ⟨⟩ ⟨⟩ h; congr
+  coe_injective := by rintro ⟨⟩ ⟨⟩ h; congr
 
 @[simp]
 theorem coeFn_mk (f' : ∀ b, E b → E' (f b)) (hf : Continuous (TotalSpace.map F F' f')) :

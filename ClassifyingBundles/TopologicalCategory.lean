@@ -154,7 +154,7 @@ lemma continuous_comp {C : Type*} [Category* C] [TopologicalSpace C] [Topologica
     exact IsTopologicalCategory.continuous_composableArrowsHom.comp h
   refine (ComposableArrows.continuous_iff').2 fun i hi ↦ ?_
   interval_cases i
-  · dsimp; fun_prop
+  · exact (Arrow.continuous_mk _ _).comp continuous_fst
   · exact (Arrow.continuous_mk _ _).comp continuous_snd
 
 namespace ComposableArrows
@@ -167,7 +167,9 @@ lemma continuous_map' {C : Type*} [Category* C] [TopologicalSpace C] [Topologica
     Continuous (fun F ↦ F.map' i j : ComposableArrows C n → Arrow C) := by
   obtain ⟨j, rfl⟩ := Nat.exists_eq_add_of_le h
   induction j with
-  | zero => simpa using (Arrow.continuous_id (C := C)).comp continuous_obj'
+  | zero =>
+    simp only [Nat.add_zero, map', homOfLE_refl, Functor.map_id]
+    exact Arrow.continuous_id.comp continuous_obj'
   | succ k hk =>
     specialize hk (by lia) (by lia)
     simp_rw [fun F : ComposableArrows C n ↦ map'_comp F i (i + k) (i + (k + 1))]
@@ -311,6 +313,7 @@ section SingleObj
 
 instance {M : Type*} : TopologicalSpace (SingleObj M) := ⊥
 
+set_option backward.isDefEq.respectTransparency false in
 /-- `Arrow.mk` as a bijection whenever `C` has at most one object. -/
 @[simps]
 def Arrow.mkEquiv {C : Type*} [Category* C] [Subsingleton C] (X Y : C) : (X ⟶ Y) ≃ Arrow C where
@@ -319,6 +322,7 @@ def Arrow.mkEquiv {C : Type*} [Category* C] [Subsingleton C] (X Y : C) : (X ⟶ 
   left_inv f := by simp
   right_inv f := by simp
 
+set_option backward.isDefEq.respectTransparency false in
 /-- The bijection `ComposableArrows C 2 ≃ (X ⟶ X) × (X ⟶ X)` in any category with only a single
 object `X`. -/
 @[simps]
@@ -328,11 +332,12 @@ def ComposableArrows.equivProd {C : Type*} [Category* C] [Subsingleton C] (X : C
     eqToHom (Subsingleton.elim _ _) ≫ F.map' 1 2 ≫ eqToHom (Subsingleton.elim _ _))
   invFun f := mk₂ f.1 f.2
   left_inv F := by refine ComposableArrows.ext₂ ?_ ?_ ?_ rfl rfl <;> apply Subsingleton.elim
-  right_inv f := by ext <;> simp [Precomp.obj, Precomp.map]
+  right_inv f := by ext <;> simp [Precomp.map]
 
 instance {M : Type*} [Monoid M] [TopologicalSpace M] : TopologicalSpace (Arrow (SingleObj M)) :=
   (Arrow.mkEquiv (SingleObj.star M) (SingleObj.star M)).symm.topologicalSpace
 
+set_option backward.isDefEq.respectTransparency false in
 attribute [local fun_prop] continuous_of_indiscreteTopology in
 /-- For every topological monoid `M`, `SingleObj M` is a topological category. -/
 instance {M : Type*} [Monoid M] [TopologicalSpace M] [ContinuousMul M] :
@@ -345,11 +350,11 @@ instance {M : Type*} [Monoid M] [TopologicalSpace M] [ContinuousMul M] :
       refine continuous_prodMk.2 ⟨?_, ?_⟩
       <;> exact (Arrow.mkEquiv _ _).symm.homeomorph.continuous.comp <|
         ComposableArrows.continuous_map'_add_one (C := SingleObj M)
-    convert (Arrow.mkEquiv _ _).symm.homeomorph.symm.continuous.comp
+    convert! (Arrow.mkEquiv _ _).symm.homeomorph.symm.continuous.comp
       (continuous_mul.comp <| continuous_swap.comp h) with F
     obtain ⟨f, rfl⟩ := (ComposableArrows.equivProd (SingleObj.star M)).symm.surjective F
     simp [Equiv.homeomorph, ComposableArrows.Precomp.map, ComposableArrows.Precomp.obj,
-      SingleObj.comp_as_mul]
+      SingleObj.comp_as_mul, ComposableArrows.equivProd]
   isInducing_arrowMk X Y := by
     rw [Subsingleton.elim X (SingleObj.star M), Subsingleton.elim Y (SingleObj.star M)]
     exact (Arrow.mkEquiv (SingleObj.star M) (SingleObj.star M)).symm.homeomorph.symm.isInducing
@@ -360,7 +365,7 @@ instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G] :
   continuous_inv := by
     have h := (Arrow.mkEquiv (SingleObj.star G) _).symm.homeomorph.symm.continuous.comp <|
       continuous_inv.comp <| (Arrow.mkEquiv (SingleObj.star G) _).symm.homeomorph.continuous
-    convert h with ⟨X, Y, f⟩
+    convert! h with ⟨X, Y, f⟩
     obtain rfl := Subsingleton.elim X (SingleObj.star G)
     obtain rfl := Subsingleton.elim Y (SingleObj.star G)
     simp [Equiv.homeomorph, SingleObj.inv_as_inv]
@@ -398,12 +403,12 @@ def ActionCategory.arrowEquiv (M : Type*) [Monoid M] (X : Type*) [MulAction M X]
     CategoryOfElements.homMk (F := actionAsFunctor M X) ⟨(), f.2⟩ ⟨(), f.1 • f.2⟩ f.1 rfl
   left_inv f := by
     obtain ⟨⟨⟨⟩, x⟩, ⟨⟨⟩, y⟩, ⟨f, hf⟩⟩ := f
-    dsimp at f hf ⊢
+    dsimp [actionAsFunctor] at f hf ⊢
     subst hf
     refine Arrow.ext rfl rfl ?_
     simp
     rfl
-  right_inv f := by simp
+  right_inv f := rfl
 
 instance {M : Type*} [Monoid M] [TopologicalSpace M] {X : Type*} [MulAction M X]
     [TopologicalSpace X] : TopologicalSpace (Arrow (ActionCategory M X)) :=
@@ -429,9 +434,9 @@ instance {M : Type*} [Monoid M] [TopologicalSpace M] [ContinuousMul M] {X : Type
   continuous_arrowRight := by
     refine ((ActionCategory.objHomeomorph M X).continuous.comp <| continuous_smul.comp <|
       (ActionCategory.arrowHomeomorph M X).continuous).congr fun x ↦ ?_
-    simp only [ActionCategory.objHomeomorph, ActionCategory.objEquiv, actionAsFunctor_obj,
+    simp only [ActionCategory.objHomeomorph, ActionCategory.objEquiv,
       Homeomorph.homeomorph_mk_coe, Equiv.coe_fn_mk, ActionCategory.arrowHomeomorph,
-      ActionCategory.arrowEquiv, actionAsFunctor_map, TypeCat.hom_ofHom, Function.comp_apply]
+      ActionCategory.arrowEquiv, Function.comp_apply]
     refine Sigma.ext rfl <| Eq.heq ?_
     simp_rw [← x.hom.2]
     rfl
@@ -439,8 +444,8 @@ instance {M : Type*} [Monoid M] [TopologicalSpace M] [ContinuousMul M] {X : Type
     refine ((ActionCategory.arrowHomeomorph M X).symm.continuous.comp <|
       (Continuous.prodMk_right 1).comp
         (ActionCategory.objHomeomorph M X).symm.continuous).congr fun x ↦ ?_
-    simp only [ActionCategory.arrowHomeomorph, ActionCategory.arrowEquiv, actionAsFunctor_obj,
-      actionAsFunctor_map, TypeCat.hom_ofHom, Homeomorph.homeomorph_mk_coe_symm, Equiv.symm_mk,
+    simp only [ActionCategory.arrowHomeomorph, ActionCategory.arrowEquiv,
+      Homeomorph.homeomorph_mk_coe_symm, Equiv.symm_mk,
       Equiv.coe_fn_mk, ActionCategory.objHomeomorph, ActionCategory.objEquiv, Function.comp_apply]
     rw! [one_smul M x.back]
     exact Arrow.ext rfl rfl <| Subtype.ext (by simp)
@@ -456,7 +461,7 @@ instance {M : Type*} [Monoid M] [TopologicalSpace M] [ContinuousMul M] {X : Type
       · exact continuous_fst.comp <| (ActionCategory.arrowHomeomorph M X).continuous.comp <|
           ComposableArrows.continuous_map'_add_one
     · obtain ⟨⟨⟨⟩, x⟩, ⟨⟨⟩, y⟩, ⟨⟨⟩, z⟩, ⟨f, hf⟩, ⟨g, hg⟩, rfl⟩ := F.mk₂_surjective
-      dsimp at x y z g hg f hf
+      dsimp [actionAsFunctor] at x y z g hg f hf
       subst hg hf
       refine Arrow.ext rfl ?_ <| Subtype.ext ?_
       · simp [ComposableArrows.Precomp.map, ComposableArrows.Precomp.obj,
@@ -479,7 +484,7 @@ instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
       (by fun_prop : Continuous fun gx ↦ (gx.1⁻¹, gx.1 • gx.2)).comp
         (ActionCategory.arrowHomeomorph G X).continuous).congr fun f ↦ ?_
     obtain ⟨⟨⟨⟩, x⟩, ⟨⟨⟩, y⟩, ⟨f, hf⟩⟩ := f
-    dsimp at x y f hf
+    dsimp [actionAsFunctor] at x y f hf
     subst hf
     refine Arrow.ext rfl ?_ <| Subtype.ext ?_
     · simp [ActionCategory.arrowHomeomorph, ActionCategory.arrowEquiv]
