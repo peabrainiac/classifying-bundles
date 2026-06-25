@@ -7,6 +7,7 @@ import Mathlib.AlgebraicTopology.SimplicialObject.Basic
 import Mathlib.CategoryTheory.Action
 import Mathlib.CategoryTheory.ComposableArrows.Basic
 import Mathlib.Tactic.IntervalCases
+import Mathlib.Topology.Algebra.ContinuousMonoidHom
 import Mathlib.Topology.Algebra.MulAction
 import Mathlib.Topology.Category.TopCat.Basic
 import Mathlib.Topology.Homeomorph.TransferInstance
@@ -217,6 +218,25 @@ lemma continuous_groupoidInv (C : Type*) [Groupoid C] [TopologicalSpace C]
 
 end IsTopologicalGroupoid
 
+section End
+
+variable {C : Type*} [Category* C] [TopologicalSpace C] [TopologicalSpace (Arrow C)]
+    [∀ X Y : C, TopologicalSpace (X ⟶ Y)] [IsTopologicalCategory C] (X : C)
+
+instance : TopologicalSpace (End X) := inferInstanceAs (TopologicalSpace (X ⟶ X))
+
+instance : ContinuousMul (End X) where
+  continuous_mul := continuous_comp.comp continuous_swap
+
+instance {C : Type*} [Groupoid C] [TopologicalSpace C] [TopologicalSpace (Arrow C)]
+    [∀ X Y : C, TopologicalSpace (X ⟶ Y)] [IsTopologicalGroupoid C] (X : C) :
+    IsTopologicalGroup (End X) where
+  continuous_inv :=
+    (Arrow.isEmbedding_mk X X).continuous_iff.2 <|
+      (IsTopologicalGroupoid.continuous_groupoidInv C).comp <| Arrow.continuous_mk X X
+
+end End
+
 section Discrete
 
 variable (X : Type*) [TopologicalSpace X]
@@ -344,6 +364,14 @@ instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G] :
     obtain rfl := Subsingleton.elim X (SingleObj.star G)
     obtain rfl := Subsingleton.elim Y (SingleObj.star G)
     simp [Equiv.homeomorph, SingleObj.inv_as_inv]
+
+/-- The isomorphism `SingleObj.toEnd : M ≃* End (star M)` between `M` and the unique endomorphism
+monoid in `SingleObj M` as an isomorphism of topological monoids. -/
+def SingleObj.toEndHomeomorph (M : Type*) [Monoid M] [TopologicalSpace M] [ContinuousMul M] :
+    M ≃ₜ* End (star M) where
+  __ := toEnd M
+  continuous_toFun := continuous_id
+  continuous_invFun := continuous_id
 
 end SingleObj
 
