@@ -27,6 +27,7 @@ here instead of working abstractly with category/groupoid objects in `TopCat`.
 * `IsTopologicalGroupoid C`: `Prop`-valued typeclass stating that a category is both a groupoid and
   a topological category for which the inverse map `Arrow C → Arrow C` is also continuous.
 * `topologicalNerve C`: the nerve of a topological category as a simplicial topological space.
+* For every topological space `X`, `Discrete X` is a topological groupoid.
 * For every topological monoid `M`, `SingleObj M` is a topological category.
 * For every topological group `G`, `SingleObj G` is a topological groupoid.
 * For every continuous action of a monoid `M` on a topological space `X`, `ActionCategory M X` is
@@ -215,6 +216,76 @@ lemma continuous_groupoidInv (C : Type*) [Groupoid C] [TopologicalSpace C]
   simpa using continuous_inv
 
 end IsTopologicalGroupoid
+
+section Discrete
+
+variable (X : Type*) [TopologicalSpace X]
+
+instance : TopologicalSpace (Discrete X) :=
+  discreteEquiv.topologicalSpace
+
+/-- Any topological space is homeomorphic to the trivial topological groupoid on it. Note that
+while this groupoid is often called discrete because it has no arrows except identities, it is
+not discrete topologically, so this is not a contradiction. -/
+def discreteHomeomorph : Discrete X ≃ₜ X where
+  __ := discreteEquiv
+  continuous_invFun := discreteEquiv.homeomorph.symm.continuous
+
+instance : TopologicalSpace (Arrow (Discrete X)) :=
+  (Arrow.discreteEquiv X).topologicalSpace
+
+/-- Any topological space is homeomorphic to the space of morphisms of the trivial topological
+groupoid on it. Note that while this groupoid is often called discrete because it has no arrows
+except identities, it is not discrete topologically, so this is not a contradiction. -/
+def Arrow.discreteHomeomorph : Arrow (Discrete X) ≃ₜ X where
+  __ := discreteEquiv X
+  continuous_invFun := (discreteEquiv X).homeomorph.symm.continuous
+
+instance {x x' : Discrete X} : TopologicalSpace (x ⟶ x') := ⊥
+
+/-- Every linear order is preconnected as a category. Of course this can be vastly generalised,
+but I wasn't sure what the correct typeclass for "total order" or "preconnected order" is. -/
+instance {α : Type*} [LinearOrder α] : IsPreconnected α :=
+  zigzag_isPreconnected fun a b ↦ (le_total a b).rec
+    (fun h ↦ .of_hom (homOfLE h)) (fun h ↦ .of_inv (homOfLE h))
+
+/-- The bijection between composable arrows in `Discrete α` and `α`. -/
+def ComposableArrows.discreteEquiv (α : Type*) {n : ℕ} : ComposableArrows (Discrete α) n ≃ α where
+  toFun F := (F.obj' 0).as
+  invFun X := (Functor.const _).obj ⟨X⟩
+  left_inv F :=
+    Functor.ext (fun i ↦ any_functor_const_on_obj F _ _) fun _ _ _ ↦ Subsingleton.elim _ _
+  right_inv X := rfl
+
+/-- Any topological space is homeomorphic to the space of `n` composable arrows in the trivial
+topological groupoid on it. Note that while this groupoid is often called discrete because it has
+no arrows except identities, it is not discrete topologically, so this is not a contradiction. -/
+def ComposableArrows.discreteHomeomorph {n : ℕ} : ComposableArrows (Discrete X) n ≃ₜ X where
+  __ := discreteEquiv X
+  continuous_toFun := (CategoryTheory.discreteHomeomorph X).continuous.comp continuous_obj'
+  continuous_invFun :=
+    continuous_iff.2 ⟨fun i _ ↦ (CategoryTheory.discreteHomeomorph X).symm.continuous,
+      fun _ _ ↦ (Arrow.discreteHomeomorph X).symm.continuous⟩
+
+instance : IsTopologicalGroupoid (Discrete X) where
+  continuous_arrowLeft :=
+    (discreteHomeomorph X).symm.continuous.comp (Arrow.discreteHomeomorph X).continuous
+  continuous_arrowRight := by
+    refine ((discreteHomeomorph X).symm.continuous.comp
+      (Arrow.discreteHomeomorph X).continuous).congr fun f ↦ ?_
+    obtain ⟨⟨x⟩, ⟨x'⟩, ⟨⟨⟨⟩⟩⟩⟩ := f
+    rfl
+  continuous_arrowId :=
+    (Arrow.discreteHomeomorph X).symm.continuous.comp (discreteHomeomorph X).continuous
+  continuous_composableArrowsHom := by
+    rw [← (ComposableArrows.discreteHomeomorph X).symm.comp_continuous_iff']
+    exact (Arrow.discreteHomeomorph X).symm.continuous
+  isInducing_arrowMk x x' := .of_subsingleton _
+  continuous_inv := by
+    rw [← (Arrow.discreteHomeomorph X).symm.comp_continuous_iff']
+    exact (Arrow.discreteHomeomorph X).symm.continuous
+
+end Discrete
 
 section SingleObj
 
