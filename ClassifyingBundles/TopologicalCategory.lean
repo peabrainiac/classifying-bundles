@@ -37,7 +37,7 @@ here instead of working abstractly with category/groupoid objects in `TopCat`.
   a topological groupoid.
 -/
 
-universe u
+universe u v
 
 open Topology
 
@@ -220,6 +220,43 @@ lemma continuous_groupoidInv (C : Type*) [Groupoid C] [TopologicalSpace C]
 
 end IsTopologicalGroupoid
 
+section Functor
+
+variable {C D E : Type*} [Category* C] [Category* D] [Category* E]
+  [TopologicalSpace C] [TopologicalSpace (Arrow C)] [∀ X Y : C, TopologicalSpace (X ⟶ Y)]
+  [TopologicalSpace D] [TopologicalSpace (Arrow D)] [∀ X Y : D, TopologicalSpace (X ⟶ Y)]
+  [TopologicalSpace E] [TopologicalSpace (Arrow E)] [∀ X Y : E, TopologicalSpace (X ⟶ Y)]
+  [IsTopologicalCategory C] [IsTopologicalCategory D] [IsTopologicalCategory E]
+
+/-- We say that a functor between topological categories is a topological functor if it is
+continuous on both objects and morphisms. Usually this is mostly considered in the case of
+topological groupoids, where those functors are called topological groupoid homomorphisms. For this
+more general case maybe the name "continuous functor" would have been more fitting, but that is
+already taken by both functors preserving limits and certain functors between sites. -/
+protected class Functor.IsTopological [IsTopologicalCategory C] [IsTopologicalCategory D]
+    (F : C ⥤ D) where
+  continuous_obj : Continuous F.obj
+  continuous_map : Continuous F.mapArrow.obj
+
+/-- Identity functors on topological categories are continuous. -/
+instance : (𝟭 C).IsTopological where
+  continuous_obj := continuous_id
+  continuous_map := continuous_id
+
+/-- Continuous of continuous functors are continuous. -/
+instance Functor.IsTopological.comp {F : C ⥤ D} {G : D ⥤ E} [F.IsTopological] [G.IsTopological] :
+    (F ⋙ G).IsTopological where
+  continuous_obj := (continuous_obj (F := G)).comp continuous_obj
+  continuous_map := (continuous_map (F := G)).comp continuous_map
+
+lemma Functor.continuous_mapComposableArrows (F : C ⥤ D) [F.IsTopological] {n : ℕ} :
+    Continuous ((F.mapComposableArrows n).obj : ComposableArrows C n → ComposableArrows D n) := by
+  refine ComposableArrows.continuous_iff.2 ⟨fun i hi ↦ ?_, fun i hi ↦ ?_⟩
+  · exact Functor.IsTopological.continuous_obj.comp ComposableArrows.continuous_obj'
+  · exact Functor.IsTopological.continuous_map.comp ComposableArrows.continuous_map'
+
+end Functor
+
 section End
 
 variable {C : Type*} [Category* C] [TopologicalSpace C] [TopologicalSpace (Arrow C)]
@@ -307,6 +344,20 @@ instance : IsTopologicalGroupoid (Discrete X) where
     rw [← (Arrow.discreteHomeomorph X).symm.comp_continuous_iff']
     exact (Arrow.discreteHomeomorph X).symm.continuous
 
+/-- For any continuous map from a topological space to a topological category, the induced functor
+from the trivial topological category is also continuous. -/
+lemma Continuous.discreteFunctor {C : Type*} [Category* C] [TopologicalSpace C]
+    [TopologicalSpace (Arrow C)] [∀ X Y : C, TopologicalSpace (X ⟶ Y)] [IsTopologicalCategory C]
+    {f : X → C} (hf : Continuous f) : (Discrete.functor f).IsTopological where
+  continuous_obj := hf.comp (discreteHomeomorph X).continuous
+  continuous_map := by
+    refine (Arrow.isEmbedding_id.continuous.comp <|
+      hf.comp (Arrow.discreteHomeomorph X).continuous).congr fun f ↦ ?_
+    obtain ⟨⟨x⟩, ⟨x'⟩, ⟨⟨h⟩⟩⟩ := f
+    dsimp at h
+    subst h
+    rfl
+
 end Discrete
 
 section SingleObj
@@ -337,6 +388,13 @@ def ComposableArrows.equivProd {C : Type*} [Category* C] [Subsingleton C] (X : C
 instance {M : Type*} [Monoid M] [TopologicalSpace M] : TopologicalSpace (Arrow (SingleObj M)) :=
   (Arrow.mkEquiv (SingleObj.star M) (SingleObj.star M)).symm.topologicalSpace
 
+/-- `Arrow.mkEquiv` as a homeomorphism `(star M ⟶ star M) ≃ₜ Arrow (SingleObj M)` for topological
+monoids. -/
+def Arrow.mkHomeomorph {M : Type*} [Monoid M] [TopologicalSpace M] :
+    (SingleObj.star M ⟶ SingleObj.star M) ≃ₜ Arrow (SingleObj M) where
+  __ := Arrow.mkEquiv _ _
+  continuous_toFun := (Arrow.mkEquiv (SingleObj.star M) _).symm.homeomorph.symm.continuous
+
 set_option backward.isDefEq.respectTransparency false in
 attribute [local fun_prop] continuous_of_indiscreteTopology in
 /-- For every topological monoid `M`, `SingleObj M` is a topological category. -/
@@ -348,27 +406,27 @@ instance {M : Type*} [Monoid M] [TopologicalSpace M] [ContinuousMul M] :
   continuous_composableArrowsHom := by
     have h : Continuous (ComposableArrows.equivProd (SingleObj.star M)) := by
       refine continuous_prodMk.2 ⟨?_, ?_⟩
-      <;> exact (Arrow.mkEquiv _ _).symm.homeomorph.continuous.comp <|
+      <;> exact Arrow.mkHomeomorph.symm.continuous.comp <|
         ComposableArrows.continuous_map'_add_one (C := SingleObj M)
-    convert! (Arrow.mkEquiv _ _).symm.homeomorph.symm.continuous.comp
+    convert! Arrow.mkHomeomorph.continuous.comp
       (continuous_mul.comp <| continuous_swap.comp h) with F
     obtain ⟨f, rfl⟩ := (ComposableArrows.equivProd (SingleObj.star M)).symm.surjective F
-    simp [Equiv.homeomorph, ComposableArrows.Precomp.map, ComposableArrows.Precomp.obj,
+    simp [Arrow.mkHomeomorph, ComposableArrows.Precomp.map, ComposableArrows.Precomp.obj,
       SingleObj.comp_as_mul, ComposableArrows.equivProd]
   isInducing_arrowMk X Y := by
     rw [Subsingleton.elim X (SingleObj.star M), Subsingleton.elim Y (SingleObj.star M)]
-    exact (Arrow.mkEquiv (SingleObj.star M) (SingleObj.star M)).symm.homeomorph.symm.isInducing
+    exact Arrow.mkHomeomorph.isInducing
 
 /-- For every topological group `G`, `SingleObj G` is a topological groupoid. -/
 instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G] :
     IsTopologicalGroupoid (SingleObj G) where
   continuous_inv := by
-    have h := (Arrow.mkEquiv (SingleObj.star G) _).symm.homeomorph.symm.continuous.comp <|
-      continuous_inv.comp <| (Arrow.mkEquiv (SingleObj.star G) _).symm.homeomorph.continuous
+    have h := Arrow.mkHomeomorph.continuous.comp <|
+      continuous_inv.comp <| (Arrow.mkHomeomorph (M := G)).symm.continuous
     convert! h with ⟨X, Y, f⟩
     obtain rfl := Subsingleton.elim X (SingleObj.star G)
     obtain rfl := Subsingleton.elim Y (SingleObj.star G)
-    simp [Equiv.homeomorph, SingleObj.inv_as_inv]
+    simp [Arrow.mkHomeomorph, SingleObj.inv_as_inv]
 
 /-- The isomorphism `SingleObj.toEnd : M ≃* End (star M)` between `M` and the unique endomorphism
 monoid in `SingleObj M` as an isomorphism of topological monoids. -/
@@ -377,6 +435,17 @@ def SingleObj.toEndHomeomorph (M : Type*) [Monoid M] [TopologicalSpace M] [Conti
   __ := toEnd M
   continuous_toFun := continuous_id
   continuous_invFun := continuous_id
+
+/-- The functor `SingleObj M ⥤ SingleObj N` induced by a homomorphism `M →* N` is continuous iff
+the homomorphism is. -/
+lemma SingleObj.isTopological_mapHom_iff {M N : Type*} [Monoid M] [TopologicalSpace M]
+    [ContinuousMul M] [Monoid N] [TopologicalSpace N] [ContinuousMul N] {f : M →* N} :
+    (mapHom M N f).IsTopological ↔ Continuous f := by
+  refine ⟨fun h ↦ ?_, fun h ↦ ⟨by fun_prop, ?_⟩⟩
+  · rw [← Arrow.mkHomeomorph.comp_continuous_iff]
+    exact h.continuous_map.comp Arrow.mkHomeomorph.continuous
+  · rw [← Arrow.mkHomeomorph.comp_continuous_iff']
+    exact Arrow.mkHomeomorph.continuous.comp h
 
 end SingleObj
 
@@ -493,17 +562,33 @@ instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
             rintro i j rfl; simp, ← Groupoid.inv_eq_inv]
         using (SingleObj.inv_as_inv _ _).symm.trans (Groupoid.inv_eq_inv _).symm
 
+attribute [local fun_prop] continuous_of_indiscreteTopology in
+instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
+    {X : Type*} [MulAction G X] [TopologicalSpace X] [ContinuousSMul G X] :
+    (ActionCategory.π G X).IsTopological where
+  continuous_obj := by fun_prop
+  continuous_map :=
+    (Arrow.mkHomeomorph (M := G)).continuous.comp <|
+      continuous_fst.comp (ActionCategory.arrowHomeomorph G X).continuous
+
 end Action
 
 section Nerve
 
-open ConcreteCategory in
+variable (C D E : Type u) [Category.{v} C] [Category.{v} D] [Category.{v} E] [TopologicalSpace C]
+    [TopologicalSpace (Arrow C)] [∀ X Y : C, TopologicalSpace (X ⟶ Y)] [IsTopologicalCategory C]
+    [TopologicalSpace D] [TopologicalSpace (Arrow D)] [∀ X Y : D, TopologicalSpace (X ⟶ Y)]
+    [IsTopologicalCategory D] [TopologicalSpace E] [TopologicalSpace (Arrow E)]
+    [∀ X Y : E, TopologicalSpace (X ⟶ Y)]
+    [IsTopologicalCategory E]
+
+open ConcreteCategory
+
 /-- The *topological nerve* of a topological category is the simplicial topological space whose
 underlying simplicial set is the nerve of the underlying category, equipped with the appropriate
 topologies. -/
 @[simps -isSimp]
-def topologicalNerve (C : Type*) [Category* C] [TopologicalSpace C] [TopologicalSpace (Arrow C)]
-    [∀ X Y : C, TopologicalSpace (X ⟶ Y)] [IsTopologicalCategory C] : SimplicialObject TopCat where
+def topologicalNerve : SimplicialObject TopCat where
   obj Δ := .of (ComposableArrows C (Δ.unop.len))
   map f := ofHom ⟨↾fun x ↦ x.whiskerLeft (SimplexCategory.toCat.map f.unop).toFunctor,
     ComposableArrows.continuous_whiskerLeft _⟩
@@ -511,6 +596,22 @@ def topologicalNerve (C : Type*) [Category* C] [TopologicalSpace C] [Topological
   map_comp _ _ := rfl
 
 attribute [simp] topologicalNerve_obj_carrier
+
+variable {C D E}
+
+/-- The map of topological nerves induced by a functor between topological categories. -/
+def topologicalNerveMap (F : C ⥤ D) [F.IsTopological] :
+    topologicalNerve C ⟶ topologicalNerve D where
+  app Δ := ofHom ⟨↾fun X ↦ (F.mapComposableArrows _).obj X, F.continuous_mapComposableArrows⟩
+
+@[simp]
+lemma topologicalNerveMap_id : topologicalNerveMap (𝟭 C) = 𝟙 _ :=
+  rfl
+
+@[simp]
+lemma topologicalNerveMap_comp (F : C ⥤ D) [F.IsTopological] (G : D ⥤ E) [G.IsTopological] :
+    topologicalNerveMap (F ⋙ G) = topologicalNerveMap F ≫ topologicalNerveMap G :=
+  rfl
 
 end Nerve
 
