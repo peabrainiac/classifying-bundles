@@ -20,6 +20,11 @@ variable {E E'} in
 def Bundle.TotalSpace.map (f' : ∀ b, E b → E' (f b)) (x : TotalSpace F E) :
     TotalSpace F' E' := ⟨_, f' _ x.2⟩
 
+omit [TopologicalSpace (Bundle.TotalSpace F E)] in
+@[simp]
+lemma Bundle.TotalSpace.map_id : map F F (f := @id B) (fun b ↦ @id (E b)) = id :=
+  rfl
+
 omit [TopologicalSpace (Bundle.TotalSpace F E)] [TopologicalSpace (Bundle.TotalSpace F' E')] in
 lemma Bundle.TotalSpace.map_injective : Injective (map F F' : (∀ b, E b → E' (f b)) → _) := by
   intro f' f'' h
@@ -65,6 +70,34 @@ lemma toContinuousMap_injective : Injective (toContinuousMap : Cᶠ[f]⟮F, E; F
   ext b x
   simpa [toContinuousMap, TotalSpace.map] using congrFun (congrArg ContinuousMap.toFun h) ⟨_, x⟩
 
+set_option backward.defeqAttrib.useBackward true in
+/-- Construct a bundle morphism out of a continuous map of the total spaces that respects the
+fibres. This construction has really bad defeq properties, so it should be used only when
+absolutely necessary. -/
+def ofContinuousMap (g : C(TotalSpace F E, TotalSpace F' E')) (hg : ∀ x, (g x).proj = f x.proj) :
+    Cᶠ[f]⟮F, E; F', E'⟯ where
+  toFun b x := cast (congrArg E' <| hg ⟨b, x⟩) (g ⟨b, x⟩).2
+  continuous_toFun := by
+    refine (map_continuous g).congr fun ⟨b, x⟩ ↦ ?_
+    ext
+    · simp [hg]
+    · simp
+
+@[simp]
+lemma ofContinuousMap_toContinuousMap (g : Cᶠ[f]⟮F, E; F', E'⟯) :
+    ofContinuousMap (g.toContinuousMap) (fun _ ↦ rfl) = g := by
+  ext b x
+  rfl
+
+set_option backward.defeqAttrib.useBackward true in
+@[simp]
+lemma toContinuousMap_ofContinuousMap (g : C(TotalSpace F E, TotalSpace F' E'))
+    (hg : ∀ x, (g x).proj = f x.proj) :
+    (ofContinuousMap g hg).toContinuousMap = g := by
+  ext ⟨b, x⟩
+  · simp [hg]
+  · simp [ofContinuousMap]
+
 variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
   [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E']
 
@@ -76,28 +109,51 @@ def continuousMapAt (g : Cᶠ[f]⟮F, E; F', E'⟯) (b : B) : C(E b, E' (f b)) w
     rw [(FiberBundle.totalSpaceMk_isInducing F' E' (f b)).continuous_iff]
     exact g.continuous_toFun.comp (FiberBundle.totalSpaceMk_isInducing F E b).continuous
 
+/-- TODO: find home -/
+@[fun_prop]
+lemma _root_.Bundle.TotalSpace.continuous_trivialSnd : Continuous (TotalSpace.trivialSnd B F) := by
+  simp [continuous_iff_le_induced, Trivial.topologicalSpace]
+
+/-- TODO: find home -/
+lemma _root_.Bundle.Trivial.continuous_iff {X : Type*} [TopologicalSpace X]
+    (g : X → TotalSpace F (Trivial B F)) :
+    Continuous g ↔
+      Continuous (TotalSpace.proj ∘ g) ∧ Continuous (TotalSpace.trivialSnd _ _ ∘ g) := by
+  simp [continuous_iff_le_induced, Trivial.topologicalSpace, induced_compose]
+
+/-- Continuous fibrewise maps into a trivial bundle correspond to continuous maps into the standard
+fibre of the model. -/
+def trivialEquiv {f : C(B, B')} : Cᶠ[f]⟮F, E; F', Trivial B' F'⟯ ≃ C(TotalSpace F E, F') where
+  toFun g := .comp ⟨TotalSpace.trivialSnd _ _, by fun_prop⟩ g.toContinuousMap
+  invFun g := ⟨fun b x ↦ g ⟨b, x⟩,
+    (Trivial.continuous_iff _).2 ⟨(map_continuous f).comp (continuous_proj _ _), map_continuous g⟩⟩
+  left_inv _ := by ext; simp [TotalSpace.trivialSnd]
+  right_inv _ := by ext; simp [TotalSpace.trivialSnd]
+
 /-- `Bundle.Pullback.lift` as a continuous fibrewise map. -/
 @[simps]
 def pullbackLift {f : B' → B} : Cᶠ[f]⟮F, f *ᵖ E; F, E⟯ where
   toFun _ x := x
   continuous_toFun := Pullback.continuous_lift F E f
 
+omit [TopologicalSpace F] [TopologicalSpace B] [(b : B) → TopologicalSpace (E b)]
+  [FiberBundle F E] in
+/-- TODO: find home -/
+lemma _root_.Pullback.TotalSpace.continuous_iff {X : Type*} [TopologicalSpace X] {f : B' → B}
+    (g : X → TotalSpace F (f *ᵖ E)) :
+    Continuous g ↔ Continuous (TotalSpace.proj ∘ g) ∧ Continuous (Pullback.lift f ∘ g):= by
+  simp [continuous_iff_le_induced, Pullback.TotalSpace.topologicalSpace,
+    pullbackTopology_def, induced_compose]
+
 /-- Continuous fibrewise maps from a bundle `E` over `B` to a bundle `E'` over `B'` relative to a
 map `B → B'` are equivalently continuous fibrewise maps from `E` to the pullback `f *ᵖ E'` of `E'`
 to `B`. -/
 @[simps]
 def pullbackEquiv : Cᶠ[f]⟮F, E; F', E'⟯ ≃ Cᶠ⟮F, E; F', f *ᵖ E'⟯ where
-  toFun f' := ⟨f', by
-    rw [continuous_iff_coinduced_le, Pullback.TotalSpace.topologicalSpace, pullbackTopology_def]
-    refine le_inf_iff.2 ⟨?_, ?_⟩
-    · refine coinduced_le_iff_le_induced.2 ?_
-      rw [induced_compose, ← continuous_iff_le_induced]
-      exact continuous_proj F E
-    · refine coinduced_le_iff_le_induced.2 ?_
-      rw [induced_compose, ← continuous_iff_le_induced]
-      exact f'.continuous_toFun⟩
+  toFun f' :=
+    ⟨f', (Pullback.TotalSpace.continuous_iff _).2 ⟨continuous_proj F E, f'.continuous_toFun⟩⟩
   invFun f' := ⟨f', (Pullback.continuous_lift F' E' f).comp f'.continuous_toFun⟩
-  left_inv f' := rfl
-  right_inv f' := rfl
+  left_inv _ := rfl
+  right_inv _ := rfl
 
 end ContinuousBundleHom
