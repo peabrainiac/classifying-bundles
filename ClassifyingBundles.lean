@@ -2,6 +2,7 @@ import ClassifyingBundles.ClassifyingSpace
 import ClassifyingBundles.ContMDiffSMul
 import ClassifyingBundles.ContinuousBundleActionHom
 import ClassifyingBundles.ContinuousBundleHom
+import ClassifyingBundles.ContinuousBundleIso
 import ClassifyingBundles.ContinuousSection
 import ClassifyingBundles.GBundle
 import ClassifyingBundles.IndexedJoin
