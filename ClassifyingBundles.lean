@@ -7,6 +7,7 @@ import ClassifyingBundles.ContinuousSection
 import ClassifyingBundles.GBundle
 import ClassifyingBundles.IndexedJoin
 import ClassifyingBundles.InducingSMul
+import ClassifyingBundles.IsTrivialOn
 import ClassifyingBundles.Join
 import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.PrincipalBundle
