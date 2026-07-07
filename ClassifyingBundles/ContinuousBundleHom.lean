@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import Mathlib.Topology.FiberBundle.Constructions
+import ClassifyingBundles.ContinuousSection
 
 /-! # Bundled continuous fibrewise maps between fibre bundles -/
 
@@ -50,6 +51,9 @@ variable {F E F' E'}
 instance instDFunLike : DFunLike Cᶠ[f]⟮F, E; F', E'⟯ B (fun b ↦ (E b → E' (f b))) where
   coe f := f.toFun
   coe_injective := by rintro ⟨⟩ ⟨⟩ h; congr
+
+@[simp]
+theorem toFun_eq_coe {g : Cᶠ[f]⟮F, E; F', E'⟯} : g.toFun = g := rfl
 
 @[simp]
 theorem coeFn_mk (f' : ∀ b, E b → E' (f b)) (hf : Continuous (TotalSpace.map F F' f')) :
@@ -110,11 +114,6 @@ def continuousMapAt (g : Cᶠ[f]⟮F, E; F', E'⟯) (b : B) : C(E b, E' (f b)) w
     exact g.continuous_toFun.comp (FiberBundle.totalSpaceMk_isInducing F E b).continuous
 
 /-- TODO: find home -/
-@[fun_prop]
-lemma _root_.Bundle.TotalSpace.continuous_trivialSnd : Continuous (TotalSpace.trivialSnd B F) := by
-  simp [continuous_iff_le_induced, Trivial.topologicalSpace]
-
-/-- TODO: find home -/
 lemma _root_.Bundle.Trivial.continuous_iff {X : Type*} [TopologicalSpace X]
     (g : X → TotalSpace F (Trivial B F)) :
     Continuous g ↔
@@ -155,5 +154,22 @@ def pullbackEquiv : Cᶠ[f]⟮F, E; F', E'⟯ ≃ Cᶠ⟮F, E; F', f *ᵖ E'⟯ 
   invFun f' := ⟨f', (Pullback.continuous_lift F' E' f).comp f'.continuous_toFun⟩
   left_inv _ := rfl
   right_inv _ := rfl
+
+/-- When `E` and `E'` are bundles over the same base, this is the section of `E'` obtained from
+a section of `E` by composing it with a bundle morphism from `E` to `E'`. We generalise this to
+bundle morphisms along a homeomorphism `e : B ≃ₜ B` of the base spaces. -/
+def compContinuousSection {e : B ≃ₜ B'} (g : Cᶠ[e]⟮F, E; F', E'⟯) (s : Cₛ⟮F, E⟯) : Cₛ⟮F', E'⟯ where
+  toFun b := cast (by simp) (g _ (s (e.symm b)))
+  continuous_toFun := by
+    refine (g.continuous_toFun.comp <| s.continuous_toFun.comp e.symm.continuous).congr fun x ↦ ?_
+    ext <;> simp [TotalSpace.map]
+
+variable (F E) in
+/-- The continuous fibrewise map that is constant on each fibre given by a section of the codomain.
+-/
+@[simps]
+def ofContinuousSection (e : B ≃ₜ B') (s : Cₛ⟮F', E'⟯) : Cᶠ[e]⟮F, E; F', E'⟯ where
+  toFun b _ := s (e b)
+  continuous_toFun := s.continuous_toFun.comp e.continuous |>.comp (continuous_proj F E)
 
 end ContinuousBundleHom

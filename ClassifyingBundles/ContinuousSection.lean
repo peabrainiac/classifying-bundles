@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import Mathlib.Topology.VectorBundle.Basic
+import Mathlib.Topology.FiberBundle.Constructions
 
 /-! # Continuous sections of fibre bundles
 API for bundled continuous sections of topological fibre bundles. Adapted from the API for Cⁿ
@@ -42,6 +43,9 @@ instance : DFunLike Cₛ⟮F, E⟯ B E where
 variable {s t : Cₛ⟮F, E⟯}
 
 @[simp]
+theorem toFun_eq_coe : s.toFun = s := rfl
+
+@[simp]
 theorem coeFn_mk (s : ∀ b, E b) (hs : Continuous fun b ↦ (⟨b, s b⟩ : TotalSpace F E)) :
     (mk s hs : ∀ b, E b) = s := rfl
 
@@ -56,6 +60,20 @@ theorem coe_injective : Injective ((↑) : Cₛ⟮F, E⟯ → ∀ b, E b) :=
 
 @[ext]
 theorem ext (h : ∀ x, s x = t x) : s = t := DFunLike.ext _ _ h
+
+/-- TODO: find home -/
+@[fun_prop]
+lemma _root_.Bundle.TotalSpace.continuous_trivialSnd : Continuous (TotalSpace.trivialSnd B F) := by
+  simp [continuous_iff_le_induced, Trivial.topologicalSpace]
+
+/-- Continuous sections of trivial bundles are equivalently continuous maps. -/
+@[simps]
+def equivContinuousMap : Cₛ⟮F, Trivial B F⟯ ≃ C(B, F) where
+  toFun s := ⟨fun b ↦ s b, TotalSpace.continuous_trivialSnd.comp s.continuous⟩
+  invFun f := ⟨fun b ↦ f b, (Trivial.homeomorphProd B F).symm.continuous.comp <|
+    continuous_id.prodMk f.continuous⟩
+  left_inv _ := rfl
+  right_inv _ := rfl
 
 end ContinuousSection
 

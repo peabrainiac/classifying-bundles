@@ -5,6 +5,7 @@ Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousSection
 import ClassifyingBundles.ContinuousBundleActionHom
+import ClassifyingBundles.IsTrivialOn
 import ClassifyingBundles.MulActionEquiv
 import Mathlib.Topology.ContinuousMap.Algebra
 
@@ -125,7 +126,7 @@ TODO: show this more generally for fibre bundles with a continuous fiberwise `G`
 instance [IsPrincipalBundle G F E] : SMul G Cₛ⟮F, E⟯ where
   smul g s := ⟨fun b ↦ g • s b, s.continuous.const_smul g⟩
 
-/-- For any `G`-principal bundle `E` over `B`, `B → G` acts on the type `Cₛ⟮F, E⟯` of continuous
+/-- For any `G`-principal bundle `E` over `B`, `C(B, G)` acts on the type `Cₛ⟮F, E⟯` of continuous
 sections of `E`.
 TODO: show this more generally for fibre bundles with a continuous fiberwise `G`-action. -/
 instance [IsPrincipalBundle G F E] : SMul C(B, G) Cₛ⟮F, E⟯ where
@@ -157,7 +158,7 @@ instance [IsPrincipalBundle G F E] : SDiv C(B, G) Cₛ⟮F, E⟯ where
         simp [Bundle.Trivialization.mem_source]⟩
 
 /-- For any `G`-principal bundle `E` over `B`, the type `Cₛ⟮F, E⟯` of continuous sections of `E` is
-a `(B → G)`-torsor if it isn't empty.
+a `C(B, G)`-torsor if it isn't empty.
 TODO: define a class `Pretorsor` for not necessarily empty torsors, and show that this is one? -/
 instance [IsPrincipalBundle G F E] [Nonempty Cₛ⟮F, E⟯] : Torsor C(B, G) Cₛ⟮F, E⟯ where
   mul_smul f f' s := by ext; simp [smul_smul]
@@ -166,6 +167,114 @@ instance [IsPrincipalBundle G F E] [Nonempty Cₛ⟮F, E⟯] : Torsor C(B, G) C�
   smul_sdiv' f s := by ext; simp
 
 end Bundle.ContinuousSection
+
+namespace ContinuousBundleHom
+
+variable (F' : Type*) [TopologicalSpace F'] {B' : Type*} [TopologicalSpace B']
+  (E' : B' → Type*) [∀ b, TopologicalSpace (E' b)] [TopologicalSpace (Bundle.TotalSpace F' E')]
+  [FiberBundle F' E'] (f : C(B', B))
+
+/-- For any `G`-principal bundle `E` and any other fibre bundle `E'`, `G` acts on the type
+`Cᶠ⟮F', E'; F, E⟯` of continuous fibrewise maps from `E'` to `E`.
+TODO: show this more generally for fibre bundles with a continuous fiberwise `G`-action. -/
+@[simps]
+instance [IsPrincipalBundle G F E] : SMul G Cᶠ[f]⟮F', E'; F, E⟯ where
+  smul g f' := ⟨fun b x ↦ g • f' b x, f'.continuous_toFun.const_smul g⟩
+
+/-- For any `G`-principal bundle `E` over `B` and any other fibre bundle `E'`,
+`C(B', G)` acts on the type `Cᶠ[f]⟮F', E'; F, E⟯` of continuous fibrewise maps from `E'` to `E`.
+TODO: show this more generally for fibre bundles with a continuous fiberwise `G`-action. -/
+instance [IsPrincipalBundle G F E] : SMul C(B', G) Cᶠ[f]⟮F', E'; F, E⟯ where
+  smul f' f'' := ⟨fun b x ↦ f' b • f'' b x,
+    f'.continuous.comp (continuous_proj F' E') |>.smul f''.continuous_toFun⟩
+
+/-- For any `G`-principal bundle `E` over `B` and any other fibre bundle `E'`,
+`C(TotalSpace B' E', G)` acts on the type `Cᶠ[f]⟮F', E'; F, E⟯` of continuous fibrewise maps from
+`E'` to `E`.
+TODO: show this more generally for fibre bundles with a continuous fiberwise `G`-action. -/
+instance [IsPrincipalBundle G F E] : SMul C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
+  smul f' f'' := ⟨fun b x ↦ f' ⟨b, x⟩ • f'' b x, f'.continuous.smul f''.continuous_toFun⟩
+
+omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+/-- Note: this should be an `@[simps]`-lemma, but couldn't because the auto-generated name
+`smul_toFun` was already taken. -/
+@[simp]
+lemma smul_toFun' [IsPrincipalBundle G F E] (f' : C(B', G)) (f'' : Cᶠ[f]⟮F', E'; F, E⟯) (b : B') :
+    (f' • f'') b = f' b • f'' b := rfl
+
+omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] [TopologicalSpace F']
+  [(b : B') → TopologicalSpace (E' b)] [FiberBundle F' E'] in
+/-- Note: this should be an `@[simps]`-lemma, but couldn't because the auto-generated name
+`smul_toFun` was already taken. -/
+@[simp]
+lemma smul_toFun'' [IsPrincipalBundle G F E] (f' : C(TotalSpace F' E', G))
+    (f'' : Cᶠ[f]⟮F', E'; F, E⟯) (b : B') (x : E' b) :
+    (f' • f'') b x = f' ⟨b, x⟩ • f'' b x := rfl
+
+instance [IsPrincipalBundle G F E] : IsScalarTower G C(B', G) Cᶠ[f]⟮F', E'; F, E⟯ where
+  smul_assoc g f' f'' := by ext; simp [smul_smul]
+
+instance [IsPrincipalBundle G F E] :
+    IsScalarTower G C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
+  smul_assoc g f' f'' := by ext; simp [smul_smul]
+
+@[simps]
+instance [IsPrincipalBundle G F E] : SDiv C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
+  sdiv f' f'' := ⟨fun x ↦ f' x.1 x.2 /ₛ f'' x.1 x.2, by
+    suffices h : ∀ b, ContinuousOn (fun x : TotalSpace F' E' ↦ f' x.1 x.2 /ₛ f'' x.1 x.2)
+        (TotalSpace.proj ⁻¹' f ⁻¹' (trivializationAt F E b).baseSet) from
+      continuous_iff_continuousAt.2 fun x ↦ (h (f x.1)).continuousAt <|
+        (continuous_proj _ _).continuousAt.preimage_mem_nhds <|
+        (map_continuousAt f _).preimage_mem_nhds <|
+        (trivializationAt F E (f x.1)).open_baseSet.mem_nhds <|
+          mem_baseSet_trivializationAt F E (f x.1)
+    refine fun b ↦ .congr (f := fun x ↦ (trivializationAt F E b ⟨_, f' x.1 x.2⟩).2 /ₛ
+      (trivializationAt F E b ⟨_, f'' x.1 x.2⟩).2) ?_ fun x hx ↦ trivializationAt F E b
+        |>.mulActionEquivAt hx|>.map_sdiv_map (f' x.1 x.2) (f'' x.1 x.2)|>.symm
+    refine .sdiv (continuous_snd.comp_continuousOn ?_) (continuous_snd.comp_continuousOn ?_)
+    · exact (trivializationAt F E b).continuousOn.comp f'.continuous_toFun.continuousOn fun _ ↦ by
+        simp [Bundle.Trivialization.mem_source]
+    · exact (trivializationAt F E b).continuousOn.comp f''.continuous_toFun.continuousOn fun _ ↦ by
+        simp [Bundle.Trivialization.mem_source]⟩
+
+/-- For any `G`-principal bundle `E` over `B` and any other bundle `E'`, the type
+`Cᶠ[f]⟮F', E'; F, E⟯` of continuous fibrewise maps from `E'` to `E` is
+a `C(TotalSpace F' E', G)`-torsor if it isn't empty.
+TODO: define a class `Pretorsor` for not necessarily empty torsors, and show that this is one? -/
+instance [IsPrincipalBundle G F E] [Nonempty Cᶠ[f]⟮F', E'; F, E⟯] :
+    Torsor C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
+  mul_smul f f' s := by ext; simp [smul_smul]
+  one_smul s := by ext; simp
+  sdiv_smul' s t := by ext; simp
+  smul_sdiv' f s := by ext; simp
+
+end ContinuousBundleHom
+
+omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+/-- A principal bundle is trivial if and only if it admits a continuous global section. -/
+lemma Bundle.isTrivial_iff_nonempty_continuousSection [IsPrincipalBundle G F E] :
+    IsTrivial F E ↔ Nonempty Cₛ⟮F, E⟯ := by
+  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
+  · have ⟨e⟩ := h
+    rw [show Equiv.refl B = Homeomorph.refl B from rfl] at e
+    exact ⟨e.continuousSectionEquiv.symm <|
+      ContinuousSection.equivContinuousMap.symm <| .const _ <| Classical.arbitrary _⟩
+  · obtain ⟨s⟩ := h
+    exact isTrivial_of_continuousBundleIso (E := E) (F := F) (F' := G) (e := .refl B) {
+      toFun b x := x /ₛ s b
+      invFun b g := g • s b
+      left_inv' b g := smul_sdiv _ _
+      right_inv' b x := sdiv_smul _ _
+      continuous_toFun := by
+        refine (Trivial.continuous_iff _).2 ⟨continuous_proj _ _, ?_⟩
+        let f₁ : Cᶠ[ContinuousMap.id B]⟮F, E; F, E⟯ := ⟨fun _ ↦ id, continuous_id⟩
+        let f₂ : Cᶠ[ContinuousMap.id B]⟮F, E; F, E⟯ := .ofContinuousSection F E (.refl _) s
+        exact (f₁ /ₛ f₂).continuous
+      continuous_invFun := by
+        let f₁ : C(TotalSpace G (Trivial B G), G) := ⟨TotalSpace.trivialSnd B G, by fun_prop⟩
+        let f₂ : Cᶠ[ContinuousMap.id B]⟮G, Trivial B G; F, E⟯ :=
+          .ofContinuousSection _ _ (.refl _) s
+        exact (f₁ • f₂).continuous_toFun }
 
 section Pullback
 

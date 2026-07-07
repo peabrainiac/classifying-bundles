@@ -51,6 +51,18 @@ instance instDFunLike : DFunLike (E ≃ₜᶠ[e; F, F'] E') B (fun b ↦ (E b �
     refine Surjective.of_comp (g := invFun b') ?_
     simpa [Function.comp_def, left_inv] using (cast_bijective _).surjective
 
+@[simp]
+lemma coe_mk (toFun : (b : B) → E b → E' (e b)) (invFun : (b' : B') → E' b' → E (e.symm b'))
+    (left_inv' : (b' : B') → (x : E' b') → toFun _ (invFun _ x) = cast (congrArg E' (by simp)) x)
+    (right_inv' : (b : B) → (x : E b) → invFun _ (toFun _ x) = cast (congrArg E (by simp)) x)
+    (continuous_toFun : Continuous (TotalSpace.map F F' toFun))
+    (continuous_invFun : Continuous (TotalSpace.map F' F invFun)) {b : B} {x : E b} :
+    mk toFun invFun left_inv' right_inv' continuous_toFun continuous_invFun b x = toFun b x :=
+  rfl
+
+@[simp]
+lemma toFun_eq_coe (e' : E ≃ₜᶠ[e; F, F'] E') : e'.toFun = e' := rfl
+
 @[ext]
 theorem ext {e' e'' : E ≃ₜᶠ[e; F, F'] E'} (h : ∀ b x, e' b x = e'' b x) : e' = e'' :=
   DFunLike.ext _ _ fun b ↦ funext <| h b
@@ -129,6 +141,21 @@ lemma refl_apply' {b : B} {x : E b} : refl F E b x = x :=
 
 /-- The inverse of a bundle isomorphism. -/
 def symm (e' : E ≃ₜᶠ[e; F, F'] E') : E' ≃ₜᶠ[e.symm; F', F] E where
+  toFun := e'.invFun
+  invFun := e'.toFun
+  left_inv' := e'.right_inv'
+  right_inv' := e'.left_inv'
+  continuous_toFun := e'.continuous_invFun
+  continuous_invFun := e'.continuous_toFun
+
+@[simp]
+lemma invFun_eq_coe (e' : E ≃ₜᶠ[e; F, F'] E') : e'.invFun = e'.symm := rfl
+
+/-- The inverse of a bundle isomorphism, as an isomorphism along `Homeomorph.symm e` instead of
+`Equiv.symm e`.
+TODO: replace `.symm` with this -/
+def symm' [TopologicalSpace B] [TopologicalSpace B'] {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] E') :
+    E' ≃ₜᶠ[e.symm; F', F] E where
   toFun := e'.invFun
   invFun := e'.toFun
   left_inv' := e'.right_inv'
@@ -274,7 +301,7 @@ def pullbackCongr {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] E') {B'' B''' : 
     refine (e'.continuous_toFun.comp <| Pullback.continuous_lift _ _ f).congr fun ⟨b, x⟩ ↦ ?_
     ext
     · simpa using congrFun h b
-    · simp; rfl
+    · simp
   continuous_invFun := by
     refine (Pullback.TotalSpace.continuous_iff _).2
       ⟨e''.symm.continuous.comp <| Pullback.continuous_proj _ _ _, ?_⟩
@@ -282,7 +309,7 @@ def pullbackCongr {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] E') {B'' B''' : 
     ext
     · have := congrFun h (e''.symm b)
       simp_all [e.symm_apply_eq]
-    · simp; rfl
+    · simp
 
 /-- The pullback of a trivial bundle is isomorphic to a trivial bundle. -/
 def pullbackTrivialIso (f : C(B', B)) : f *ᵖ (Trivial B F) ≃ₜᶠ[F, F] Trivial B' F where
@@ -316,5 +343,38 @@ def pullbackPullbackIso (f : C(B', B)) (g : C(B'', B')) :
     refine (Pullback.continuous_lift F E (f.comp g)).congr ?_
     simp [Function.comp_def, Pullback.lift, TotalSpace.map]
 
+set_option backward.isDefEq.respectTransparency false in
+/-- Every isomorphism of bundles induces a bijection between their spaces of sections. -/
+def continuousSectionEquiv {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] E') :
+    Cₛ⟮F, E⟯ ≃ Cₛ⟮F', E'⟯ where
+  toFun s := e'.toHom.compContinuousSection s
+  invFun s := e'.symm'.toHom.compContinuousSection s
+  left_inv s := by
+    ext
+    simp only [ContinuousBundleHom.compContinuousSection, Homeomorph.symm_symm, toHom,
+      EquivLike.coe_coe, symm', ContinuousBundleHom.coeFn_mk, ContinuousSection.coeFn_mk]
+    erw [coe_mk]
+    suffices h : ∀ (b b' : B') (h : b = b') (x : E' b),
+        e'.invFun _ (cast (congrArg E' h) x) = cast (by rw [h]) (e'.symm _ x) by
+      simp only [Homeomorph.symm_apply_apply, h, cast_cast]
+      erw [right_inv]
+      simp only [EquivLike.coe_coe, cast_cast]
+      exact cast_eq_iff_heq.2 <| congr_arg_heq _ <| by simp
+    intro b b' rfl x
+    simp
+  right_inv s := by
+    ext
+    simp only [ContinuousBundleHom.compContinuousSection, Homeomorph.symm_symm, toHom,
+      EquivLike.coe_coe, symm', ContinuousBundleHom.coeFn_mk, ContinuousSection.coeFn_mk]
+    erw [coe_mk (toFun := e'.invFun)]
+    suffices h : ∀ (b b' : B) (h : b = b') (x : E b),
+        e' _ (cast (congrArg E h) x) = cast (by rw [h]) (e' _ x) by
+      erw [h _ _ (by simp)]
+      simp only [EquivLike.coe_coe, invFun_eq_coe, cast_cast]
+      erw [left_inv]
+      simp only [EquivLike.coe_coe, cast_cast]
+      exact cast_eq_iff_heq.2 <| congr_arg_heq _ <| by simp
+    intro b b' rfl x
+    simp
 
 end ContinuousBundleIso
