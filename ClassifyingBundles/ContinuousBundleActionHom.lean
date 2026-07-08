@@ -3,7 +3,7 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
-import ClassifyingBundles.ContinuousBundleHom
+import ClassifyingBundles.ContinuousBundleIso
 import Mathlib.Topology.Algebra.Group.Torsor
 
 /-! # Bundled continuous fibrewise equivariant maps between fibre bundles-/
@@ -104,3 +104,40 @@ def pullbackEquiv : Cᶠₑ[φ, f]⟮F, E; F', E'⟯ ≃ Cᶠₑ[φ]⟮F, E; F',
   right_inv _ := rfl
 
 end ContinuousBundleActionHom
+
+variable [TopologicalSpace B] [TopologicalSpace B'] (φ : G ≃ H) (e : B ≃ₜ B')
+
+variable {G H} in
+/-- A continuous fibrewise equivariant isomorphism between bundles, relative to given maps of the
+base spaces and groups/monoids. -/
+structure ContinuousBundleActionEquiv (φ : G ≃ H) (e : B ≃ₜ B') extends
+    E ≃ₜᶠ[e; F, F'] E', Cᶠₑ[φ, e]⟮F, E; F', E'⟯ where
+
+@[inherit_doc] scoped[Bundle] notation E " ≃ₜᶠₑ[" φ ", " e "; " F ", " F' "] " E' =>
+  ContinuousBundleActionEquiv F E F' E' φ e
+
+/-- A continuous fibrewise equivariant isomorphism between bundles over the same base space. -/
+scoped[Bundle] notation E " ≃ₜᶠₑ["G "; " F ", " F' "] " E' =>
+  ContinuousBundleActionEquiv F E F' E' (Equiv.refl G) (Homeomorph.refl _)
+
+namespace  ContinuousBundleActionEquiv
+
+variable {G F E H F' E' φ e}
+
+instance instDFunLike : DFunLike (E ≃ₜᶠₑ[φ, e; F, F'] E') B (fun b ↦ (E b → E' (e b))) where
+  coe f := f.toFun
+  coe_injective := by rintro ⟨⟩ ⟨⟩ h; congr; exact DFunLike.coe_injective h
+
+@[simp]
+lemma toFun_eq_coe (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') : e'.toFun = e' := rfl
+
+@[simp]
+lemma coe_toContinuousBundleIso (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') :
+    ⇑e'.toContinuousBundleIso = e' := rfl
+
+@[simp]
+lemma map_smul (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') (g : G) {b : B} (x : E b) :
+    e' b (g • x) = φ g • e' b x :=
+  e'.map_smul' g x
+
+end ContinuousBundleActionEquiv

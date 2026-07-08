@@ -251,16 +251,25 @@ instance [IsPrincipalBundle G F E] [Nonempty Cᶠ[f]⟮F', E'; F, E⟯] :
 end ContinuousBundleHom
 
 omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
-/-- A principal bundle is trivial if and only if it admits a continuous global section. -/
-lemma Bundle.isTrivial_iff_nonempty_continuousSection [IsPrincipalBundle G F E] :
-    IsTrivial F E ↔ Nonempty Cₛ⟮F, E⟯ := by
-  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
-  · have ⟨e⟩ := h
+/-- For a principal bundle `E`, the following are equivalent:
+* `E` is trivial as a fibre bundle, i.e. it admits a global not necessarily equivariant
+  trivialisation
+* `E` admits a global equivariant trivialisation
+* `E` admits an equivariant isomorphism to a trivial bundle
+* `E` admits a global section.
+
+These are only the characterisations of `IsTrivial` that are specific to principal
+bundles; see the API around `IsTrivial` for more general ones. -/
+lemma IsPrincipalBundle.isTrivial_tfae [IsPrincipalBundle G F E] :
+    [IsTrivial F E,
+      Nonempty (E ≃ₜᶠₑ[G; F, G] Trivial B G),
+      ∃ e : Trivialization F (π F E), e.IsEquivariant G ∧ e.baseSet = .univ,
+      Nonempty Cₛ⟮F, E⟯].TFAE := by
+  tfae_have 1 → 4 := fun ⟨e⟩ ↦ by
     rw [show Equiv.refl B = Homeomorph.refl B from rfl] at e
     exact ⟨e.continuousSectionEquiv.symm <|
       ContinuousSection.equivContinuousMap.symm <| .const _ <| Classical.arbitrary _⟩
-  · obtain ⟨s⟩ := h
-    exact isTrivial_of_continuousBundleIso (E := E) (F := F) (F' := G) (e := .refl B) {
+  tfae_have 4 → 2 := fun ⟨s⟩ ↦ ⟨{
       toFun b x := x /ₛ s b
       invFun b g := g • s b
       left_inv' b g := smul_sdiv _ _
@@ -274,7 +283,27 @@ lemma Bundle.isTrivial_iff_nonempty_continuousSection [IsPrincipalBundle G F E] 
         let f₁ : C(TotalSpace G (Trivial B G), G) := ⟨TotalSpace.trivialSnd B G, by fun_prop⟩
         let f₂ : Cᶠ[ContinuousMap.id B]⟮G, Trivial B G; F, E⟯ :=
           .ofContinuousSection _ _ (.refl _) s
-        exact (f₁ • f₂).continuous_toFun }
+        exact (f₁ • f₂).continuous_toFun
+      map_smul' g b x := by simp [smul_sdiv_assoc] }⟩
+  tfae_have 2 → 3 := fun ⟨e⟩ ↦ by
+    refine ⟨{
+      __ := (e.toHomeomorph.trans (Trivial.homeomorphProd B G) |>.trans
+        (.prodCongr (.refl _) (.smulConst (Classical.arbitrary F)))).toOpenPartialHomeomorph
+      baseSet := .univ
+      open_baseSet := isOpen_univ
+      source_eq := by simp
+      target_eq := by simp
+      proj_toFun := by simp [ContinuousBundleIso.toHomeomorph] }, ⟨?_⟩, ?_⟩
+    · simp [ContinuousBundleIso.toHomeomorph, mul_smul]
+    · simp
+  tfae_have 3 → 1 := fun ⟨e, he⟩ ↦ (isTrivial_iff_exists_trivialization _ _).2 ⟨e, he.2⟩
+  tfae_finish
+
+omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+/-- A principal bundle is trivial if and only if it admits a continuous global section. -/
+lemma Bundle.isTrivial_iff_nonempty_continuousSection [IsPrincipalBundle G F E] :
+    IsTrivial F E ↔ Nonempty Cₛ⟮F, E⟯ :=
+  IsPrincipalBundle.isTrivial_tfae.out 0 3
 
 section Pullback
 
