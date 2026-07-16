@@ -49,20 +49,21 @@ lemma isTrivial_iff_exists_trivialization :
 instance [IsEmpty B] : IsEmpty (TotalSpace F E) :=
   TotalSpace.proj.isEmpty
 
+lemma isTrivial_of_empty [IsEmpty (TotalSpace F E)] [IsEmpty (B × F)] : IsTrivial F E := by
+  rw [isTrivial_iff_isHomeomorphicTrivialFiberBundle]
+  exact ⟨Homeomorph.empty, fun x ↦ IsEmpty.elim inferInstance x⟩
+
 variable [∀ b, TopologicalSpace (E b)] [FiberBundle F E] in
 /-- To show that a bundle is trivial it suffices to give an isomorphism to any trivial bundle, not
 just a bundle with the same base space and standard fibre. This works only if the bundle is already
 known to be a fibre bundle, because otherwise the standard fibre `F` could be anything. -/
 lemma isTrivial_of_continuousBundleIso {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] Trivial B' F') :
     IsTrivial F E := by
-  obtain _ | _ := isEmpty_or_nonempty B
-  · rw [isTrivial_iff_isHomeomorphicTrivialFiberBundle]
-    exact ⟨Homeomorph.empty, fun x ↦ IsEmpty.elim inferInstance x⟩
-  · refine ⟨?_⟩
-    have e'' : F ≃ₜ F' :=
-      (FiberBundle.homeomorphAt F E _).symm.trans (e'.homeomorphAt (Classical.arbitrary _))
-    have : CompTriple (e : Equiv B B') (e : Equiv B B').symm (Equiv.refl B) := ⟨by simp⟩
-    exact e'.trans <| (ContinuousBundleIso.trivialCongr e e'').symm
+  refine (isEmpty_or_nonempty B).rec (fun _ ↦ isTrivial_of_empty F E) fun _ ↦ ⟨?_⟩
+  have e'' : F ≃ₜ F' :=
+    (FiberBundle.homeomorphAt F E _).symm.trans (e'.homeomorphAt (Classical.arbitrary _))
+  have : CompTriple (e : Equiv B B') (e : Equiv B B').symm (Equiv.refl B) := ⟨by simp⟩
+  exact e'.trans <| (ContinuousBundleIso.trivialCongr e e'').symm
 
 variable [∀ b, TopologicalSpace (E b)] [FiberBundle F E] in
 lemma _root_.ContinuousBundleIso.isTrivial {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] E')
@@ -86,6 +87,7 @@ lemma IsTrivial.pullback {f : C(B', B)} (h : IsTrivial F E) : IsTrivial F (f *�
 
 /-- The inclusion of a subset of a topological space, as a continuous map.
 TODO: move to some more fitting place. -/
+@[simps]
 def _root_.ContinuousMap.subtypeVal {X : Type*} [TopologicalSpace X] {s : Set X} :
     C(s, X) where
   toFun := (↑)
@@ -241,6 +243,19 @@ lemma exists_mem_nhds_isTrivialOn [FiberBundle F E] (b : B) : ∃ u ∈ 𝓝 b, 
   ⟨_, (trivializationAt F E b).open_baseSet.mem_nhds (mem_baseSet_trivializationAt F E b),
     (trivializationAt F E b).isTrivialOn_baseSet⟩
 
+@[simp]
+lemma isTrivialOn_univ [FiberBundle F E] : IsTrivialOn F E .univ ↔ IsTrivial F E := by
+  refine (isEmpty_or_nonempty B).rec (fun _ ↦ ?_) (fun _ ↦ ?_)
+  · simp [Set.univ_eq_empty_iff.2 ‹_›, isTrivialOn_empty, isTrivial_of_empty]
+  · rw [isTrivial_iff_exists_trivialization,
+      isTrivialOn_iff_exists_trivialization F E isOpen_univ Set.univ_nonempty]
+
+lemma IsTrivial.isTrivialOn [FiberBundle F E] [∀ b, Zero (E b)] (h : IsTrivial F E) {s : Set B} :
+    IsTrivialOn F E s :=
+  ((isTrivialOn_univ F E).2 h).mono F E (by grind)
+
+section DisjointUnion
+
 /-- If a bundle is trivial on two disjoint open sets, it is also trivial on their union.
 TODO: generalise to non-open sets that are separated by open neighbourhoods
 TODO: generalise to indexed unions -/
@@ -257,6 +272,94 @@ lemma IsTrivialOn.disjointUnion [FiberBundle F E] {s t : Set B} (hs : IsTrivialO
       refine (isTrivialOn_iff_exists_trivialization _ _ (hs'.union ht') (by simp [hs''])).2 ?_
       use e.disjointUnion e' (by simp_all)
       simp [Trivialization.disjointUnion, he, he']
+
+/-- The homeomorphism between a disjoint union of sets and a disjoint union of the corresponding
+subtypes when each set has a neighbourhood that is disjoint from all other sets.
+
+This condition is the precise condition needed for the bijection to be a homeomorphism:
+see `inducing_sigma`. A weaker condition like any two sets in the family having disjoint
+neighbourhoods is not enough, as the example of infinite collections of singletons in
+Hausdorff spaces shows. -/
+@[simps! symm_apply_coe]
+noncomputable def _root_.Homeomorph.Set.iUnion {X : Type*} [TopologicalSpace X] {ι : Type*}
+    {s : ι → Set X} (hs : ∀ i, ∃ u ∈ 𝓝ˢ (s i), ∀ j ≠ i, Disjoint u (s j)) :
+    ⋃ i, s i ≃ₜ Σ i, s i := by
+  refine ((Set.unionEqSigmaOfDisjoint fun i j h ↦ ?_).symm.toHomeomorphOfIsInducing ?_).symm
+  · have ⟨u, hu, hu'⟩ := hs i
+    exact (hu' j h.symm).mono_left (subset_of_mem_nhdsSet hu)
+  · refine inducing_sigma.2 ⟨fun i ↦ ?_, fun i ↦ ?_⟩
+    · simp [Function.comp_def, ← IsInducing.subtypeVal.of_comp_iff, IsInducing.subtypeVal]
+    · have ⟨u, hu, hu'⟩ := hs i
+      have ⟨v, hvu, hv, hv'⟩ := mem_nhdsSet.1 hu
+      refine ⟨(↑) ⁻¹' v, hv.preimage_val, fun x ↦ ⟨fun h ↦ ?_, ?_⟩⟩
+      · simp only [Set.mem_preimage, Set.coe_unionEqSigmaOfDisjoint_symm_apply] at h
+        contrapose! h
+        exact Set.notMem_subset hvu <| (hu' _ h).notMem_of_mem_right x.snd.2
+      · intro rfl
+        simpa using hv' x.snd.2
+
+@[simp]
+lemma _root_.Homeomorph.Set.iUnion_apply_snd_coe {X : Type*} [TopologicalSpace X] {ι : Type*}
+    {s : ι → Set X} (hs : ∀ i, ∃ u ∈ 𝓝ˢ (s i), ∀ j ≠ i, Disjoint u (s j)) {x : ⋃ i, s i} :
+    ((Homeomorph.Set.iUnion hs x).snd : X) = x := by
+  simp [Homeomorph.Set.iUnion]
+
+/-- The canonical homeomorphism between the total space of any bundle on a disjoint union and the
+disjoint union of the total spaces of the restrictions. -/
+@[simps!]
+def TotalSpace.homeomorphSigma {ι : Type*} {B : ι → Type*} [∀ i, TopologicalSpace (B i)]
+    (E : (Σ i, B i) → Type*) [∀ b, TopologicalSpace (E b)] [TopologicalSpace (TotalSpace F E)]
+    [FiberBundle F E] :
+    TotalSpace F E ≃ₜ Σ i, (TotalSpace F (ContinuousMap.sigmaMk i *ᵖ E)) := by
+  refine .symm <| Equiv.toHomeomorphOfIsInducing
+    { toFun x := ⟨⟨x.1, x.2.1⟩, x.2.2⟩, invFun x := ⟨x.1.1, x.1.2, x.2⟩ } ?_
+  refine inducing_sigma.2 ⟨fun i ↦ IsEmbedding.sigmaMk.isInducing.pullbackLift F E, fun i ↦ ?_⟩
+  exact ⟨_, (isOpen_sigma_fst_preimage {i}).preimage <| FiberBundle.continuous_proj F E, by simp⟩
+
+/-- The homeomorphism between two sigma types induced by homeomorphisms between the summands. -/
+@[simps!]
+def _root_.Homeomorph.sigmaCongrRight {ι : Type*} {X : ι → Type*} {X' : ι → Type*}
+    [∀ i, TopologicalSpace (X i)] [∀ i, TopologicalSpace (X' i)] (F : (i : ι) → X i ≃ₜ X' i) :
+    (Σ i, X i) ≃ₜ Σ i, X' i where
+  toEquiv := Equiv.sigmaCongrRight (fun i ↦ F i)
+  continuous_toFun := continuous_sigma fun i ↦ continuous_sigmaMk.comp (map_continuous (F i))
+  continuous_invFun := continuous_sigma fun i ↦ continuous_sigmaMk.comp (map_continuous (F i).symm)
+
+lemma isTrivial_sigma_iff {ι : Type*} {B : ι → Type*} [∀ i, TopologicalSpace (B i)]
+    (E : (Σ i, B i) → Type*) [∀ b, TopologicalSpace (E b)] [TopologicalSpace (TotalSpace F E)]
+    [FiberBundle F E] : IsTrivial F E ↔ ∀ i, IsTrivial F (ContinuousMap.sigmaMk i *ᵖ E) := by
+  refine ⟨fun h i ↦ h.pullback _ _, fun h ↦ ?_⟩
+  simp only [isTrivial_iff_isHomeomorphicTrivialFiberBundle] at h ⊢
+  choose e he using h
+  refine ⟨(TotalSpace.homeomorphSigma F E).trans (.sigmaCongrRight e) |>.trans
+    Homeomorph.sigmaProdDistrib.symm, fun x ↦ ?_⟩
+  ext
+  · rfl
+  · simp [Homeomorph.sigmaProdDistrib, Equiv.sigmaProdDistrib, TotalSpace.homeomorphSigma, he]; rfl
+
+/-- A fiber bundle that is trivial on a family of disjoint sets is also trivial on their union, as
+long as each set admits a neighbourhood separating it from the rest.
+
+TODO: get rid of the unnecessary `[∀ b, Zero (E b)]` assumption. -/
+lemma IsTrivialOn.disjointIUnion [FiberBundle F E] [∀ b, Zero (E b)] {ι : Type*} {s : ι → Set B}
+    (hs : ∀ i, ∃ u ∈ 𝓝ˢ (s i), ∀ j ≠ i, Disjoint u (s j)) (h : ∀ i, IsTrivialOn F E (s i)) :
+    IsTrivialOn F E (⋃ i, s i) := by
+  unfold IsTrivialOn at h ⊢
+  rw [show ContinuousMap.subtypeVal = .comp (.sigma fun _ ↦ .subtypeVal)
+    (Homeomorph.Set.iUnion hs : C(⋃ i, s i, Σ i, s i)) by ext; simp]
+  have e := ContinuousBundleIso.pullbackPullbackIso (E := E) (F := F)
+    (.sigma fun _ ↦ .subtypeVal) (Homeomorph.Set.iUnion hs : C(⋃ i, s i, Σ i, s i))
+  rw [show Equiv.refl _ = (Homeomorph.refl (⋃ i, s i) : Equiv (⋃ i, s i) (⋃ i, s i)) from rfl] at e
+  have _ b : Zero ((ContinuousMap.sigma (fun i ↦ .subtypeVal (s := s i)) *ᵖ E) b) :=
+    inferInstanceAs (Zero (E b.snd))
+  refine (e.isTrivial_iff _ _).1 <| IsTrivial.pullback F _ <| (isTrivial_sigma_iff F _).2 fun i ↦ ?_
+  have e := ContinuousBundleIso.pullbackPullbackIso (E := E) (F := F)
+    (.sigma fun _ ↦ .subtypeVal) (ContinuousMap.sigmaMk i : C(_, Σ i, s i))
+  rw [show Equiv.refl _ = (Homeomorph.refl (s i) : Equiv (s i) (s i)) from rfl] at e
+  refine e.isTrivial _ _ _ _ ?_
+  convert h i <;> ext <;> rfl
+
+end DisjointUnion
 
 open Classical in
 /-- The union of two open partial homeomorphisms that agree on the intersection of their domains. -/
