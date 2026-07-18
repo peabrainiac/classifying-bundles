@@ -7,6 +7,7 @@ import ClassifyingBundles.ContinuousBundleIso
 import Mathlib.Topology.Algebra.Group.Torsor
 import Mathlib.Topology.FiberBundle.IsHomeomorphicTrivialBundle
 import Mathlib.Topology.Order.NhdsSet
+import Mathlib.Topology.PartitionOfUnity
 
 /-! ## An `IsTrivial` / `IsTrivialOn` predicate for bundles -/
 
@@ -565,5 +566,133 @@ lemma exists_isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSp
     simp [Prod.ext_iff, show x ∈ e₁.source by grind [e₁.source_eq],
       show x ∈ e₂.source by grind [e₂.source_eq], show x.1.2 ≤ t' by grind,
       show x.proj ∈ e₂.baseSet by grind]
+
+lemma _root_.Finset.ne_iff_of_card_eq {α : Type*} {s t : Finset α} (h : s.card = t.card) :
+    s ≠ t ↔ (∃ x ∈ s, x ∉ t) ∧ ∃ x ∈ t, x ∉ s := by
+  refine ⟨fun h' ↦ ?_, fun _ ↦ by grind⟩
+  wlog _ : ∃ x ∈ s, x ∉ t generalizing s t with h''
+  · grind [h'' h.symm h'.symm (by grind)]
+  refine ⟨‹_›, ?_⟩
+  suffices ¬t ⊂ s by grind
+  exact fun h ↦ by grind [Finset.card_lt_card h]
+
+lemma _root_.PartitionOfUnity.finsupport_nonempty {X : Type*} [TopologicalSpace X] {ι : Type*}
+    {s : Set X} (f : PartitionOfUnity ι X s) {x : X} (hx : x ∈ s) : (f.finsupport x).Nonempty :=
+  (f.exists_pos hx).imp fun _ h ↦ by simpa using h.ne'
+
+lemma _root_.PartitionOfUnity.fintsupport_nonempty {X : Type*} [TopologicalSpace X] {ι : Type*}
+    {s : Set X} (f : PartitionOfUnity ι X s) {x : X} (hx : x ∈ s) : (f.fintsupport x).Nonempty :=
+  (f.finsupport_nonempty hx).mono (f.finsupport_subset_fintsupport x)
+
+def _root_.PartitionOfUnity.continuous_ciSup {X : Type*} [TopologicalSpace X] {ι : Type*}
+    (f : PartitionOfUnity ι X) (s : Set ι) : Continuous fun x ↦ ⨆ i ∈ s, f i x := by
+  refine s.eq_empty_or_nonempty.rec (fun h ↦ by simp [continuous_const, h]) fun hs ↦ ?_
+  refine .congr (f := fun x ↦ sSup ((fun i ↦ f i x) '' s)) ?_ fun x ↦ by
+    have h : BddAbove (Set.range fun i : s ↦ (f ↑i) x) := ⟨1, fun _ ⟨_, h⟩ ↦ h ▸ f.le_one _ _⟩
+    rw [← csSup_image h (le_ciSup_of_le h _ <| by simpa using f.nonneg hs.to_subtype.some x)]
+  refine continuous_iff_continuousAt.2 fun x ↦ ?_
+  let s' := ((f.fintsupport x).finite_toSet.inter_of_left s).toFinset
+  obtain hs' | hs' := s'.eq_empty_or_nonempty
+  · simp only [Set.Finite.toFinset_eq_empty, ← Set.disjoint_iff_inter_eq_empty, s'] at hs'
+    refine .congr_of_eventuallyEq (f := 0) continuousAt_const <|
+      (f.eventually_finsupport_subset x).mono fun x' h ↦ ?_
+    suffices (fun i ↦ f i x') '' s = {0} by simp [*]
+    suffices h : ∀ i ∈ s, f i x' = 0 by
+      refine subset_antisymm (fun _ ⟨i, hi⟩ ↦ hi.2 ▸ h i hi.1) fun x hx ↦ ?_
+      exact ⟨_, hs.choose_spec, hx ▸ h _ hs.choose_spec⟩
+    intro i hi
+    simpa using Finset.notMem_mono h <| hs'.notMem_of_mem_right hi
+  refine .congr_of_eventuallyEq (f := s'.sup' hs' fun i ↦ f i) (.finset_sup' hs' (by fun_prop)) <|
+    (f.eventually_finsupport_subset x).mono fun x' h ↦ ?_
+  refine le_antisymm ?_ ?_
+  · simp only [Finset.sup'_apply, Finset.sup'_eq_csSup_image]
+    refine csSup_le (hs.image _) ?_
+    rintro _ ⟨i, hi, rfl⟩
+    by_cases hi' : i ∈ f.fintsupport x
+    · exact le_csSup ⟨1, fun _ ⟨_, h⟩ ↦ h.2 ▸ f.le_one _ _⟩ ⟨i, by simp [s', *], rfl⟩
+    · simp only [show (f i) x' = 0 by simpa using Finset.notMem_mono h hi']
+      exact le_csSup_of_le ⟨1, fun _ ⟨_, h⟩ ↦ h.2 ▸ f.le_one _ _⟩ ⟨_, hs'.choose_spec, rfl⟩ <|
+        f.nonneg _ _
+  · rw [Finset.sup'_apply, Finset.sup'_le_iff]
+    exact fun i hi ↦ le_csSup ⟨1, fun _ ⟨_, h⟩ ↦ h.2 ▸ f.le_one _ _⟩ <|
+      Set.mem_image_of_mem _ (by simp_all [s'])
+
+/-- For every open cover of a paracompact Hausdorff space, there exists a countable locally finite
+replacement with the property that every set in the replacement is a disjoint union of open subsets
+of sets in the original cover.
+
+This can be useful for example to prove that a fibre bundle can be trivialised on a countable
+locally finite cover. -/
+def _root_.ParacompactSpace.countable_locallyFinite_replacement
+    {X : Type*} [TopologicalSpace X] [ParacompactSpace X] [T2Space X]
+    {ι : Type*} [Nonempty ι] {u : ι → Set X} (hu : ∀ i, IsOpen (u i)) (hu' : ⋃ i, u i = .univ) :
+    ∃ v : ℕ → Set X, LocallyFinite v ∧ ∀ i : ℕ, ∃ u' : Set (Set X), ⋃₀ u' = v i ∧
+      (Pairwise fun s t : u' ↦ Disjoint (s : Set X) t) ∧ ∀ s ∈ u', IsOpen s ∧ ∃ i, s ⊆ u i := by
+  wlog! _ : Infinite ι generalizing ι with h
+  · have ⟨n, ⟨e⟩⟩ := Finite.exists_equiv_fin ι
+    let v := (Fin.val ∘ e).extend u (fun _ ↦ ∅)
+    have hv : ∀ i (hi : i < n), v i = u (e.symm ⟨i, hi⟩) := fun i hi ↦ by
+      rw [show v i = v (Fin.val <| e <| e.symm ⟨i, hi⟩) by simp]
+      unfold v
+      rw [Function.comp_def, Function.Injective.extend_apply]
+      exact Fin.val_injective.comp e.injective
+    have hv' : ∀ i ≥ n, v i = ∅ := fun i hi ↦ by grind [Function.extend_apply']
+    refine ⟨v, fun _ ↦ ?_, fun i ↦ ?_⟩
+    · refine ⟨_, Filter.univ_mem, .subset (Set.finite_Iio n) fun i hi ↦ ?_⟩
+      grind [Set.inter_univ, Set.not_nonempty_empty]
+    · refine ⟨{v i}, by simp, by simp, ?_⟩
+      rintro _ rfl
+      by_cases! hi : n ≤ i
+      · simp [hv', hi]
+      · grind
+  have ⟨f, hf⟩ := PartitionOfUnity.exists_isSubordinate isClosed_univ u hu (by rw [hu'])
+  use fun n ↦ {x | ∃ s : Finset ι, s.card = n + 1 ∧ ∀ i ∈ s, ∀ j ∉ s, f i x > f j x}
+  refine ⟨fun x ↦ ?_, fun n ↦ ?_⟩
+  · refine (f.locallyFinite x).imp (fun s ↦ .imp_right fun hs ↦ ?_)
+    rw [Set.finite_iff_bddAbove]
+    use Set.ncard {i | ((fun i ↦ Function.support ⇑(f i)) i ∩ s).Nonempty}
+    intro n ⟨x, ⟨t, ht, ht'⟩, hxs⟩
+    exact n.lt_add_one.le.trans <| ((Set.ncard_coe_finset _).trans ht).symm.trans_le <|
+      Set.ncard_le_ncard (ht := hs) fun i hi ↦
+        ⟨x, ((f.nonneg _ _).trans_lt <| ht' i hi _ t.exists_notMem.choose_spec).ne', hxs⟩
+  · use {v | ∃ s : Finset ι, s.card = n + 1 ∧ v = {x | ∀ i ∈ s, ∀ j ∉ s, f j x < f i x}}
+    refine ⟨by ext; simp, fun v v' hv ↦ ?_, ?_⟩
+    · have ⟨s, hs⟩ := v.2; have ⟨s', hs'⟩ := v'.2
+      grind [Finset.ne_iff_of_card_eq (hs.1.trans hs'.1.symm) |>.1 (by grind)]
+    · rintro v ⟨s, hs, rfl⟩
+      replace hs := s.card_pos.1 (by lia)
+      refine ⟨?_, ?_⟩
+      · convert isOpen_lt (f.continuous_ciSup sᶜ) <|
+          Continuous.finset_inf' hs (fun i _ ↦ map_continuous (f i)) with x
+        have hs' := s.finite_toSet.infinite_compl.nonempty.to_subtype
+        have h : BddAbove (Set.range fun i : (sᶜ : Set ι) ↦ f i x) :=
+          ⟨1, fun _ ⟨_, h⟩ ↦ h ▸ f.le_one _ _⟩
+        rw [← csSup_image h (le_ciSup_of_le h _ <| by simpa using f.nonneg hs'.some x)]
+        simp only [Finset.inf'_apply, Finset.lt_inf'_iff]
+        refine ⟨fun h' i hi ↦ ?_, fun h' i hi j hj ↦ ?_⟩
+        · classical
+          let s' : Finset ι := {i ∈ f.finsupport x | i ∉ s}
+          obtain hs'' | hs'' := s'.eq_empty_or_nonempty
+          · suffices (fun i ↦ f i x) '' sᶜ = {0} by
+              simp [*, (f.nonneg _ _).trans_lt <| h' i hi _ s.exists_notMem.choose_spec]
+            suffices h : ∀ i ∈ (s : Set _)ᶜ, f i x = 0 by
+              refine subset_antisymm (fun _ ⟨i, hi⟩ ↦ hi.2 ▸ h i hi.1) fun x hx ↦ ?_
+              exact ⟨_, Set.Nonempty.of_subtype.choose_spec,
+                hx ▸ h _ Set.Nonempty.of_subtype.choose_spec⟩
+            intro i hi
+            have := hs'' ▸ Finset.notMem_empty i
+            simp_all [s']
+          · refine LE.le.trans_lt ?_ <| (Finset.sup'_lt_iff hs'').2 fun j hj ↦ h' i hi j (by grind)
+            refine csSup_le (Set.Nonempty.of_subtype.image _) ?_
+            rintro _ ⟨j, hj, rfl⟩
+            by_cases hj' : j ∈ f.finsupport x
+            · exact s'.le_sup' (fun i ↦ f i x) (b := j) (by grind)
+            · refine s'.le_sup'_of_le _ hs''.choose_spec <| .trans ?_ <| f.nonneg _ _
+              simp_all
+        · refine LE.le.trans_lt ?_ (h' i hi)
+          exact le_csSup ⟨1, fun _ ⟨_, h⟩ ↦ h.2 ▸ f.le_one _ _⟩ ⟨j, hj, rfl⟩
+      · obtain ⟨i, hi⟩ := hs
+        refine ⟨i, fun x hx ↦ hf i <| subset_closure ?_⟩
+        exact ((f.nonneg _ _).trans_lt <| hx i hi _ s.exists_notMem.choose_spec).ne'
 
 end Bundle
