@@ -622,7 +622,9 @@ replacement with the property that every set in the replacement is a disjoint un
 of sets in the original cover.
 
 This can be useful for example to prove that a fibre bundle can be trivialised on a countable
-locally finite cover. -/
+locally finite cover.
+
+TODO: generalise to numerable covers on arbitrary spaces -/
 def _root_.ParacompactSpace.countable_locallyFinite_replacement
     {X : Type*} [TopologicalSpace X] [ParacompactSpace X] [T2Space X]
     {ι : Type*} [Nonempty ι] {u : ι → Set X} (hu : ∀ i, IsOpen (u i)) (hu' : ⋃ i, u i = .univ) :
@@ -694,5 +696,48 @@ def _root_.ParacompactSpace.countable_locallyFinite_replacement
       · obtain ⟨i, hi⟩ := hs
         refine ⟨i, fun x hx ↦ hf i <| subset_closure ?_⟩
         exact ((f.nonneg _ _).trans_lt <| hx i hi _ s.exists_notMem.choose_spec).ne'
+
+/-- Every bundle on a paracompact Hausdorff space can be trivialised on some countable
+locally finite open cover. -/
+lemma exists_countable_isTrivialOn_cover [FiberBundle F E] [(b : B) → Zero (E b)]
+    [ParacompactSpace B] [T2Space B] :
+    ∃ u : ℕ → Set B, LocallyFinite u ∧ ∀ i, IsOpen (u i) ∧ IsTrivialOn F E (u i) := by
+  letI ι : Set (Set B) := {u | IsOpen u ∧ IsTrivialOn F E u}
+  have _ : Nonempty ι := ⟨⟨∅, isOpen_empty, isTrivialOn_empty F E⟩⟩
+  have h := ParacompactSpace.countable_locallyFinite_replacement (ι := ι)
+    (u := Subtype.val) (fun u ↦ u.2.1) <| Set.iUnion_eq_univ_iff.2 fun b ↦ by
+      have ⟨u, hu, hu'⟩ := exists_mem_nhds_isTrivialOn F E b
+      have ⟨v, hvu, hv, hbv⟩ := mem_nhds_iff.1 hu
+      use ⟨v, hv, hu'.mono F E hvu⟩
+  refine h.imp fun u ↦ .imp_right <| forall_imp fun i ⟨u', hu', hu'', hu'''⟩ ↦ ?_
+  rw [← hu']
+  refine ⟨isOpen_sUnion fun _ h ↦ (hu''' _ h).1, ?_⟩
+  rw [Set.sUnion_eq_iUnion]
+  refine IsTrivialOn.disjointIUnion F E (fun v ↦ ?_) (fun v ↦ ?_)
+  · exact ⟨v, (hu''' _ v.2).1.mem_nhdsSet_self, fun _ h ↦ hu'' h.symm⟩
+  · have ⟨i, hi⟩ := (hu''' _ v.2).2
+    exact .mono _ _ hi i.2.2
+
+/-- Every fibre bundle on `B × I` with `B` a paracompact Hausdorff space is trivial on sets of
+the form `u i ×ˢ Set.univ` for `u : ℕ → Set B` some countable locally finite open cover. -/
+lemma exists_countable_isTrivialOn_cover_prod_unitInterval (E : B × I → Type*)
+    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+    [∀ b, Zero (E b)] [ParacompactSpace B] [T2Space B] :
+    ∃ u : ℕ → Set B, LocallyFinite u ∧ ∀ i, IsOpen (u i) ∧ IsTrivialOn F E (u i ×ˢ .univ) := by
+  letI ι : Set (Set B) := {u | IsOpen u ∧ IsTrivialOn F E (u ×ˢ .univ)}
+  have _ : Nonempty ι := ⟨⟨∅, isOpen_empty, by simp [isTrivialOn_empty]⟩⟩
+  have h := ParacompactSpace.countable_locallyFinite_replacement (ι := ι)
+    (u := Subtype.val) (fun u ↦ u.2.1) <| Set.iUnion_eq_univ_iff.2 fun b ↦ by
+      have ⟨u, hu, hu', hu''⟩ := exists_isTrivialOn_prod_unitInterval F E b
+      exact ⟨⟨u, hu', hu''⟩, mem_of_mem_nhds hu⟩
+  refine h.imp fun u ↦ .imp_right <| forall_imp fun i ⟨u', hu', hu'', hu'''⟩ ↦ ?_
+  rw [← hu']
+  refine ⟨isOpen_sUnion fun _ h ↦ (hu''' _ h).1, ?_⟩
+  rw [Set.sUnion_eq_iUnion, Set.iUnion_prod_const]
+  refine IsTrivialOn.disjointIUnion F E (fun v ↦ ?_) (fun v ↦ ?_)
+  · refine ⟨v.1 ×ˢ .univ, ((hu''' _ v.2).1.prod isOpen_univ).mem_nhdsSet_self, fun _ h ↦ ?_⟩
+    exact Set.Disjoint.set_prod_left (hu'' h.symm) _ _
+  · have ⟨i, hi⟩ := (hu''' _ v.2).2
+    exact .mono _ _ (by grind) i.2.2
 
 end Bundle
