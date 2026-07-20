@@ -133,7 +133,7 @@ lemma isGBundle_iff_of_faithful : IsGBundle G F E ↔
   exact .mkOfFaithful G F E (fun e e' _ _ ↦ (h e e').choose)
     (fun e e' _ _ ↦ (h e e').choose_spec.1) (fun e e' _ _ ↦ (h e e').choose_spec.2)
 
-lemma _root_.Bundle.Trivialization.continuousOn_coordChange {B : Type*} {F : Type*}
+lemma _root_.Bundle.Trivialization.continuousOn_coordChange' {B : Type*} {F : Type*}
     {Z : Type*} [TopologicalSpace B] [TopologicalSpace F] {proj : Z → B} [TopologicalSpace Z]
     (e e' : Trivialization F proj) :
     ContinuousOn (fun x : B × F ↦ e.coordChange e' x.1 x.2)
@@ -166,7 +166,7 @@ continuity and compatibility on triple intersections follows automatically. -/
     rw [InducingSMul.continuousOn_iff (X := F)]
     refine .congr (f := fun x ↦ e'.coordChange e x.1 x.2) ?_ fun x hx ↦ (hg e e' x.1 hx.1 _).symm
     rw [Set.inter_comm]
-    exact e'.continuousOn_coordChange e
+    exact e'.continuousOn_coordChange' e
   coordChange_apply_eq_smul := hg
 
 /-- When `G` acts faithfully and the topology on it is induced by the action map to `C(F, F)`,
