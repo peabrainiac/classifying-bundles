@@ -43,6 +43,27 @@ lemma NumerableCover.exists_bumpCovering (hu : NumerableCover u) :
   obtain ⟨f, hf⟩ := hu
   exact ⟨_, hf.toBumpCovering⟩
 
+/-- Every covering with a subordinate positive partition is numerable. -/
+lemma PositivePartition.IsSubordinate.numerableCover {f : PositivePartition ι X}
+  (hf : f.IsSubordinate u) : NumerableCover u := hf.toPartitionOfUnity.numerableCover
+
+lemma NumerableCover.exists_positivePartition (hu : NumerableCover u) :
+    ∃ f : PositivePartition ι X, f.IsSubordinate u := by
+  obtain ⟨f, hf⟩ := hu
+  exact ⟨_, hf.toPositivePartition⟩
+
+lemma NumerableCover.tfae :
+    List.TFAE [NumerableCover u,
+      ∃ f : PartitionOfUnity ι X, f.IsSubordinate u,
+      ∃ f : BumpCovering ι X, f.IsSubordinate u,
+      ∃ f : PositivePartition ι X, f.IsSubordinate u] := by
+  tfae_have 1 ↔ 2 := Iff.rfl
+  tfae_have 1 → 3 := fun hu ↦ hu.exists_bumpCovering
+  tfae_have 3 → 1 := fun ⟨_, hf⟩ ↦ hf.numerableCover
+  tfae_have 1 → 4 := fun hu ↦ hu.exists_positivePartition
+  tfae_have 4 → 1 := fun ⟨_, hf⟩ ↦ hf.numerableCover
+  tfae_finish
+
 /-- Any cover that is refined by a numerable cover is numerable. -/
 lemma NumerableCover.mono (hu : NumerableCover u) {u' : ι → Set X} (h : ∀ i, u i ⊆ u' i) :
     NumerableCover u' :=

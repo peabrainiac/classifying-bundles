@@ -12,5 +12,6 @@ import ClassifyingBundles.Join
 import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.NumerableCover
 import ClassifyingBundles.PartitionOfUnity
+import ClassifyingBundles.PositivePartition
 import ClassifyingBundles.PrincipalBundle
 import ClassifyingBundles.TopologicalCategory

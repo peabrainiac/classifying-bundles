@@ -3,7 +3,7 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
-import Mathlib.Topology.PartitionOfUnity
+import ClassifyingBundles.PositivePartition
 
 /-! # Partitions of unity
 More API on continuous partitions of unity and bump coverings as already defined in mathlib.
@@ -206,6 +206,7 @@ lemma PartitionOfUnity.support_map {s : Set X} (f : PartitionOfUnity ι X s)
       grind [nonneg]
     · exact .inter_of_left (f.locallyFinite.point_finite x) _
 
+-- TODO: move
 lemma LocallyFinite.closure_biUnion {f : ι → Set X} {s : Set ι} (hf : LocallyFinite f) :
     closure (⋃ i ∈ s, f i) = ⋃ i ∈ s, closure (f i) := by
   simpa using (hf.comp_injective (ι' := s) Subtype.val_injective).closure_iUnion
