@@ -175,28 +175,109 @@ lemma NumerableCover.mono (hu : NumerableCover u) {u' : ι → Set X} (h : ∀ i
     NumerableCover u' :=
   hu.imp fun _ ↦ (.mono · h)
 
-/- TODO: finish this
+lemma finsum_fiberwise {α β : Type*} {M : Type*} [AddCommMonoid M] {f : α → M} {g : α → β}
+    (hf : f.HasFiniteSupport) : ∑ᶠ i, ∑ᶠ j ∈ g ⁻¹' {i}, f j = ∑ᶠ i, f i := by
+  classical
+  rw [finsum_eq_sum f hf, ← finsum_sum_filter g hf.toFinset f]
+  refine finsum_congr fun x ↦ finsum_cond_eq_sum_of_cond_iff _ ?_
+  grind [Finite.mem_toFinset, Function.mem_support]
+
+/-- The `ι'`-indexed partition of unity induced from an `ι`-indexed partition of unity by a map
+`g : ι → ι'`, defined by summing functions over the fibre of each index in `ι'` under `g`. -/
 noncomputable def PartitionOfUnity.map {s : Set X} (f : PartitionOfUnity ι X s)
     {ι' : Type*} (g : ι → ι') : PartitionOfUnity ι' X s where
   toFun i' := ⟨fun x ↦ ∑ᶠ i ∈ g ⁻¹' {i'}, f i x, by
     classical
     refine (f.continuous_finsum_smul (E := ℝ) (g := fun i _ ↦ if g i = i' then 1 else 0)
-      (fun _ _ _  ↦ continuousAt_const)).congr fun x ↦ ?_
-    simp
-    sorry⟩
-  locallyFinite' := by sorry
-  nonneg' := by sorry
-  sum_eq_one' := by sorry
-  sum_le_one' := by sorry
+      (fun _ _ _  ↦ continuousAt_const)).congr fun x ↦ finsum_congr <| fun i ↦ ?_
+    simp [finsum_eq_if]⟩
+  locallyFinite' x := by
+    refine (f.locallyFinite x).imp fun u ↦ .imp_right fun hu ↦ ?_
+    convert hu.image g; ext i'
+    suffices h : (Function.support fun x ↦ ∑ᶠ (i : ι) (_ : g i = i'), f i x) =
+        ⋃ i ∈ g ⁻¹' {i'}, Function.support (f i) by
+      simp [h, iUnion_inter, and_comm]
+    ext x
+    refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
+    · replace h := exists_ne_zero_of_finsum_mem_ne_zero h
+      simp only [mem_preimage, mem_singleton_iff, mem_iUnion, Function.mem_support,
+        exists_prop] at h ⊢
+      exact h
+    · refine (finsum_cond_pos (fun i _ ↦ f.nonneg i x) ?_ ?_).ne'
+      · simp only [mem_iUnion, Function.mem_support] at h
+        grind [nonneg]
+      · exact .inter_of_left (f.locallyFinite.point_finite x) _
+  nonneg' _ _ := finsum_nonneg fun _ ↦ finsum_nonneg fun _ ↦ f.nonneg _ _
+  sum_eq_one' x hx := (finsum_fiberwise <| f.locallyFinite.point_finite x).trans <| f.sum_eq_one hx
+  sum_le_one' x := (finsum_fiberwise <| f.locallyFinite.point_finite x).trans_le <| f.sum_le_one x
 
-/ -- A version of `NumerableCover.mono` for covers over different index types. - /
+lemma PartitionOfUnity.map_apply_eq_finsum {s : Set X} (f : PartitionOfUnity ι X s)
+    {ι' : Type*} {g : ι → ι'} {i' : ι'} {x : X} :
+    f.map g i' x = ∑ᶠ i ∈ g ⁻¹' {i'}, f i x :=
+  rfl
+
+open Classical in
+lemma PartitionOfUnity.map_apply_eq_finset_sum {s : Set X} (f : PartitionOfUnity ι X s)
+    {ι' : Type*} {g : ι → ι'} {i' : ι'} {x : X} {s' : Finset ι} (h : f.finsupport x ⊆ s') :
+    f.map g i' x = ∑ i ∈ {i ∈ s' | g i = i'}, f i x := by
+  rw [f.map_apply_eq_finsum, finsum_mem_eq_sum_of_inter_support_eq]
+  suffices ∀ i, f i x ≠ 0 → i ∈ s' by grind [Function.mem_support]
+  exact fun i hi ↦ @h i <| by simpa
+
+@[simp]
+lemma PartitionOfUnity.support_map {s : Set X} (f : PartitionOfUnity ι X s)
+    {ι' : Type*} {g : ι → ι'} {i' : ι'} :
+    Function.support (f.map g i') = ⋃ i ∈ g ⁻¹' {i'}, Function.support (f i) := by
+  ext x
+  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
+  · replace h := exists_ne_zero_of_finsum_mem_ne_zero h
+    simp only [mem_preimage, mem_singleton_iff, mem_iUnion, Function.mem_support,
+      exists_prop] at h ⊢
+    exact h
+  · refine (finsum_cond_pos (fun i _ ↦ f.nonneg i x) ?_ ?_).ne'
+    · simp only [mem_iUnion, Function.mem_support] at h
+      grind [nonneg]
+    · exact .inter_of_left (f.locallyFinite.point_finite x) _
+
+lemma LocallyFinite.closure_biUnion {f : ι → Set X} {s : Set ι} (hf : LocallyFinite f) :
+    closure (⋃ i ∈ s, f i) = ⋃ i ∈ s, closure (f i) := by
+  simpa using (hf.comp_injective (ι' := s) Subtype.val_injective).closure_iUnion
+
+@[simp]
+lemma PartitionOfUnity.tsupport_map {s : Set X} (f : PartitionOfUnity ι X s)
+    {ι' : Type*} {g : ι → ι'} {i' : ι'} :
+    tsupport (f.map g i') = ⋃ i ∈ g ⁻¹' {i'}, tsupport (f i) := by
+  simp only [tsupport, f.support_map, f.locallyFinite.closure_biUnion]
+
+@[simp]
+lemma PartitionOfUnity.finsupport_map {s : Set X} (f : PartitionOfUnity ι X s)
+    {ι' : Type*} [DecidableEq ι'] {g : ι → ι'} {x : X} :
+    (f.map g).finsupport x = (f.finsupport x).image g := by
+  simp only [finsupport, support_map, mem_iUnion, ← Finset.coe_inj,
+    Finite.coe_toFinset, Finset.coe_image]
+  grind
+
+@[simp]
+lemma PartitionOfUnity.fintsupport_map {s : Set X} (f : PartitionOfUnity ι X s)
+    {ι' : Type*} [DecidableEq ι'] {g : ι → ι'} {x : X} :
+    (f.map g).fintsupport x = (f.fintsupport x).image g := by
+  simp only [fintsupport, tsupport_map, mem_iUnion, ← Finset.coe_inj,
+    Finite.coe_toFinset, Finset.coe_image]
+  grind
+
+lemma PartitionOfUnity.IsSubordinate.map {s : Set X} {f : PartitionOfUnity ι X s}
+    (hf : f.IsSubordinate u) {ι' : Type*} {g : ι → ι'} {u' : ι' → Set X}
+    (h : ∀ i, u i ⊆ u' (g i)) : (f.map g).IsSubordinate u' := by
+  simp only [IsSubordinate, tsupport_map, Set.iUnion₂_subset_iff] at hf ⊢
+  rintro _ i rfl
+  exact (hf i).trans (h i)
+
+/-- A version of `NumerableCover.mono` for covers over different index types. -/
 lemma NumerableCover.mono' (hu : NumerableCover u) {ι' : Type*} {u' : ι' → Set X}
     (h : ∀ i, ∃ i', u i ⊆ u' i') : NumerableCover u' := by
   obtain ⟨f, hf⟩ := hu
   choose g hg using h
-  use f.map g
-
-  sorry-/
+  exact ⟨f.map g, hf.map hg⟩
 
 lemma NumerableCover.of_paracompactSpace [ParacompactSpace X] [T2Space X]
     (hu : ∀ x, ∃ i, u i ∈ 𝓝 x) : NumerableCover u := by
