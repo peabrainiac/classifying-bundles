@@ -122,3 +122,106 @@ protected lemma NumerableCover.interior (hu : NumerableCover u) :
     NumerableCover fun i ↦ interior (u i) := by
   have ⟨u', hu', hu'', hu'''⟩ := hu.locallyFinite_open_refinement
   exact hu''.mono fun i ↦ (hu''' i).1.subset_interior_iff.2 (hu''' i).2
+
+-- TODO: move
+lemma Finset.ne_iff_of_card_eq {α : Type*} {s t : Finset α} (h : s.card = t.card) :
+    s ≠ t ↔ (∃ x ∈ s, x ∉ t) ∧ ∃ x ∈ t, x ∉ s := by
+  refine ⟨fun h' ↦ ?_, fun _ ↦ by grind⟩
+  wlog _ : ∃ x ∈ s, x ∉ t generalizing s t with h''
+  · grind [h'' h.symm h'.symm (by grind)]
+  refine ⟨‹_›, ?_⟩
+  suffices ¬t ⊂ s by grind
+  exact fun h ↦ by grind [Finset.card_lt_card h]
+
+/-- For every numerable open cover, there exists a countable locally finite
+replacement with the property that every set in the replacement is a disjoint union of open subsets
+of sets in the original cover.
+
+This can be useful for example to prove that a fibre bundle can be trivialised on a countable
+locally finite cover. -/
+def _root_.NumerableCover.countable_locallyFinite_replacement {X : Type*} [TopologicalSpace X]
+    {ι : Type*} [Nonempty ι] {u : ι → Set X} (hu : NumerableCover u) :
+    ∃ v : ℕ → Set X, LocallyFinite v ∧ NumerableCover v ∧ ∀ i : ℕ, ∃ u' : Set (Set X), ⋃₀ u' = v i ∧
+      (Pairwise fun s t : u' ↦ Disjoint (s : Set X) t) ∧ ∀ s ∈ u', IsOpen s ∧ ∃ i, s ⊆ u i := by
+  /- Since numerable covers can be refined by open covers, we can wlog assume that `u` is open. -/
+  wlog hu' : ∀ i, IsOpen (u i) generalizing u with h
+  · have ⟨v, hv, hv', hv''⟩ := h hu.interior (by simp)
+    refine ⟨v, hv, hv', fun i ↦ (hv'' i).imp ?_⟩
+    grind [interior_subset]
+  /- If `ι` is finite we can obtain the cover by extend `u` to a countable cover by adding
+  empty sets, so in the rest of the proof we can assume that `ι` is infinite. -/
+  wlog! _ : Infinite ι generalizing ι with h
+  · have ⟨n, ⟨e⟩⟩ := Finite.exists_equiv_fin ι
+    let v := (Fin.val ∘ e).extend u (fun _ ↦ ∅)
+    have hv : ∀ i (hi : i < n), v i = u (e.symm ⟨i, hi⟩) := fun i hi ↦ by
+      rw [show v i = v (Fin.val <| e <| e.symm ⟨i, hi⟩) by simp]
+      unfold v
+      rw [Function.comp_def, Function.Injective.extend_apply]
+      exact Fin.val_injective.comp e.injective
+    have hv' : ∀ i ≥ n, v i = ∅ := fun i hi ↦ by grind [Function.extend_apply']
+    refine ⟨v, fun _ ↦ ?_, ?_, fun i ↦ ?_⟩
+    · refine ⟨_, Filter.univ_mem, .subset (Set.finite_Iio n) fun i hi ↦ ?_⟩
+      grind [Set.inter_univ, Set.not_nonempty_empty]
+    · refine hu.mono' fun i ↦ ⟨(Fin.val ∘ e) i, ?_⟩
+      simp only [v, (Fin.val_injective.comp e.injective).extend_apply, subset_rfl]
+    · refine ⟨{v i}, by simp, by simp, ?_⟩
+      rintro _ rfl
+      by_cases! hi : n ≤ i
+      · simp [hv', hi]
+      · grind
+  -- since `u` is numerable, we can pick a subordinate partition of unity `f`
+  have ⟨f, hf⟩ := hu.exists_partitionOfUnity
+  /- for each `s : Finset ι`, we consider the set `v s` of points at which every `f i` with `i`
+  in `s` is greater than every `f j` with `j` outside `s`. -/
+  let v (s : Finset ι) : Set X := {x | ∀ i ∈ s, ∀ j ∉ s, f i x > f j x}
+  have hv (s : Finset ι) : ∀ x ∈ v s, ∀ i ∈ s, 0 < f i x := fun x hx i hi ↦
+    (f.nonneg _ _).trans_lt (hx i hi _ s.exists_notMem.choose_spec)
+  have hv' : LocallyFinite v := by
+    refine fun x ↦ (f.eventually_finsupport_subset x).exists_mem.imp fun s ↦ .imp_right fun hs ↦ ?_
+    refine .subset (f.fintsupport x).powerset.finite_toSet fun s' hs' ↦ ?_
+    suffices s' ⊆ f.fintsupport x by simpa
+    obtain ⟨x', hx', hx''⟩ := hs'
+    exact fun i hi ↦  hs x' hx'' (by simpa using (hv s' x' hx' i hi).ne')
+  -- each `v s` is a cozero set, i.e. the support of a continuous function
+  have hv'' (s : { s : Finset ι // s.Nonempty }) : ∃ f : C(X, ℝ), Function.support ⇑f = v s := by
+    use 0 ⊔ (s.1.inf' s.2 (fun i ↦ f i) - ⟨_, f.continuous_cbiSup sᶜ⟩)
+    ext x
+    suffices (∀ j ∈ s.1, ⨆ i ∈ (s.1 : Set ι)ᶜ, (f i) x < (f j) x) ↔
+        ∀ i ∈ s.1, ∀ j ∉ s.1, (f j) x < (f i) x by simpa [v]
+    refine forall₂_congr fun j hj ↦ ?_
+    rw [f.cbiSup_lt_iff (show Set.Nonempty (s : Set ι)ᶜ from s.1.exists_notMem)]
+    simp
+  /- we obtain the countable cover by taking the disjoint union of `v s` over all sets `s` with
+  `n + 1` elements as the `n`th set -/
+  use fun n ↦ {x | ∃ s : Finset ι, s.card = n + 1 ∧ x ∈ v s}
+  refine ⟨fun x ↦ ?_, ?_, fun n ↦ ?_⟩
+  · refine (f.locallyFinite x).imp (fun s ↦ .imp_right fun hs ↦ ?_)
+    rw [Set.finite_iff_bddAbove]
+    use Set.ncard {i | ((fun i ↦ Function.support ⇑(f i)) i ∩ s).Nonempty}
+    intro n ⟨x, ⟨t, ht, ht'⟩, hxs⟩
+    exact n.lt_add_one.le.trans <| ((Set.ncard_coe_finset _).trans ht).symm.trans_le <|
+      Set.ncard_le_ncard (ht := hs) fun i hi ↦
+        ⟨x, ((f.nonneg _ _).trans_lt <| ht' i hi _ t.exists_notMem.choose_spec).ne', hxs⟩
+  · refine .mono' (ι := {s : Finset ι // s.Nonempty})
+      (u := fun s ↦ v s) ?_ ?_
+    · refine .of_locallyFinite_cozero (hv'.comp_injective Subtype.val_injective) ?_ hv''
+      refine Set.iUnion_eq_univ_iff.2 fun x ↦ ⟨⟨f.finsupport x, f.finsupport_nonempty⟩, ?_⟩
+      simp only [PartitionOfUnity.mem_finsupport, Function.mem_support, v]
+      have := fun i ↦ f.nonneg i x
+      grind
+    · intro s
+      have ⟨n, hn⟩ := Nat.exists_eq_add_one.2 s.2.card_pos
+      exact ⟨n, fun x hx ↦ ⟨s, hn, hx⟩⟩
+  · use {v' | ∃ s : Finset ι, s.card = n + 1 ∧ v' = v s}
+    refine ⟨by ext; simp [v], fun v v' hv ↦ ?_, ?_⟩
+    · have ⟨s, hs⟩ := v.2; have ⟨s', hs'⟩ := v'.2
+      grind [Finset.ne_iff_of_card_eq (hs.1.trans hs'.1.symm) |>.1 (by grind)]
+    · rintro v ⟨s, hs, rfl⟩
+      replace hs := s.card_pos.1 (by lia)
+      refine ⟨?_, ?_⟩
+      · have ⟨f, hf⟩ := hv'' ⟨s, hs⟩
+        rw [← hf]
+        exact (map_continuous f).isOpen_support
+      · obtain ⟨i, hi⟩ := hs
+        refine ⟨i, fun x hx ↦ hf i <| subset_closure ?_⟩
+        exact ((f.nonneg _ _).trans_lt <| hx i hi _ s.exists_notMem.choose_spec).ne'

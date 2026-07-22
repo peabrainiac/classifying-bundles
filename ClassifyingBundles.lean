@@ -10,6 +10,7 @@ import ClassifyingBundles.InducingSMul
 import ClassifyingBundles.IsTrivialOn
 import ClassifyingBundles.Join
 import ClassifyingBundles.MulActionEquiv
+import ClassifyingBundles.NumerableBundle
 import ClassifyingBundles.NumerableCover
 import ClassifyingBundles.PartitionOfUnity
 import ClassifyingBundles.PositivePartition
