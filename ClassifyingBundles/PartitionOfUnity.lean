@@ -75,6 +75,31 @@ lemma PartitionOfUnity.exists_eq_ciSup (f : PartitionOfUnity ι X) (x : X) :
   have ⟨i, hi⟩ := Finset.exists_mem_eq_sup' (f.finsupport_nonempty (x := x)) (f := fun i ↦ f i x)
   exact ⟨i, hi.2.symm⟩
 
+-- taken from mathlib PR #40745
+-- TODO: remove upon next bumping mathlib
+lemma Set.Nonempty.forall_const {α : Type*} {s : Set α} (h : s.Nonempty) {p : Prop} :
+    (∀ x ∈ s, p) ↔ p :=
+  let ⟨x, hx⟩ := h
+  ⟨fun h ↦ h x hx, fun h _ _ ↦ h⟩
+
+lemma PartitionOfUnity.cbiSup_lt_iff (f : PartitionOfUnity ι X) {s : Set ι} (hs : s.Nonempty)
+    {x : X} {a : ℝ} : ⨆ i ∈ s, f i x < a ↔ ∀ i ∈ s, f i x < a := by
+  rw [f.cbiSup_eq subset_rfl]
+  classical
+  obtain h | h := Finset.eq_empty_or_nonempty {i ∈ f.finsupport x | i ∈ s}
+  · simp only [h, Finset.not_nonempty_empty, ↓reduceDIte]
+    rw [← hs.forall_const (p := 0 < a), forall₂_congr]
+    simp at h
+    grind
+  · simp only [h, ↓reduceDIte, Finset.sup'_lt_iff]
+    refine ⟨fun h' i hi ↦ ?_, fun _ ↦ by grind⟩
+    suffices ∀ i ∉ f.finsupport x, f i x < a by grind
+    intro i hi
+    simp only [mem_finsupport, Function.mem_support] at hi
+    have ⟨j, hj⟩ := h
+    have := (f.nonneg j x).trans_lt (h' _ hj)
+    grind
+
 lemma PartitionOfUnity.continuous_cbiSup (f : PartitionOfUnity ι X) (s : Set ι) :
     Continuous fun x ↦ ⨆ i ∈ s, f i x := by
   refine s.eq_empty_or_nonempty.rec (fun h ↦ by simp [continuous_const, h]) fun hs ↦ ?_

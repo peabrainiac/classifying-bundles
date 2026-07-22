@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.PartitionOfUnity
+import Mathlib.Topology.ContinuousMap.Lattice
 
 /-! # Numerable covers
 In this file we define numerable covers of topological spaces.
@@ -52,6 +53,25 @@ lemma NumerableCover.exists_positivePartition (hu : NumerableCover u) :
   obtain ⟨f, hf⟩ := hu
   exact ⟨_, hf.toPositivePartition⟩
 
+@[simp]
+lemma Function.support_abs {α β : Type*} [AddGroup α] [LinearOrder α] [AddLeftMono α]
+    [AddRightMono α] {f : β → α} : support |f| = support f := by
+  ext; simp
+
+/-- Every locally finite cover consisting of cozero sets is numerable. -/
+lemma NumerableCover.of_locallyFinite_cozero (h : LocallyFinite u) (h' : ⋃ i, u i = univ)
+    (h'' : ∀ i, ∃ f : C(X, ℝ), Function.support f = u i) : NumerableCover u := by
+  choose f hf using h''
+  suffices h : ∃ f : PositivePartition ι X, ∀ i, Function.support (f i) = u i by
+    obtain ⟨f', hf'⟩ := h
+    have hf'' : f'.toPartitionOfUnity.toBumpCovering.shrink.IsSubordinate u := fun i ↦ by
+      refine (BumpCovering.tsupport_shrink_subset _).trans_eq ?_
+      simp [hf']
+    exact hf''.numerableCover
+  refine ⟨⟨fun i ↦ |f i|, by simp [hf, h], fun i ↦ by simp, fun x _ ↦ ?_⟩, by simp [hf]⟩
+  refine (iUnion_eq_univ_iff.1 h' x).imp fun i ↦ ?_
+  simp [← hf]
+
 lemma NumerableCover.tfae :
     List.TFAE [NumerableCover u,
       ∃ f : PartitionOfUnity ι X, f.IsSubordinate u,
@@ -96,3 +116,9 @@ lemma NumerableCover.locallyFinite_closed_refinement (hu : NumerableCover u) :
   obtain ⟨f, hf⟩ := hu.exists_bumpCovering
   exact ⟨_, f.locallyFinite_tsupport, f.isSubordinate_tsupport.numerableCover,
     fun i ↦ ⟨isClosed_tsupport _, hf i⟩⟩
+
+/-- If the sets `u i` form a numerable cover, the sets `interior (u i)` do as well. -/
+protected lemma NumerableCover.interior (hu : NumerableCover u) :
+    NumerableCover fun i ↦ interior (u i) := by
+  have ⟨u', hu', hu'', hu'''⟩ := hu.locallyFinite_open_refinement
+  exact hu''.mono fun i ↦ (hu''' i).1.subset_interior_iff.2 (hu''' i).2

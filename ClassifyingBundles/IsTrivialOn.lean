@@ -576,19 +576,23 @@ lemma _root_.Finset.ne_iff_of_card_eq {α : Type*} {s t : Finset α} (h : s.card
   suffices ¬t ⊂ s by grind
   exact fun h ↦ by grind [Finset.card_lt_card h]
 
-/-- For every open cover of a paracompact Hausdorff space, there exists a countable locally finite
+/-- For every numerable open cover, there exists a countable locally finite
 replacement with the property that every set in the replacement is a disjoint union of open subsets
 of sets in the original cover.
 
 This can be useful for example to prove that a fibre bundle can be trivialised on a countable
-locally finite cover.
-
-TODO: generalise to numerable covers on arbitrary spaces -/
-def _root_.ParacompactSpace.countable_locallyFinite_replacement
-    {X : Type*} [TopologicalSpace X] [ParacompactSpace X] [T2Space X]
-    {ι : Type*} [Nonempty ι] {u : ι → Set X} (hu : ∀ i, IsOpen (u i)) (hu' : ⋃ i, u i = .univ) :
-    ∃ v : ℕ → Set X, LocallyFinite v ∧ ∀ i : ℕ, ∃ u' : Set (Set X), ⋃₀ u' = v i ∧
+locally finite cover. -/
+def _root_.NumerableCover.countable_locallyFinite_replacement {X : Type*} [TopologicalSpace X]
+    {ι : Type*} [Nonempty ι] {u : ι → Set X} (hu : NumerableCover u) :
+    ∃ v : ℕ → Set X, LocallyFinite v ∧ NumerableCover v ∧ ∀ i : ℕ, ∃ u' : Set (Set X), ⋃₀ u' = v i ∧
       (Pairwise fun s t : u' ↦ Disjoint (s : Set X) t) ∧ ∀ s ∈ u', IsOpen s ∧ ∃ i, s ⊆ u i := by
+  /- Since numerable covers can be refined by open covers, we can wlog assume that `u` is open. -/
+  wlog hu' : ∀ i, IsOpen (u i) generalizing u with h
+  · have ⟨v, hv, hv', hv''⟩ := h hu.interior (by simp)
+    refine ⟨v, hv, hv', fun i ↦ (hv'' i).imp ?_⟩
+    grind [interior_subset]
+  /- If `ι` is finite we can obtain the cover by extend `u` to a countable cover by adding
+  empty sets, so in the rest of the proof we can assume that `ι` is infinite. -/
   wlog! _ : Infinite ι generalizing ι with h
   · have ⟨n, ⟨e⟩⟩ := Finite.exists_equiv_fin ι
     let v := (Fin.val ∘ e).extend u (fun _ ↦ ∅)
@@ -598,17 +602,42 @@ def _root_.ParacompactSpace.countable_locallyFinite_replacement
       rw [Function.comp_def, Function.Injective.extend_apply]
       exact Fin.val_injective.comp e.injective
     have hv' : ∀ i ≥ n, v i = ∅ := fun i hi ↦ by grind [Function.extend_apply']
-    refine ⟨v, fun _ ↦ ?_, fun i ↦ ?_⟩
+    refine ⟨v, fun _ ↦ ?_, ?_, fun i ↦ ?_⟩
     · refine ⟨_, Filter.univ_mem, .subset (Set.finite_Iio n) fun i hi ↦ ?_⟩
       grind [Set.inter_univ, Set.not_nonempty_empty]
+    · refine hu.mono' fun i ↦ ⟨(Fin.val ∘ e) i, ?_⟩
+      simp only [v, (Fin.val_injective.comp e.injective).extend_apply, subset_rfl]
     · refine ⟨{v i}, by simp, by simp, ?_⟩
       rintro _ rfl
       by_cases! hi : n ≤ i
       · simp [hv', hi]
       · grind
-  have ⟨f, hf⟩ := PartitionOfUnity.exists_isSubordinate isClosed_univ u hu (by rw [hu'])
-  use fun n ↦ {x | ∃ s : Finset ι, s.card = n + 1 ∧ ∀ i ∈ s, ∀ j ∉ s, f i x > f j x}
-  refine ⟨fun x ↦ ?_, fun n ↦ ?_⟩
+  -- since `u` is numerable, we can pick a subordinate partition of unity `f`
+  have ⟨f, hf⟩ := hu.exists_partitionOfUnity
+  /- for each `s : Finset ι`, we consider the set `v s` of points at which every `f i` with `i`
+  in `s` is greater than every `f j` with `j` outside `s`. -/
+  let v (s : Finset ι) : Set X := {x | ∀ i ∈ s, ∀ j ∉ s, f i x > f j x}
+  have hv (s : Finset ι) : ∀ x ∈ v s, ∀ i ∈ s, 0 < f i x := fun x hx i hi ↦
+    (f.nonneg _ _).trans_lt (hx i hi _ s.exists_notMem.choose_spec)
+  have hv' : LocallyFinite v := by
+    refine fun x ↦ (f.eventually_finsupport_subset x).exists_mem.imp fun s ↦ .imp_right fun hs ↦ ?_
+    refine .subset (f.fintsupport x).powerset.finite_toSet fun s' hs' ↦ ?_
+    suffices s' ⊆ f.fintsupport x by simpa
+    obtain ⟨x', hx', hx''⟩ := hs'
+    exact fun i hi ↦  hs x' hx'' (by simpa using (hv s' x' hx' i hi).ne')
+  -- each `v s` is a cozero set, i.e. the support of a continuous function
+  have hv'' (s : { s : Finset ι // s.Nonempty }) : ∃ f : C(X, ℝ), Function.support ⇑f = v s := by
+    use 0 ⊔ (s.1.inf' s.2 (fun i ↦ f i) - ⟨_, f.continuous_cbiSup sᶜ⟩)
+    ext x
+    suffices (∀ j ∈ s.1, ⨆ i ∈ (s.1 : Set ι)ᶜ, (f i) x < (f j) x) ↔
+        ∀ i ∈ s.1, ∀ j ∉ s.1, (f j) x < (f i) x by simpa [v]
+    refine forall₂_congr fun j hj ↦ ?_
+    rw [f.cbiSup_lt_iff (show Set.Nonempty (s : Set ι)ᶜ from s.1.exists_notMem)]
+    simp
+  /- we obtain the countable cover by taking the disjoint union of `v s` over all sets `s` with
+  `n + 1` elements as the `n`th set -/
+  use fun n ↦ {x | ∃ s : Finset ι, s.card = n + 1 ∧ x ∈ v s}
+  refine ⟨fun x ↦ ?_, ?_, fun n ↦ ?_⟩
   · refine (f.locallyFinite x).imp (fun s ↦ .imp_right fun hs ↦ ?_)
     rw [Set.finite_iff_bddAbove]
     use Set.ncard {i | ((fun i ↦ Function.support ⇑(f i)) i ∩ s).Nonempty}
@@ -616,42 +645,26 @@ def _root_.ParacompactSpace.countable_locallyFinite_replacement
     exact n.lt_add_one.le.trans <| ((Set.ncard_coe_finset _).trans ht).symm.trans_le <|
       Set.ncard_le_ncard (ht := hs) fun i hi ↦
         ⟨x, ((f.nonneg _ _).trans_lt <| ht' i hi _ t.exists_notMem.choose_spec).ne', hxs⟩
-  · use {v | ∃ s : Finset ι, s.card = n + 1 ∧ v = {x | ∀ i ∈ s, ∀ j ∉ s, f j x < f i x}}
-    refine ⟨by ext; simp, fun v v' hv ↦ ?_, ?_⟩
+  · refine .mono' (ι := {s : Finset ι // s.Nonempty})
+      (u := fun s ↦ v s) ?_ ?_
+    · refine .of_locallyFinite_cozero (hv'.comp_injective Subtype.val_injective) ?_ hv''
+      refine Set.iUnion_eq_univ_iff.2 fun x ↦ ⟨⟨f.finsupport x, f.finsupport_nonempty⟩, ?_⟩
+      simp only [PartitionOfUnity.mem_finsupport, Function.mem_support, v]
+      have := fun i ↦ f.nonneg i x
+      grind
+    · intro s
+      have ⟨n, hn⟩ := Nat.exists_eq_add_one.2 s.2.card_pos
+      exact ⟨n, fun x hx ↦ ⟨s, hn, hx⟩⟩
+  · use {v' | ∃ s : Finset ι, s.card = n + 1 ∧ v' = v s}
+    refine ⟨by ext; simp [v], fun v v' hv ↦ ?_, ?_⟩
     · have ⟨s, hs⟩ := v.2; have ⟨s', hs'⟩ := v'.2
       grind [Finset.ne_iff_of_card_eq (hs.1.trans hs'.1.symm) |>.1 (by grind)]
     · rintro v ⟨s, hs, rfl⟩
       replace hs := s.card_pos.1 (by lia)
       refine ⟨?_, ?_⟩
-      · convert isOpen_lt (f.continuous_cbiSup sᶜ) <|
-          Continuous.finset_inf' hs (fun i _ ↦ map_continuous (f i)) with x
-        have hs' := s.finite_toSet.infinite_compl.nonempty.to_subtype
-        have h : BddAbove (Set.range fun i : (sᶜ : Set ι) ↦ f i x) :=
-          ⟨1, fun _ ⟨_, h⟩ ↦ h ▸ f.le_one _ _⟩
-        rw [← csSup_image h (le_ciSup_of_le h _ <| by simpa using f.nonneg hs'.some x)]
-        simp only [Finset.inf'_apply, Finset.lt_inf'_iff]
-        refine ⟨fun h' i hi ↦ ?_, fun h' i hi j hj ↦ ?_⟩
-        · classical
-          let s' : Finset ι := {i ∈ f.finsupport x | i ∉ s}
-          obtain hs'' | hs'' := s'.eq_empty_or_nonempty
-          · suffices (fun i ↦ f i x) '' sᶜ = {0} by
-              simp [*, (f.nonneg _ _).trans_lt <| h' i hi _ s.exists_notMem.choose_spec]
-            suffices h : ∀ i ∈ (s : Set _)ᶜ, f i x = 0 by
-              refine subset_antisymm (fun _ ⟨i, hi⟩ ↦ hi.2 ▸ h i hi.1) fun x hx ↦ ?_
-              exact ⟨_, Set.Nonempty.of_subtype.choose_spec,
-                hx ▸ h _ Set.Nonempty.of_subtype.choose_spec⟩
-            intro i hi
-            have := hs'' ▸ Finset.notMem_empty i
-            simp_all [s']
-          · refine LE.le.trans_lt ?_ <| (Finset.sup'_lt_iff hs'').2 fun j hj ↦ h' i hi j (by grind)
-            refine csSup_le (Set.Nonempty.of_subtype.image _) ?_
-            rintro _ ⟨j, hj, rfl⟩
-            by_cases hj' : j ∈ f.finsupport x
-            · exact s'.le_sup' (fun i ↦ f i x) (b := j) (by grind)
-            · refine s'.le_sup'_of_le _ hs''.choose_spec <| .trans ?_ <| f.nonneg _ _
-              simp_all
-        · refine LE.le.trans_lt ?_ (h' i hi)
-          exact le_csSup ⟨1, fun _ ⟨_, h⟩ ↦ h.2 ▸ f.le_one _ _⟩ ⟨j, hj, rfl⟩
+      · have ⟨f, hf⟩ := hv'' ⟨s, hs⟩
+        rw [← hf]
+        exact (map_continuous f).isOpen_support
       · obtain ⟨i, hi⟩ := hs
         refine ⟨i, fun x hx ↦ hf i <| subset_closure ?_⟩
         exact ((f.nonneg _ _).trans_lt <| hx i hi _ s.exists_notMem.choose_spec).ne'
@@ -663,12 +676,12 @@ lemma exists_countable_isTrivialOn_cover [FiberBundle F E] [(b : B) → Zero (E 
     ∃ u : ℕ → Set B, LocallyFinite u ∧ ∀ i, IsOpen (u i) ∧ IsTrivialOn F E (u i) := by
   letI ι : Set (Set B) := {u | IsOpen u ∧ IsTrivialOn F E u}
   have _ : Nonempty ι := ⟨⟨∅, isOpen_empty, isTrivialOn_empty F E⟩⟩
-  have h := ParacompactSpace.countable_locallyFinite_replacement (ι := ι)
-    (u := Subtype.val) (fun u ↦ u.2.1) <| Set.iUnion_eq_univ_iff.2 fun b ↦ by
+  have h := NumerableCover.countable_locallyFinite_replacement (ι := ι)
+    (u := Subtype.val) <| .of_paracompactSpace fun b ↦ by
       have ⟨u, hu, hu'⟩ := exists_mem_nhds_isTrivialOn F E b
       have ⟨v, hvu, hv, hbv⟩ := mem_nhds_iff.1 hu
-      use ⟨v, hv, hu'.mono F E hvu⟩
-  refine h.imp fun u ↦ .imp_right <| forall_imp fun i ⟨u', hu', hu'', hu'''⟩ ↦ ?_
+      refine ⟨⟨v, hv, hu'.mono F E hvu⟩, hv.mem_nhds hbv⟩
+  refine h.imp fun u ↦ .imp_right fun h ↦ forall_imp (fun i ⟨u', hu', hu'', hu'''⟩ ↦ ?_) h.2
   rw [← hu']
   refine ⟨isOpen_sUnion fun _ h ↦ (hu''' _ h).1, ?_⟩
   rw [Set.sUnion_eq_iUnion]
@@ -685,11 +698,11 @@ lemma exists_countable_isTrivialOn_cover_prod_unitInterval (E : B × I → Type*
     ∃ u : ℕ → Set B, LocallyFinite u ∧ ∀ i, IsOpen (u i) ∧ IsTrivialOn F E (u i ×ˢ .univ) := by
   letI ι : Set (Set B) := {u | IsOpen u ∧ IsTrivialOn F E (u ×ˢ .univ)}
   have _ : Nonempty ι := ⟨⟨∅, isOpen_empty, by simp [isTrivialOn_empty]⟩⟩
-  have h := ParacompactSpace.countable_locallyFinite_replacement (ι := ι)
-    (u := Subtype.val) (fun u ↦ u.2.1) <| Set.iUnion_eq_univ_iff.2 fun b ↦ by
+  have h := NumerableCover.countable_locallyFinite_replacement (ι := ι)
+    (u := Subtype.val) <| .of_paracompactSpace fun b ↦ by
       have ⟨u, hu, hu', hu''⟩ := exists_isTrivialOn_prod_unitInterval F E b
-      exact ⟨⟨u, hu', hu''⟩, mem_of_mem_nhds hu⟩
-  refine h.imp fun u ↦ .imp_right <| forall_imp fun i ⟨u', hu', hu'', hu'''⟩ ↦ ?_
+      exact ⟨⟨u, hu', hu''⟩, hu⟩
+  refine h.imp fun u ↦ .imp_right fun h ↦ forall_imp (fun i ⟨u', hu', hu'', hu'''⟩ ↦ ?_) h.2
   rw [← hu']
   refine ⟨isOpen_sUnion fun _ h ↦ (hu''' _ h).1, ?_⟩
   rw [Set.sUnion_eq_iUnion, Set.iUnion_prod_const]
