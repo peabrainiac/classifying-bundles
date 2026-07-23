@@ -265,6 +265,35 @@ lemma PartitionOfUnity.IsSubordinate.map {s : Set X} {f : PartitionOfUnity ι X 
   rintro _ i rfl
   exact (hf i).trans (h i)
 
+/-- The pullback of a partition of unity along a continuous map. -/
+@[simps!]
+def PartitionOfUnity.pullback {s : Set X} (f : PartitionOfUnity ι X s) {Y : Type*}
+    [TopologicalSpace Y] (g : C(Y, X)) (t : Set Y := univ) (h : MapsTo g t s := by simp) :
+    PartitionOfUnity ι Y t where
+  toFun i := (f i).comp g
+  locallyFinite' := f.locallyFinite.preimage_continuous (map_continuous g)
+  nonneg' _ _ := by simp [f.nonneg]
+  sum_eq_one' _ _ := by simp [f.sum_eq_one (h ‹_›)]
+  sum_le_one' := by simp [f.sum_le_one]
+
+@[simp]
+lemma PartitionOfUnity.support_pullback {s : Set X} (f : PartitionOfUnity ι X s) {Y : Type*}
+    [TopologicalSpace Y] {g : C(Y, X)} {t : Set Y} {h : MapsTo g t s} {i : ι} :
+    Function.support (f.pullback g t h i) = g ⁻¹' Function.support (f i) := by
+  simp [PartitionOfUnity.pullback, Function.support_comp_eq_preimage]
+
+@[simp]
+lemma PartitionOfUnity.tsupport_pullback_subset {s : Set X} (f : PartitionOfUnity ι X s) {Y : Type*}
+    [TopologicalSpace Y] {g : C(Y, X)} {t : Set Y} {h : MapsTo g t s} {i : ι} :
+    tsupport (f.pullback g t h i) ⊆ g ⁻¹' tsupport (f i) := by
+  simp [tsupport, (map_continuous g).closure_preimage_subset]
+
+lemma PartitionOfUnity.IsSubordinate.pullback {s : Set X} {f : PartitionOfUnity ι X s}
+    {u : ι → Set X} (hu : f.IsSubordinate u) {Y : Type*} [TopologicalSpace Y] (g : C(Y, X))
+    {t : Set Y} {h : MapsTo g t s} : (f.pullback g t h).IsSubordinate (fun i ↦ g ⁻¹' u i) := by
+  refine fun i ↦ f.tsupport_pullback_subset.trans ?_
+  dsimp; gcongr; exact hu i
+
 /-- Shrink a bump covering so that the closure of the support of the new functions are contained
 in the supports of the old functions. -/
 def BumpCovering.shrink (f : BumpCovering ι X) : BumpCovering ι X where

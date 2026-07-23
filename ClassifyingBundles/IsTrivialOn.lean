@@ -253,6 +253,23 @@ lemma IsTrivial.isTrivialOn [FiberBundle F E] [∀ b, Zero (E b)] (h : IsTrivial
     IsTrivialOn F E s :=
   ((isTrivialOn_univ F E).2 h).mono F E (by grind)
 
+/-- If `E` is trivial on `u`, the pullback of `f *ᵖ E` is trivial on `f ⁻¹' u`. -/
+lemma IsTrivialOn.pullback [FiberBundle F E] [∀ b, Zero (E b)] {u : Set B}
+    (h : IsTrivialOn F E u) (f : C(B', B)) :
+    IsTrivialOn F (f *ᵖ E) (f ⁻¹' u) := by
+  have : ∀ b, Zero ((f *ᵖ E) b) := fun b ↦ inferInstanceAs (Zero (E (f b)))
+  have e := ContinuousBundleIso.pullbackPullbackIso (F := F) (E := E) f
+    (.subtypeVal (s := f ⁻¹' u))
+  rw [show Equiv.refl (f ⁻¹' u) = Homeomorph.refl (f ⁻¹' u) from rfl] at e
+  refine e.isTrivial _ _ _ _ ?_
+  rw [show f.comp .subtypeVal = .comp .subtypeVal (f.restrictPreimage u) by rfl]
+  unfold IsTrivialOn at h
+  replace e := ContinuousBundleIso.pullbackPullbackIso (F := F) (E := E) .subtypeVal
+    (f.restrictPreimage u)
+  rw [show Equiv.refl (f ⁻¹' u) = Homeomorph.refl (f ⁻¹' u) from rfl] at e
+  refine e.symm'.isTrivial _ _ _ _ ?_
+  exact h.pullback
+
 section DisjointUnion
 
 /-- If a bundle is trivial on two disjoint open sets, it is also trivial on their union.

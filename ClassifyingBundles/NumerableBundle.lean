@@ -37,6 +37,15 @@ lemma NumerableCover.numerableBundle {ι : Type*} {u : ι → Set B}
     (hu : NumerableCover u) (hu' : ∀ i, IsTrivialOn F E (u i)) : NumerableBundle F E :=
   ⟨hu.mono' fun i ↦ ⟨⟨u i, hu' i⟩, by simp⟩⟩
 
+/-- Pullbacks of numerable bundles are numerable.
+
+TODO: get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
+instance NumerableBundle.pullback [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+    [(b : B) → Zero (E b)] [NumerableBundle F E] {B' : Type*} [TopologicalSpace B']
+    (f : C(B', B)) : NumerableBundle F (f *ᵖ E) := by
+  refine numerableCover_isTrivialOn (F := F) (E := E) |>.preimage (map_continuous f)
+    |>.numerableBundle _ _ fun s ↦ s.2.pullback F E f
+
 /-- Every numerable bundle can be trivialised on some countable locally finite numerable open cover.
 
 TODO: get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/

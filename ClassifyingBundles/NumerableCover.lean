@@ -103,6 +103,12 @@ lemma NumerableCover.of_paracompactSpace [ParacompactSpace X] [T2Space X]
       mem_interior_iff_mem_nhds.2 hi) hu)
   exact (hf.mono fun _ ↦ interior_subset).numerableCover
 
+/-- The pullback of any numerable cover along a continuous map is numerable. -/
+lemma NumerableCover.preimage (hu : NumerableCover u) {Y : Type*} [TopologicalSpace Y] {f : Y → X}
+    (hf : Continuous f) : NumerableCover fun i ↦ f ⁻¹' (u i) := by
+  have ⟨g, hg⟩ := hu
+  simpa using (hg.pullback ⟨f, hf⟩ (t := .univ) (h := by simp)).numerableCover
+
 /-- Every numerable cover has a locally finite, open, also numerable refinement. -/
 lemma NumerableCover.locallyFinite_open_refinement (hu : NumerableCover u) :
     ∃ u' : ι → Set X, LocallyFinite u' ∧ NumerableCover u' ∧ ∀ i, IsOpen (u' i) ∧ u' i ⊆ u i := by
