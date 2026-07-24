@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.PartitionOfUnity
-import Mathlib.Topology.ContinuousMap.Lattice
+import ClassifyingBundles.IsCozeroSet
 
 /-! # Numerable covers
 In this file we define numerable covers of topological spaces.
@@ -53,14 +53,9 @@ lemma NumerableCover.exists_positivePartition (hu : NumerableCover u) :
   obtain ⟨f, hf⟩ := hu
   exact ⟨_, hf.toPositivePartition⟩
 
-@[simp]
-lemma Function.support_abs {α β : Type*} [AddGroup α] [LinearOrder α] [AddLeftMono α]
-    [AddRightMono α] {f : β → α} : support |f| = support f := by
-  ext; simp
-
 /-- Every locally finite cover consisting of cozero sets is numerable. -/
-lemma NumerableCover.of_locallyFinite_cozero (h : LocallyFinite u) (h' : ⋃ i, u i = univ)
-    (h'' : ∀ i, ∃ f : C(X, ℝ), Function.support f = u i) : NumerableCover u := by
+lemma NumerableCover.of_locallyFinite_isCozeroSet (h : LocallyFinite u) (h' : ⋃ i, u i = univ)
+    (h'' : ∀ i, IsCozeroSet (u i)) : NumerableCover u := by
   choose f hf using h''
   suffices h : ∃ f : PositivePartition ι X, ∀ i, Function.support (f i) = u i by
     obtain ⟨f', hf'⟩ := h
@@ -71,18 +66,6 @@ lemma NumerableCover.of_locallyFinite_cozero (h : LocallyFinite u) (h' : ⋃ i, 
   refine ⟨⟨fun i ↦ |f i|, by simp [hf, h], fun i ↦ by simp, fun x _ ↦ ?_⟩, by simp [hf]⟩
   refine (iUnion_eq_univ_iff.1 h' x).imp fun i ↦ ?_
   simp [← hf]
-
-lemma NumerableCover.tfae :
-    List.TFAE [NumerableCover u,
-      ∃ f : PartitionOfUnity ι X, f.IsSubordinate u,
-      ∃ f : BumpCovering ι X, f.IsSubordinate u,
-      ∃ f : PositivePartition ι X, f.IsSubordinate u] := by
-  tfae_have 1 ↔ 2 := Iff.rfl
-  tfae_have 1 → 3 := fun hu ↦ hu.exists_bumpCovering
-  tfae_have 3 → 1 := fun ⟨_, hf⟩ ↦ hf.numerableCover
-  tfae_have 1 → 4 := fun hu ↦ hu.exists_positivePartition
-  tfae_have 4 → 1 := fun ⟨_, hf⟩ ↦ hf.numerableCover
-  tfae_finish
 
 /-- Any cover that is refined by a numerable cover is numerable. -/
 lemma NumerableCover.mono (hu : NumerableCover u) {u' : ι → Set X} (h : ∀ i, u i ⊆ u' i) :
@@ -95,6 +78,30 @@ lemma NumerableCover.mono' (hu : NumerableCover u) {ι' : Type*} {u' : ι' → S
   obtain ⟨f, hf⟩ := hu
   choose g hg using h
   exact ⟨f.map g, hf.map hg⟩
+
+/-- For a family of sets `u i`, the following are equivalent:
+* `u` is a numerable cover
+* `u` admits a subordinate partition of unity
+* `u` admits a subordinate bump covering
+* `u` admits a sobordinate positive partition
+* `u` is refined by a locally finite cover consisting of cozero sets. -/
+lemma NumerableCover.tfae :
+    List.TFAE [NumerableCover u,
+      ∃ f : PartitionOfUnity ι X, f.IsSubordinate u,
+      ∃ f : BumpCovering ι X, f.IsSubordinate u,
+      ∃ f : PositivePartition ι X, f.IsSubordinate u,
+      ∃ v : ι → Set X, LocallyFinite v ∧ ⋃ i, v i = univ ∧ ∀ i, IsCozeroSet (v i) ∧ v i ⊆ u i] := by
+  tfae_have 1 ↔ 2 := Iff.rfl
+  tfae_have 1 → 3 := fun hu ↦ hu.exists_bumpCovering
+  tfae_have 3 → 1 := fun ⟨_, hf⟩ ↦ hf.numerableCover
+  tfae_have 1 → 4 := fun hu ↦ hu.exists_positivePartition
+  tfae_have 4 → 1 := fun ⟨_, hf⟩ ↦ hf.numerableCover
+  tfae_have 1 → 5 := fun ⟨f, hf⟩ ↦ ⟨_, f.locallyFinite,
+    eq_univ_of_forall fun x ↦ mem_iUnion.2 <| (f.exists_pos (mem_univ x)).imp fun i hi ↦ hi.ne',
+    fun i ↦ ⟨(map_continuous (f i)).isCozeroSet_support, subset_closure.trans (hf i)⟩⟩
+  tfae_have 5 → 1 := fun ⟨v, hv, hv', hv''⟩ ↦
+    .mono (.of_locallyFinite_isCozeroSet hv hv' fun i ↦ (hv'' i).1) (fun i ↦ (hv'' i).2)
+  tfae_finish
 
 lemma NumerableCover.of_paracompactSpace [ParacompactSpace X] [T2Space X]
     (hu : ∀ x, ∃ i, u i ∈ 𝓝 x) : NumerableCover u := by
@@ -210,7 +217,7 @@ def _root_.NumerableCover.countable_locallyFinite_replacement {X : Type*} [Topol
         ⟨x, ((f.nonneg _ _).trans_lt <| ht' i hi _ t.exists_notMem.choose_spec).ne', hxs⟩
   · refine .mono' (ι := {s : Finset ι // s.Nonempty})
       (u := fun s ↦ v s) ?_ ?_
-    · refine .of_locallyFinite_cozero (hv'.comp_injective Subtype.val_injective) ?_ hv''
+    · refine .of_locallyFinite_isCozeroSet (hv'.comp_injective Subtype.val_injective) ?_ hv''
       refine Set.iUnion_eq_univ_iff.2 fun x ↦ ⟨⟨f.finsupport x, f.finsupport_nonempty⟩, ?_⟩
       simp only [PartitionOfUnity.mem_finsupport, Function.mem_support, v]
       have := fun i ↦ f.nonneg i x
