@@ -3,10 +3,9 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
-import Mathlib.Topology.ContinuousMap.Ordered
 import Mathlib.Topology.ContinuousMap.Lattice
-import Mathlib.Topology.GDelta.MetrizableSpace
 import Mathlib.Topology.Separation.PerfectlyNormal
+import Mathlib.Topology.UnitInterval
 
 /-! # Cozero sets
 In this file cozero sets as sets that are the support of a continuous function to `ℝ`.
@@ -14,7 +13,7 @@ In this file cozero sets as sets that are the support of a continuous function t
 
 open Set Function
 
-open scoped Topology
+open scoped Topology unitInterval
 
 variable {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] {u : Set X}
 
@@ -32,6 +31,17 @@ lemma IsCozeroSet.exists_nonneg (hu : IsCozeroSet u) :
     ∃ f ≥ (0 : C(X, ℝ)), support f = u := by
   obtain ⟨f, rfl⟩ := hu
   exact ⟨|f|, by simp⟩
+
+/-- A set is a cozero set if and only if it is the support of a continuous function to the unit
+interval. -/
+lemma isCozeroSet_iff_unitInterval : IsCozeroSet u ↔ ∃ f : C(X, I), support f = u := by
+  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
+  · obtain ⟨f, hf, rfl⟩ := h.exists_nonneg
+    use .comp ⟨_, continuous_projIcc (h := one_pos.le)⟩ f
+    ext x; simpa using (hf x).lt_iff_ne'
+  · obtain ⟨f, rfl⟩ := h
+    use .comp ⟨(↑), by fun_prop⟩ f
+    ext; simp
 
 /-- Every cozero set is open. -/
 lemma IsCozeroSet.isOpen (hu : IsCozeroSet u) : IsOpen u := by
@@ -98,3 +108,75 @@ lemma isCozeroSet_iUnion {ι : Type*} {u : ι → Set X}
   suffices h : ∑ᶠ i, f i x = 0 ↔ ∀ i, f i x = 0 by simpa [← hf'] using not_iff_not.2 h
   refine finsum_eq_zero_iff (fun i ↦ hf i x) ?_
   simpa [HasFiniteSupport, support, ← hf'] using hu'.point_finite x
+
+--TODO: move
+lemma continuous_sSup_fiber {f : X → Y} (hf : IsProperMap f) (hf' : IsOpenMap f)
+    {α : Type*} [CompleteLinearOrder α] [TopologicalSpace α] [OrderTopology α]
+    {g : X → α} (hg : Continuous g) : Continuous fun y ↦ ⨆ x ∈ f ⁻¹' {y}, g x := by
+  refine OrderTopology.continuous_iff.2 fun t ↦ ⟨?_, ?_⟩
+  · convert hf' _ ((isOpen_Ioi (a := t)).preimage hg)
+    ext y
+    simp [lt_iSup_iff, and_comm]
+  · obtain rfl | ht := eq_bot_or_bot_lt t
+    · simp
+    · convert (hf.isClosedMap _ ((isClosed_Ici (a := t)).preimage hg)).isOpen_compl
+      ext y
+      obtain hy | hy := (f ⁻¹' {y}).eq_empty_or_nonempty
+      · replace hy : ∀ x, f x ≠ y := by grind [preimage_singleton_eq_empty]
+        simpa [hy]
+      · refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
+        · simp only [mem_preimage, mem_singleton_iff, mem_Iio, mem_compl_iff, mem_image, mem_Ici,
+          not_exists, not_and] at h ⊢
+          intro x hx
+          contrapose! hx
+          exact (le_iSup₂ x hx).trans_lt h
+        · have ⟨x, hx, hx'⟩ :=
+            (hf.isCompact_preimage isCompact_singleton).exists_isMaxOn hy hg.continuousOn
+          rw [mem_preimage, mem_Iio, ← iSup_subtype'', hx'.iSup_eq hx]
+          grind
+
+--TODO: move
+lemma continuous_sInf_fiber {f : X → Y} (hf : IsProperMap f) (hf' : IsOpenMap f)
+    {α : Type*} [CompleteLinearOrder α] [TopologicalSpace α] [OrderTopology α]
+    {g : X → α} (hg : Continuous g) : Continuous fun y ↦ ⨅ x ∈ f ⁻¹' {y}, g x :=
+  continuous_ofDual.comp <| continuous_sSup_fiber hf hf' (continuous_toDual.comp hg)
+
+--TODO: move
+lemma continuous_parametric_iSup [CompactSpace Y]
+    {α : Type*} [CompleteLinearOrder α] [TopologicalSpace α] [OrderTopology α]
+    {f : X → Y → α} (hf : Continuous f.uncurry) :
+    Continuous fun x ↦ ⨆ y, f x y :=
+  (continuous_sSup_fiber isProperMap_fst_of_compactSpace isOpenMap_fst hf).congr fun x ↦
+    le_antisymm (iSup₂_le fun ⟨x, y⟩ _ ↦ le_iSup_of_le y <| by grind)
+      (iSup_le fun y ↦ le_iSup₂_of_le (x, y) rfl le_rfl)
+
+--TODO: move
+lemma continuous_parametric_iInf [CompactSpace Y]
+    {α : Type*} [CompleteLinearOrder α] [TopologicalSpace α] [OrderTopology α]
+    {f : X → Y → α} (hf : Continuous f.uncurry) :
+    Continuous fun x ↦ ⨅ y, f x y :=
+  (continuous_sInf_fiber isProperMap_fst_of_compactSpace isOpenMap_fst hf).congr fun x ↦
+    le_antisymm (le_iInf fun y ↦ iInf₂_le_of_le (x, y) rfl le_rfl)
+      (le_iInf₂ fun ⟨x, y⟩ _ ↦ iInf_le_of_le y <| by grind)
+
+/-- The coimage of a cozero set `u` under any proper open map `f : X → Y`, i.e. the set of all `y`
+whose fibre `f ⁻¹' {y}` is contained in `u`, is a cozero set. -/
+lemma IsCozeroSet.coimage (hu : IsCozeroSet u) {f : X → Y} (hf : IsProperMap f)
+    (hf' : IsOpenMap f) : IsCozeroSet (f '' uᶜ)ᶜ := by
+  rw [isCozeroSet_iff_unitInterval] at hu ⊢
+  obtain ⟨g, rfl⟩ := hu
+  use ⟨_, continuous_sInf_fiber hf hf' (map_continuous g)⟩
+  ext y
+  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
+  · simp only [mem_preimage, mem_singleton_iff, ContinuousMap.coe_mk, mem_support, mem_compl_iff,
+      mem_image, not_exists, not_and, ← pos_iff_ne_zero, not_imp_not] at h ⊢
+    exact fun x hx ↦ h.trans_le (iInf₂_le x hx)
+  · rw [mem_support, ← pos_iff_ne_zero]
+    dsimp
+    obtain hy | hy := (f ⁻¹' {y}).eq_empty_or_nonempty
+    · simp [hy, show (0 : I) < ⊤ from one_pos]
+    · have ⟨x, hx, hx'⟩ := (hf.isCompact_preimage isCompact_singleton).exists_isMinOn hy
+        (map_continuous g).continuousOn
+      rw [← iInf_subtype'', hx'.iInf_eq hx]
+      simp only [mem_compl_iff, mem_image, mem_support, ← pos_iff_ne_zero] at h
+      grind

@@ -5,6 +5,7 @@ Authors: Ben Eltschig
 -/
 import ClassifyingBundles.PartitionOfUnity
 import ClassifyingBundles.IsCozeroSet
+import Mathlib.Topology.GDelta.MetrizableSpace
 
 /-! # Numerable covers
 In this file we define numerable covers of topological spaces.
