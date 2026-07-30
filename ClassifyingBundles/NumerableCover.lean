@@ -157,9 +157,10 @@ of sets in the original cover.
 This can be useful for example to prove that a fibre bundle can be trivialised on a countable
 locally finite cover. -/
 def NumerableCover.countable_locallyFinite_replacement
-    {ι : Type*} [Nonempty ι] {u : ι → Set X} (hu : NumerableCover u) :
+    {ι : Type*} {u : ι → Set X} (hu : NumerableCover u) :
     ∃ v : ℕ → Set X, LocallyFinite v ∧ NumerableCover v ∧ ∀ i : ℕ, ∃ u' : Set (Set X), ⋃₀ u' = v i ∧
-      (Pairwise fun s t : u' ↦ Disjoint (s : Set X) t) ∧ ∀ s ∈ u', IsOpen s ∧ ∃ i, s ⊆ u i := by
+      (Pairwise fun s t : u' ↦ Disjoint (s : Set X) t) ∧
+        ∀ s ∈ u', IsOpen s ∧ (s = ∅ ∨ ∃ i, s ⊆ u i) := by
   /- Since numerable covers can be refined by open covers, we can wlog assume that `u` is open. -/
   wlog hu' : ∀ i, IsOpen (u i) generalizing u with h
   · have ⟨v, hv, hv', hv''⟩ := h hu.interior (by simp)
@@ -240,8 +241,18 @@ def NumerableCover.countable_locallyFinite_replacement
         rw [← hf]
         exact (map_continuous f).isOpen_support
       · obtain ⟨i, hi⟩ := hs
-        refine ⟨i, fun x hx ↦ hf i <| subset_closure ?_⟩
+        refine .inr ⟨i, fun x hx ↦ hf i <| subset_closure ?_⟩
         exact ((f.nonneg _ _).trans_lt <| hx i hi _ s.exists_notMem.choose_spec).ne'
+
+/-- A variant of `NumerableCover.countable_locallyFinite_replacement` for covers with nonempty
+index types. -/
+def NumerableCover.countable_locallyFinite_replacement'
+    {ι : Type*} [Nonempty ι] {u : ι → Set X} (hu : NumerableCover u) :
+    ∃ v : ℕ → Set X, LocallyFinite v ∧ NumerableCover v ∧ ∀ i : ℕ, ∃ u' : Set (Set X), ⋃₀ u' = v i ∧
+      (Pairwise fun s t : u' ↦ Disjoint (s : Set X) t) ∧ ∀ s ∈ u', IsOpen s ∧ ∃ i, s ⊆ u i := by
+  suffices h : ∀ s, (s = ∅ ∨ ∃ i, s ⊆ u i) ↔ ∃ i, s ⊆ u i by
+    simpa [h] using hu.countable_locallyFinite_replacement
+  exact fun s ↦ ⟨(or_iff_right_of_imp fun hs ↦ ⟨Classical.arbitrary _, by simp [hs]⟩).1, .inr⟩
 
 --TODO: move
 lemma Set.Finite.sigma {ι : Type u_1} {α : ι → Type u_2} {s : Set ι} (hs : s.Finite)
@@ -360,7 +371,7 @@ TODO: generalize this from the unit interval to arbitrary compact spaces. -/
 lemma NumerableCover.exists_of_prod_unitInterval {ι : Type u} {u : ι → Set (X × I)}
     (hu : NumerableCover u) :
     ∃ ι' : Type u, ∃ v : ι' → Set X, NumerableCover v ∧
-      ∀ i', ∀ x ∈ v i', ∀ t, ∃ w ∈ 𝓝 t, ∃ i, v i' ×ˢ w ⊆ u i := by
+      ∀ i' t, ∃ w ∈ 𝓝 t, ∃ i, v i' ×ˢ w ⊆ u i := by
   -- since `u` is numerable, we can replace it with a locally finite cover by cozero sets
   wlog hu' : LocallyFinite u ∧ ∀ i, IsCozeroSet (u i) generalizing u with h
   · have ⟨v, hv, hv', hv''⟩ := (((NumerableCover.tfae (u := u)).out 0 4).1 hu:)
@@ -458,8 +469,7 @@ lemma NumerableCover.exists_of_prod_unitInterval {ι : Type u} {u : ι → Set (
       ext x; simp
     · exact fun n i ↦ ⟨⟨n, i⟩, by simp [Sigma.uncurry]⟩
   · -- `Sigma.uncurry v` satisfies the other desired property by construction.
-    intro ⟨n, i⟩ x hx t
-    simp only [Sigma.uncurry] at hx
+    intro ⟨n, i⟩ t
     obtain ⟨k, hk⟩ := hw n t
     refine ⟨_, hk, i k, ?_⟩
     simp only [v, Sigma.uncurry]

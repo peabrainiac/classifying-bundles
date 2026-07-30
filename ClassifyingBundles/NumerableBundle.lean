@@ -54,7 +54,7 @@ lemma NumerableBundle.exists_countable_isTrivialOn_cover [∀ b, TopologicalSpac
     ∃ u : ℕ → Set B, LocallyFinite u ∧ NumerableCover u ∧
       ∀ i, IsOpen (u i) ∧ IsTrivialOn F E (u i) := by
   have _ : Nonempty {u | IsTrivialOn F E u} := ⟨⟨∅, isTrivialOn_empty F E⟩⟩
-  have h := (numerableCover_isTrivialOn (F := F) (E := E)).countable_locallyFinite_replacement
+  have h := (numerableCover_isTrivialOn (F := F) (E := E)).countable_locallyFinite_replacement'
   refine h.imp fun u ↦ .imp_right <| .imp_right <| forall_imp fun i ⟨u', hu', hu'', hu'''⟩ ↦ ?_
   rw [← hu']
   refine ⟨isOpen_sUnion fun _ h ↦ (hu''' _ h).1, ?_⟩
@@ -68,13 +68,13 @@ lemma NumerableBundle.exists_countable_isTrivialOn_cover [∀ b, TopologicalSpac
 the form `u i ×ˢ Set.univ` for `u : ℕ → Set B` some countable locally finite open cover.
 
 TODO: generalise to numerable bundles -/
-lemma exists_countable_isTrivialOn_cover_prod_unitInterval (E : B × I → Type*)
+lemma exists_countable_isTrivialOn_cover_prod_unitInterval' (E : B × I → Type*)
     [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
     [∀ b, Zero (E b)] [ParacompactSpace B] [T2Space B] :
     ∃ u : ℕ → Set B, LocallyFinite u ∧ ∀ i, IsOpen (u i) ∧ IsTrivialOn F E (u i ×ˢ .univ) := by
   letI ι : Set (Set B) := {u | IsOpen u ∧ IsTrivialOn F E (u ×ˢ .univ)}
   have _ : Nonempty ι := ⟨⟨∅, isOpen_empty, by simp [isTrivialOn_empty]⟩⟩
-  have h := NumerableCover.countable_locallyFinite_replacement (ι := ι)
+  have h := NumerableCover.countable_locallyFinite_replacement' (ι := ι)
     (u := Subtype.val) <| .of_paracompactSpace fun b ↦ by
       have ⟨u, hu, hu', hu''⟩ := exists_isTrivialOn_prod_unitInterval F E b
       exact ⟨⟨u, hu', hu''⟩, hu⟩
@@ -87,3 +87,26 @@ lemma exists_countable_isTrivialOn_cover_prod_unitInterval (E : B × I → Type*
     exact Set.Disjoint.set_prod_left (hu'' h.symm) _ _
   · have ⟨i, hi⟩ := (hu''' _ v.2).2
     exact .mono _ _ (by grind) i.2.2
+
+/-- Every numerable fibre bundle on `B × I` is trivial on sets of the form `u i ×ˢ Set.univ` for
+`u : ℕ → Set B` some countable locally finite numerable open cover. -/
+lemma NumerableBundle.exists_countable_isTrivialOn_cover_prod_unitInterval (E : B × I → Type*)
+    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+    [∀ b, Zero (E b)] [NumerableBundle F E] :
+    ∃ u : ℕ → Set B, LocallyFinite u ∧ NumerableCover u ∧
+      ∀ i, IsOpen (u i) ∧ IsTrivialOn F E (u i ×ˢ .univ) := by
+  have ⟨ι, u, hu, hu'⟩ := (numerableCover_isTrivialOn (E := E) (F := F)).exists_of_prod_unitInterval
+  have ⟨v, hv, hv', hv''⟩ := hu.countable_locallyFinite_replacement
+  refine ⟨v, hv, hv', fun i ↦ ?_⟩
+  obtain ⟨w, hw, hw', hw''⟩ := hv'' i
+  rw [← hw]
+  refine ⟨isOpen_sUnion fun _ h ↦ (hw'' _ h).1, ?_⟩
+  rw [Set.sUnion_eq_iUnion, Set.iUnion_prod_const]
+  refine IsTrivialOn.disjointIUnion F E (fun v ↦ ?_) (fun v ↦ ?_)
+  · refine ⟨v.1 ×ˢ .univ, ((hw'' _ v.2).1.prod isOpen_univ).mem_nhdsSet_self, fun _ h ↦ ?_⟩
+    exact Set.Disjoint.set_prod_left (hw' h.symm) _ _
+  · refine (hw'' _ v.2).2.rec (fun h ↦ by simp [h, isTrivialOn_empty]) fun ⟨i, hi⟩ ↦ ?_
+    refine isTrivialOn_prod_unitInterval F E (hw'' v v.2).1 fun t ↦ ?_
+    refine (hu' i t).imp fun w ↦ .imp_right <| fun ⟨i', hi'⟩ ↦ ?_
+    grw [hi, hi']
+    exact i'.2

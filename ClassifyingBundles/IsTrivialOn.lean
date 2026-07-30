@@ -462,39 +462,29 @@ lemma Trivialization.continuousOn_coordChange {B F Z X : Type*} [TopologicalSpac
     (e₁.continuousOn_invFun.comp (hf.prodMk hg) h) fun x hx ↦ ?_
   simp [e₂.source_eq, (hs hx).2, e₁.proj_symm_apply (h x hx)]
 
-/-- Any fibre bundle on `B × I` is trivial not just locally on `B × I` but also on `B`, in the sense
-that every `b : B` has a neighbourhood `u` such that the bundle is trivial on
-`u ×ˢ (univ : Set I)`. -/
-lemma exists_isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSpace (TotalSpace F E)]
-    [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [∀ b, Zero (E b)] (b : B) :
-    ∃ u ∈ 𝓝 b, IsOpen u ∧ IsTrivialOn F E (u ×ˢ .univ) := by
-  /- We do induction over the interval on the predicate "`E` is trivial on a rectangular
-  neighbourhood of `{b} ×ˢ Set.Iic t`". It is easy to show that this holds for `t = 0` and
-  for some `t' > t` whenever it holds for `t`, so the hard part is only proving that this
-  property is closed under suprema. -/
+/-- To prove that a bundle `E` on `B × I` is trivial on `u ×ˢ univ`, it suffices to prove that
+every `t` has a neighbourhood `w` for which `E` is trivial on `u ×ˢ w`. -/
+lemma isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSpace (TotalSpace F E)]
+    [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [∀ b, Zero (E b)] {u : Set B} (hu : IsOpen u)
+    (hu' : ∀ t, ∃ w ∈ 𝓝 t, IsTrivialOn F E (u ×ˢ w)) :
+    IsTrivialOn F E (u ×ˢ Set.univ) := by
+  /- Using induction, we can reduce this to proving that certain sets `v₁ v₂ : Set I` for which
+  which `u ×ˢ v₁` / `u ×ˢ v₂` is trivial can be glued. -/
   refine (unitInterval.induction' (fun t ↦ ?_) ?_
-    (motive := fun v ↦ IsOpen v ∧ ∃ u ∈ 𝓝 b, IsOpen u ∧ IsTrivialOn F E (u ×ˢ v))).2
-  · have ⟨u, hu⟩ := exists_mem_nhds_isTrivialOn F E (b, t)
-    have ⟨u', v, hu', hbu', hv, hv', h⟩ := mem_nhds_prod_iff'.1 hu.1
-    refine ⟨v, ?_, hv, u', hu'.mem_nhds hbu', hu', hu.2.mono F E h⟩
-    simpa [show (0 : I) = ⊥ from rfl] using hv.mem_nhds hv'
-  · /- Given a value `t` near which induction property frequently holds, we can obtain an
-    open neighbourhood `u` of `b` and open neighbourhoods `v₁` and `v₂` of `Set.Iic t'`
-    resp. `Set.Icc t' t` for some `t' < t` such that `E` is trivial on `u ×ˢ v₁` and `u ×ˢ v₂`. -/
-    -- We now want to show that `E` is trivial on `u ×ˢ (Set.Iio t' ∪ v₂)`.
-    intro t t' ht' v₁ hv₁' ⟨hv₁, u₁, hbu₁, hu₁, h₁⟩ v₂ hv₂' ⟨hv₂, u₂, hbu₂, hu₂, h₂⟩
+    (motive := fun v ↦ IsOpen v ∧ IsTrivialOn F E (u ×ˢ v))).2
+  · have ⟨v, hv⟩ := hu' t
+    have ⟨v', hv'⟩ := mem_nhds_iff.1 hv.1
+    exact ⟨v', hv'.2.1.mem_nhds hv'.2.2, hv'.2.1, hv.2.mono _ _ (by grind)⟩
+  · intro t t' ht v₁ hv₁' ⟨hv₁, h₁⟩ v₂ hv₂' ⟨hv₂, h₂⟩
     replace hv₁' := subset_of_mem_nhdsSet hv₁'; replace hv₂' := subset_of_mem_nhdsSet hv₂'
-    replace hbu₁ := mem_of_mem_nhds hbu₁; replace hbu₂ := mem_of_mem_nhds hbu₂
-    let u := u₁ ∩ u₂
-    have hu : IsOpen u := hu₁.inter hu₂
-    have hbu : b ∈ u := ⟨hbu₁, hbu₂⟩
-    grw [← show u ⊆ u₁ by simp [u]] at h₁
-    grw [← show u ⊆ u₂ by simp [u]] at h₂
-    refine ⟨Set.Iio t' ∪ v₂, (isOpen_Iio.union hv₂).mem_nhdsSet.2 (by grind), isOpen_Iio.union hv₂,
-      u, hu.mem_nhds hbu, hu, ?_⟩
+    refine ⟨Set.Iio t' ∪ v₂, (isOpen_Iio.union hv₂).mem_nhdsSet.2 (by grind),
+      isOpen_Iio.union hv₂, ?_⟩
+    wlog! h : u.Nonempty
+    · simp [h, isTrivialOn_empty]
+    have : v₁.Nonempty := by grw [← hv₁']; simp
+    have : v₂.Nonempty := by grw [← hv₂']; simp [ht.le]
     rw [isTrivialOn_iff_exists_trivialization _ _
-      (by grind [IsOpen.prod, IsOpen.union, isOpen_Iio])
-      (by simp_rw [Set.nonempty_def, Set.mem_prod, Prod.exists, Subtype.exists]; grind)] at h₁ h₂ ⊢
+      (by grind [IsOpen.prod, IsOpen.union, isOpen_Iio]) (by simp; grind)] at h₁ h₂ ⊢
     obtain ⟨e₁, he₁⟩ := h₁; obtain ⟨e₂, he₂⟩ := h₂
     -- It suffices to modify `e₂` so it agrees with `e₁` on `u ×ˢ (Set.Iio t' ∩ v₂)`.
     suffices h : ∃ e₂' : Trivialization F (π F E), e₂'.baseSet = u ×ˢ v₂ ∧
@@ -538,5 +528,27 @@ lemma exists_isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSp
     simp [Prod.ext_iff, show x ∈ e₁.source by grind [e₁.source_eq],
       show x ∈ e₂.source by grind [e₂.source_eq], show x.1.2 ≤ t' by grind,
       show x.proj ∈ e₂.baseSet by grind]
+
+/-- Any fibre bundle on `B × I` is trivial not just locally on `B × I` but also on `B`, in the sense
+that every `b : B` has a neighbourhood `u` such that the bundle is trivial on
+`u ×ˢ (univ : Set I)`. -/
+lemma exists_isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSpace (TotalSpace F E)]
+    [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [∀ b, Zero (E b)] (b : B) :
+    ∃ u ∈ 𝓝 b, IsOpen u ∧ IsTrivialOn F E (u ×ˢ .univ) := by
+  suffices h : ∃ u ∈ 𝓝 b, IsOpen u ∧ ∀ t ∈ Set.univ, ∃ w ∈ 𝓝 t, IsTrivialOn F E (u ×ˢ w) by
+    obtain ⟨u, hu, hu', h⟩ := h
+    exact ⟨u, hu, hu', isTrivialOn_prod_unitInterval _ _ hu' <| by simpa using h⟩
+  refine unitInterval.induction' (fun t ↦ ?_) ?_
+    (motive := fun v ↦ ∃ u ∈ 𝓝 b, IsOpen u ∧ ∀ t ∈ v, ∃ w ∈ 𝓝 t, IsTrivialOn F E (u ×ˢ w))
+  · have ⟨u, hu⟩ := exists_mem_nhds_isTrivialOn F E (b, t)
+    have ⟨u', v, hu', hbu', hv, hv', h⟩ := mem_nhds_prod_iff'.1 hu.1
+    exact ⟨v, hv.mem_nhds hv', u', hu'.mem_nhds hbu', hu', fun t' ht' ↦
+      ⟨v, hv.mem_nhds ht', hu.2.mono F E h⟩⟩
+  · intro t t' ht v₁ hv₁ ⟨u₁, hu₁, hu₁', h₁⟩ v₂ hv₂ ⟨u₂, hu₂, hu₂', h₂⟩
+    refine ⟨v₁ ∪ v₂, nhdsSet_mono (by grind) (union_mem_nhdsSet hv₁ hv₂), ?_⟩
+    refine ⟨u₁ ∩ u₂, Filter.inter_mem hu₁ hu₂, hu₁'.inter hu₂', ?_⟩
+    grw [← u₁.inter_subset_left (t := u₂)] at h₁
+    grw [← u₁.inter_subset_right (t := u₂)] at h₂
+    grind
 
 end Bundle
