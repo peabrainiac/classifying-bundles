@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleIso
+import ClassifyingBundles.RealInduction
 import Mathlib.Topology.FiberBundle.IsHomeomorphicTrivialBundle
 import Mathlib.Topology.Order.NhdsSet
 
@@ -107,6 +108,7 @@ lemma isTrivialOn_empty : IsTrivialOn F E ∅ := by
 
 variable [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [∀ b, Zero (E b)] in
 /-- TODO: generalise, clean up -/
+@[gcongr]
 lemma IsTrivialOn.mono {u v : Set B} (huv : u ⊆ v) (h : IsTrivialOn F E v) : IsTrivialOn F E u := by
   unfold IsTrivialOn
   rw [← ContinuousMap.subtypeVal_comp_inclusion huv]
@@ -450,40 +452,6 @@ noncomputable def Trivialization.union {B F Z : Type*} [TopologicalSpace B]
 
 open unitInterval
 
-@[simp]
-lemma _root_.unitInterval.one_le_iff {t : I} : 1 ≤ t ↔ t = 1 :=
-  ⟨fun h ↦ le_antisymm le_one' h, fun h ↦ by rw [h]⟩
-
-/-- The unit interval is locally path-connected.
-TODO: generalise, move -/
-instance : LocPathConnectedSpace unitInterval := (convex_Icc 0 1).locPathConnectedSpace
-
-/-- Induction principle stating that if a property holds for `0 : unitInterval`, holds for some
-`t' ≥ t` whenever it holds for some `t < 1`, and holds for `t` whenever it holds for values
-arbitrariliy close to `t`, it holds for `1`. Applying this to the property
-"`P` holds for all `t' ≤ t`" for some property `P` you recover an induction principle allowing you
-to prove that `P` holds in the entire interval. -/
-protected lemma _root_.unitInterval.induction {motive : I → Prop} (h : motive 0)
-    (h' : ∀ t < 1, motive t → ∃ t' > t, motive t')
-    (h'' : ∀ t, (∃ᶠ t' in 𝓝[<] t, motive t') → motive t) : motive 1 := by
-  suffices h' : IsClopen {t | ∃ t' ≥ t, motive t'} by
-    simpa [-Subtype.exists] using
-      (IsClopen.eq_univ h' ⟨0, 0, le_refl _, h⟩).symm.subset (Set.mem_univ 1)
-  refine ⟨?_, ?_⟩
-  · refine isClosed_iff_frequently.2 fun t ht ↦ ?_
-    suffices (¬∃ t' > t, motive t') → motive t by by_cases motive t <;> grind
-    refine fun h' ↦ (or_not (p := motive t)).rec id fun h ↦ h'' t ?_
-    refine frequently_nhdsWithin_iff.2 <|
-      (LocallyConnectedSpace.open_connected_basis t).frequently_iff.2 fun u ⟨hu, htu, hu'⟩ ↦ ?_
-    have ⟨t', ht', t'', ht''⟩ := Filter.frequently_iff.1 ht (hu.mem_nhds htu)
-    have ht''' : t'' < t := by grind
-    exact ⟨t'', hu'.Icc_subset ht' htu  ⟨ht''.1, ht'''.le⟩, ht''.2, ht'''⟩
-  · refine isOpen_iff_mem_nhds.2 fun t ⟨t', ht, ht'⟩ ↦ ?_
-    obtain _ | rfl := (le_one' (t := t')).lt_or_eq
-    · have ⟨t'', ht'', ht'''⟩ := h' _ ‹_› ht'
-      exact mem_nhds_iff.2 ⟨(Set.Iio t''), fun t ht ↦ ⟨_, ht.le, ‹_›⟩, isOpen_Iio, ht.trans_lt ht''⟩
-    · simp [show ∀ t, ∃ t' ≥ t, motive t' from fun t ↦ ⟨_, le_one', ht'⟩]
-
 lemma Trivialization.continuousOn_coordChange {B F Z X : Type*} [TopologicalSpace B]
     [TopologicalSpace F] [TopologicalSpace Z] [TopologicalSpace X] {proj : Z → B}
     (e₁ e₂ : Trivialization F proj) {f : X → B} {g : X → F} {s : Set X}
@@ -504,37 +472,26 @@ lemma exists_isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSp
   neighbourhood of `{b} ×ˢ Set.Iic t`". It is easy to show that this holds for `t = 0` and
   for some `t' > t` whenever it holds for `t`, so the hard part is only proving that this
   property is closed under suprema. -/
-  have h := unitInterval.induction ?_ (fun t ht ⟨u, hu, v, hv⟩ ↦ ?_) (fun t ht ↦ ?_)
-    (motive := fun t ↦ ∃ v ∈ 𝓝ˢ (Set.Iic t), ∃ u ∈ 𝓝 b, IsOpen u ∧ IsTrivialOn F E (u ×ˢ v))
-  · simpa [show (1 : I) = ⊤ from rfl] using h
-  · have ⟨u, hu⟩ := exists_mem_nhds_isTrivialOn F E (b, 0)
+  refine (unitInterval.induction' (fun t ↦ ?_) ?_
+    (motive := fun v ↦ IsOpen v ∧ ∃ u ∈ 𝓝 b, IsOpen u ∧ IsTrivialOn F E (u ×ˢ v))).2
+  · have ⟨u, hu⟩ := exists_mem_nhds_isTrivialOn F E (b, t)
     have ⟨u', v, hu', hbu', hv, hv', h⟩ := mem_nhds_prod_iff'.1 hu.1
-    refine ⟨v, by
-      simpa [show (0 : I) = ⊥ from rfl] using hv.mem_nhds hv', u', hu'.mem_nhds hbu', hu',
-        hu.2.mono F E h⟩
-  · obtain ⟨u', hu'⟩ := mem_nhdsSet.1 hu
-    have : (𝓝[>] t).NeBot := nhdsGT_neBot_of_exists_gt ⟨1, ht⟩
-    have ⟨t', ht'⟩ := (hasBasis_nhdsSet_Iic_Iic t).mem_iff.1 (hu'.2.1.mem_nhdsSet.2 hu'.2.2)
-    exact ⟨t', ht'.1, u', hu'.2.1.mem_nhdsSet.2 ht'.2, v, hv.1, hv.2.1, hv.2.2.mono _ _ <| by grind⟩
+    refine ⟨v, ?_, hv, u', hu'.mem_nhds hbu', hu', hu.2.mono F E h⟩
+    simpa [show (0 : I) = ⊥ from rfl] using hv.mem_nhds hv'
   · /- Given a value `t` near which induction property frequently holds, we can obtain an
     open neighbourhood `u` of `b` and open neighbourhoods `v₁` and `v₂` of `Set.Iic t'`
     resp. `Set.Icc t' t` for some `t' < t` such that `E` is trivial on `u ×ˢ v₁` and `u ×ˢ v₂`. -/
-    have ⟨u, hu, hbu, t', ht', v₁, hv₁, hv₁', h₁, v₂, hv₂, hv₂', h₂⟩ : ∃ u, IsOpen u ∧ b ∈ u ∧
-        ∃ t' < t, ∃ v₁, IsOpen v₁ ∧ Set.Iic t' ⊆ v₁ ∧ IsTrivialOn F E (u ×ˢ v₁) ∧
-          ∃ v₂, IsOpen v₂ ∧ Set.Icc t' t ⊆ v₂ ∧ IsTrivialOn F E (u ×ˢ v₂) := by
-      have ⟨u₂, hu₂⟩ := exists_mem_nhds_isTrivialOn F E (b, t)
-      have ⟨u₂', v₂, hu₂', hbu₂', hv₂, htv₂, h₂⟩ := mem_nhds_prod_iff'.1 hu₂.1
-      have ⟨v₂', hv₂'⟩ := (LocallyConnectedSpace.open_connected_basis t).mem_iff.1
-        (hv₂.mem_nhds htv₂)
-      have ⟨t', ht', v₁, hv₁, u₁, hu₁, hu₁', h₁⟩ :=
-        Filter.frequently_iff.1 ht (inter_mem_nhdsWithin _ <| hv₂'.1.1.mem_nhds hv₂'.1.2.1)
-      have ⟨v₁', hv₁'⟩ := mem_nhdsSet.1 hv₁
-      exact ⟨u₁ ∩ u₂', hu₁'.inter hu₂', ⟨mem_of_mem_nhds hu₁, hbu₂'⟩, t', ht'.1, v₁', hv₁'.2.1,
-        hv₁'.2.2, h₁.mono _ _ (by grind), v₂', hv₂'.1.1, hv₂'.1.2.2.Icc_subset ht'.2 hv₂'.1.2.1,
-          hu₂.2.mono _ _ (by grind)⟩
     -- We now want to show that `E` is trivial on `u ×ˢ (Set.Iio t' ∪ v₂)`.
-    refine ⟨Set.Iio t' ∪ v₂, (isOpen_Iio.union hv₂).mem_nhdsSet.2 (by grind), u, hu.mem_nhds hbu,
-      hu, ?_⟩
+    intro t t' ht' v₁ hv₁' ⟨hv₁, u₁, hbu₁, hu₁, h₁⟩ v₂ hv₂' ⟨hv₂, u₂, hbu₂, hu₂, h₂⟩
+    replace hv₁' := subset_of_mem_nhdsSet hv₁'; replace hv₂' := subset_of_mem_nhdsSet hv₂'
+    replace hbu₁ := mem_of_mem_nhds hbu₁; replace hbu₂ := mem_of_mem_nhds hbu₂
+    let u := u₁ ∩ u₂
+    have hu : IsOpen u := hu₁.inter hu₂
+    have hbu : b ∈ u := ⟨hbu₁, hbu₂⟩
+    grw [← show u ⊆ u₁ by simp [u]] at h₁
+    grw [← show u ⊆ u₂ by simp [u]] at h₂
+    refine ⟨Set.Iio t' ∪ v₂, (isOpen_Iio.union hv₂).mem_nhdsSet.2 (by grind), isOpen_Iio.union hv₂,
+      u, hu.mem_nhds hbu, hu, ?_⟩
     rw [isTrivialOn_iff_exists_trivialization _ _
       (by grind [IsOpen.prod, IsOpen.union, isOpen_Iio])
       (by simp_rw [Set.nonempty_def, Set.mem_prod, Prod.exists, Subtype.exists]; grind)] at h₁ h₂ ⊢

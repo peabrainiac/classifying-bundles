@@ -32,6 +32,14 @@ lemma IsCozeroSet.exists_nonneg (hu : IsCozeroSet u) :
   obtain ⟨f, rfl⟩ := hu
   exact ⟨|f|, by simp⟩
 
+/-- The function that a cozero set is the support of can be chosen to be nonnegative and bounded
+from above by `1`. -/
+lemma IsCozeroSet.exists_nonneg_le_one (hu : IsCozeroSet u) :
+    ∃ f : C(X, ℝ), 0 ≤ f ∧ f ≤ 1 ∧ support f = u := by
+  obtain ⟨f, hf, rfl⟩ := hu.exists_nonneg
+  exact ⟨f ⊓ 1, fun x ↦ by simpa using hf x, by simp, by
+    ext; grind [support, ContinuousMap.inf_apply, ContinuousMap.one_apply]⟩
+
 /-- A set is a cozero set if and only if it is the support of a continuous function to the unit
 interval. -/
 lemma isCozeroSet_iff_unitInterval : IsCozeroSet u ↔ ∃ f : C(X, I), support f = u := by
@@ -74,6 +82,17 @@ lemma IsCozeroSet.inter (hu : IsCozeroSet u) {v : Set X} (hv : IsCozeroSet v) :
   obtain ⟨f, rfl⟩ := hu
   obtain ⟨g, rfl⟩ := hv
   exact ⟨f * g, by simp⟩
+
+lemma isCozeroSet_biInter {ι : Type*} {s : Finset ι} {u : ι → Set X} (hu : ∀ i, IsCozeroSet (u i)) :
+    IsCozeroSet (⋂ i ∈ s, u i) := by
+  choose f hf using hu
+  use ∏ i ∈ s, f i
+  simp [Finset.support_prod, hf, show ∏ i ∈ s, f i = fun x ↦ ∏ i ∈ s, f i x by ext x; simp]
+
+lemma isCozeroSet_iInter {ι : Type*} [Finite ι] {u : ι → Set X} (hu : ∀ i, IsCozeroSet (u i)) :
+    IsCozeroSet (⋂ i, u i) := by
+  have := Fintype.ofFinite
+  simpa using isCozeroSet_biInter (s := Finset.univ) hu
 
 -- TODO: move
 lemma Function.support_add_of_nonneg {α β : Type*} [AddZeroClass β] [PartialOrder β] [AddLeftMono β]
