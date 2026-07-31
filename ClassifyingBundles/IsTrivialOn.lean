@@ -208,19 +208,28 @@ instance [FiberBundle F E] [Nonempty B] [Nonempty F] :
 instance [FiberBundle F E] [IsEmpty F] : IsEmpty (TotalSpace F E) :=
   ⟨fun x ↦ IsEmpty.elim  ‹_› (FiberBundle.homeomorphAt F E x.1 x.snd)⟩
 
-lemma isTrivialOn_iff_exists_trivialization [FiberBundle F E]
-    {u : Set B} (hu : IsOpen u) (hu' : u.Nonempty) :
+lemma _root_.FiberBundle.isEmpty_totalSpace_iff [FiberBundle F E] :
+    IsEmpty (TotalSpace F E) ↔ IsEmpty B ∨ IsEmpty F := by
+  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
+  · contrapose! h
+    obtain ⟨_, _⟩ := h
+    infer_instance
+  · obtain _ | _ := h <;> infer_instance
+
+lemma isTrivialOn_iff_exists_trivialization [FiberBundle F E] {u : Set B} (hu : IsOpen u) :
     IsTrivialOn F E u ↔ ∃ e : Trivialization F (π F E), e.baseSet = u := by
   refine ⟨fun h ↦ ?_, fun ⟨e, h⟩ ↦ h ▸ e.isTrivialOn_baseSet⟩
-  obtain _ | _ := isEmpty_or_nonempty F
-  · use {
+  by_cases! h : IsEmpty B ∨ IsEmpty F
+  · have _ := isEmpty_prod.2 h
+    have _ := (FiberBundle.isEmpty_totalSpace_iff F E).2 h
+    use {
       toOpenPartialHomeomorph := Homeomorph.empty.toOpenPartialHomeomorph
       baseSet := u
       open_baseSet := hu
       source_eq := Subsingleton.elim _ _
       target_eq := Subsingleton.elim _ _
       proj_toFun x := IsEmpty.elim inferInstance x }
-  · have : Nonempty B := hu'.to_type
+  · obtain ⟨_, _⟩ := h
     have ⟨e, he⟩ := (isTrivial_iff_isHomeomorphicTrivialFiberBundle _ _).1 h
     let e' := (IsEmbedding.subtypeVal.pullbackLift F E (B' := u)).toHomeomorph.symm.trans e
       |>.trans (.prodCongr (.refl _) (Homeomorph.Set.univ _).symm)
@@ -246,10 +255,8 @@ lemma exists_mem_nhds_isTrivialOn [FiberBundle F E] (b : B) : ∃ u ∈ 𝓝 b, 
 
 @[simp]
 lemma isTrivialOn_univ [FiberBundle F E] : IsTrivialOn F E .univ ↔ IsTrivial F E := by
-  refine (isEmpty_or_nonempty B).rec (fun _ ↦ ?_) (fun _ ↦ ?_)
-  · simp [Set.univ_eq_empty_iff.2 ‹_›, isTrivialOn_empty, isTrivial_of_empty]
-  · rw [isTrivial_iff_exists_trivialization,
-      isTrivialOn_iff_exists_trivialization F E isOpen_univ Set.univ_nonempty]
+  rw [isTrivial_iff_exists_trivialization,
+    isTrivialOn_iff_exists_trivialization F E isOpen_univ]
 
 lemma IsTrivial.isTrivialOn [FiberBundle F E] [∀ b, Zero (E b)] (h : IsTrivial F E) {s : Set B} :
     IsTrivialOn F E s :=
@@ -280,16 +287,12 @@ TODO: generalise to indexed unions -/
 lemma IsTrivialOn.disjointUnion [FiberBundle F E] {s t : Set B} (hs : IsTrivialOn F E s)
     (ht : IsTrivialOn F E t) (hs' : IsOpen s) (ht' : IsOpen t) (h : Disjoint s t) :
     IsTrivialOn F E (s ∪ t) := by
-  obtain rfl | hs'' := s.eq_empty_or_nonempty
-  · simpa
-  · obtain rfl | ht'' := t.eq_empty_or_nonempty
-    · simpa
-    · rw [isTrivialOn_iff_exists_trivialization _ _ (by assumption) (by assumption)] at hs ht
-      obtain ⟨e, he⟩ := hs
-      obtain ⟨e', he'⟩ := ht
-      refine (isTrivialOn_iff_exists_trivialization _ _ (hs'.union ht') (by simp [hs''])).2 ?_
-      use e.disjointUnion e' (by simp_all)
-      simp [Trivialization.disjointUnion, he, he']
+  rw [isTrivialOn_iff_exists_trivialization _ _ (by assumption)] at hs ht
+  obtain ⟨e, he⟩ := hs
+  obtain ⟨e', he'⟩ := ht
+  refine (isTrivialOn_iff_exists_trivialization _ _ (hs'.union ht')).2 ?_
+  use e.disjointUnion e' (by simp_all)
+  simp [Trivialization.disjointUnion, he, he']
 
 /-- The homeomorphism between a disjoint union of sets and a disjoint union of the corresponding
 subtypes when each set has a neighbourhood that is disjoint from all other sets.
@@ -479,12 +482,8 @@ lemma isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSpace (To
     replace hv₁' := subset_of_mem_nhdsSet hv₁'; replace hv₂' := subset_of_mem_nhdsSet hv₂'
     refine ⟨Set.Iio t' ∪ v₂, (isOpen_Iio.union hv₂).mem_nhdsSet.2 (by grind),
       isOpen_Iio.union hv₂, ?_⟩
-    wlog! h : u.Nonempty
-    · simp [h, isTrivialOn_empty]
-    have : v₁.Nonempty := by grw [← hv₁']; simp
-    have : v₂.Nonempty := by grw [← hv₂']; simp [ht.le]
     rw [isTrivialOn_iff_exists_trivialization _ _
-      (by grind [IsOpen.prod, IsOpen.union, isOpen_Iio]) (by simp; grind)] at h₁ h₂ ⊢
+      (by grind [IsOpen.prod, IsOpen.union, isOpen_Iio])] at h₁ h₂ ⊢
     obtain ⟨e₁, he₁⟩ := h₁; obtain ⟨e₂, he₂⟩ := h₂
     -- It suffices to modify `e₂` so it agrees with `e₁` on `u ×ˢ (Set.Iio t' ∩ v₂)`.
     suffices h : ∃ e₂' : Trivialization F (π F E), e₂'.baseSet = u ×ˢ v₂ ∧
