@@ -13,6 +13,7 @@ import ClassifyingBundles.Join
 import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.NumerableBundle
 import ClassifyingBundles.NumerableCover
+import ClassifyingBundles.OpenPartialHomeomorph
 import ClassifyingBundles.PartitionOfUnity
 import ClassifyingBundles.PositivePartition
 import ClassifyingBundles.PrincipalBundle

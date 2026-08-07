@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleIso
+import ClassifyingBundles.OpenPartialHomeomorph
 import ClassifyingBundles.RealInduction
 import Mathlib.Topology.FiberBundle.IsHomeomorphicTrivialBundle
 import Mathlib.Topology.Order.NhdsSet
@@ -176,29 +177,6 @@ lemma Trivialization.isTrivialOn_baseSet [FiberBundle F E] (e : Trivialization F
   dsimp [Homeomorph.setCongr]
   erw [Subtype.mk.injEq, e.proj_toFun]
   simpa [e.source_eq]
-
-open Classical in
-/-- The `OpenPartialHomeomorph` given by a homeomorphism between two open subsets. -/
-noncomputable def _root_.Homeomorph.toOpenPartialHomeomorph' {X Y : Type*} [TopologicalSpace X]
-    [TopologicalSpace Y] [Nonempty X] [Nonempty Y] {u : Set X} {v : Set Y}
-    (e : u ≃ₜ v) (hu : IsOpen u) (hv : IsOpen v) :
-    OpenPartialHomeomorph X Y where
-  toFun x := if hx : x ∈ u then e ⟨x, hx⟩ else Classical.arbitrary _
-  invFun y := if hy : y ∈ v then e.symm ⟨y, hy⟩ else Classical.arbitrary _
-  source := u
-  target := v
-  map_source' x hx := by simp [hx]
-  map_target' y hy := by simp [hy]
-  left_inv' x hx := by simp [hx]
-  right_inv' y hy := by simp [hy]
-  open_source := hu
-  open_target := hv
-  continuousOn_toFun := by
-    rw [continuousOn_iff_continuous_restrict]
-    exact (continuous_subtype_val.comp e.continuous).congr fun _ ↦ by simp
-  continuousOn_invFun := by
-    rw [continuousOn_iff_continuous_restrict]
-    exact (continuous_subtype_val.comp e.symm.continuous).congr fun _ ↦ by simp
 
 -- TODO: find home
 instance [FiberBundle F E] [Nonempty B] [Nonempty F] :
@@ -381,61 +359,6 @@ lemma IsTrivialOn.disjointIUnion [FiberBundle F E] [∀ b, Zero (E b)] {ι : Typ
   convert h i <;> ext <;> rfl
 
 end DisjointUnion
-
-open Classical in
-/-- The union of two open partial homeomorphisms that agree on the intersection of their domains. -/
-@[simps! source target]
-noncomputable def _root_.OpenPartialHomeomorph.union {X Y : Type*} [TopologicalSpace X]
-    [TopologicalSpace Y] (e e' : OpenPartialHomeomorph X Y) (h : (e.source ∩ e'.source).EqOn e e')
-    (h' : e'.IsImage e.source e.target) :
-    OpenPartialHomeomorph X Y where
-  toPartialEquiv := e.toPartialEquiv.piecewise e'.toPartialEquiv e.source e.target
-    e.isImage_source_target h'
-  open_source := by simpa using e.open_source.union e'.open_source
-  open_target := by simpa using e.open_target.union e'.open_target
-  continuousOn_toFun := by
-    suffices ContinuousOn (e.source.piecewise e e') (e.source ∪ e'.source) by simpa
-    refine .union_of_isOpen ?_ ?_ e.open_source e'.open_source
-    · refine .congr e.continuousOn_toFun ?_
-      simp [Set.eqOn_piecewise, Set.eqOn_refl]
-    · refine .congr e'.continuousOn_toFun <| ?_
-      simp [Set.eqOn_piecewise, Set.eqOn_refl, Set.inter_comm _ _ ▸ h]
-  continuousOn_invFun := by
-    suffices ContinuousOn (e.target.piecewise e.symm e'.symm) (e.target ∪ e'.target) by simpa
-    refine .union_of_isOpen ?_ ?_ e.open_target e'.open_target
-    · refine .congr e.continuousOn_invFun ?_
-      simp [Set.eqOn_piecewise, Set.eqOn_refl]
-    · refine .congr e'.continuousOn_invFun <| ?_
-      suffices Set.EqOn e.symm e'.symm (e'.target ∩ e.target) by
-        simpa [Set.eqOn_piecewise, Set.eqOn_refl]
-      intro y ⟨hy', hy⟩
-      obtain ⟨x, hx', rfl⟩ : ∃ x, x ∈ e'.source ∧ e' x = y := ⟨e'.symm y, by simp [hy']⟩
-      have hx := (h' hx').1 hy
-      rw [e'.left_inv hx', ← @h x ⟨hx, hx'⟩, e.left_inv hx]
-
-lemma _root_.OpenPartialHomeomorph.union_eqOn_left {X Y : Type*} [TopologicalSpace X]
-    [TopologicalSpace Y] {e e' : OpenPartialHomeomorph X Y} {h : (e.source ∩ e'.source).EqOn e e'}
-    {h' : e'.IsImage e.source e.target} : e.source.EqOn (e.union e' h h') e := by
-  classical
-  exact e.source.piecewise_eqOn e e'
-
-lemma _root_.OpenPartialHomeomorph.union_eqOn_right {X Y : Type*} [TopologicalSpace X]
-    [TopologicalSpace Y] {e e' : OpenPartialHomeomorph X Y} {h : (e.source ∩ e'.source).EqOn e e'}
-    {h' : e'.IsImage e.source e.target} : e'.source.EqOn (e.union e' h h') e' := by
-  classical
-  exact e.source.piecewise_eqOn e e' |>.mono Set.inter_subset_left |>.trans h |>.union
-    (e.source.piecewise_eqOn_compl e e') |>.mono (by grind)
-
-lemma _root_.OpenPartialHomeomorph.union_apply_of_mem_left {X Y : Type*} [TopologicalSpace X]
-    [TopologicalSpace Y] {e e' : OpenPartialHomeomorph X Y} {h : (e.source ∩ e'.source).EqOn e e'}
-    {h' : e'.IsImage e.source e.target} {x : X} (hx : x ∈ e.source) : e.union e' h h' x = e x :=
-  e.union_eqOn_left hx
-
-lemma _root_.OpenPartialHomeomorph.union_apply_of_mem_right {X Y : Type*} [TopologicalSpace X]
-    [TopologicalSpace Y] {e e' : OpenPartialHomeomorph X Y} {h : (e.source ∩ e'.source).EqOn e e'}
-    {h' : e'.IsImage e.source e.target} {x : X} (hx : x ∈ e'.source) :
-    e.union e' h h' x = e' x :=
-  e.union_eqOn_right hx
 
 /-- The union of two trivializations that agree on the intersection of their domains. -/
 @[simps! baseSet]
