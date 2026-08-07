@@ -32,6 +32,44 @@ lemma Bundle.TotalSpace.map_injective : Injective (map F F' : (∀ b, E b → E'
   ext b x
   simpa [map] using congrFun h ⟨_, x⟩
 
+omit [TopologicalSpace (Bundle.TotalSpace F E)] [TopologicalSpace (Bundle.TotalSpace F' E')] in
+lemma Bundle.TotalSpace.map_injective_iff (hf : Injective f) {f' : ∀ b, E b → E' (f b)} :
+    Injective (map F F' f') ↔ ∀ b, Injective (f' b) := by
+  refine ⟨fun hf' ↦ ?_, fun hf' ↦ ?_⟩
+  · intro b x x' h
+    refine mk_inj.1 <| @hf' ⟨b, x⟩ ⟨b, x'⟩ ?_
+    simp [map, h]
+  · intro ⟨b, x⟩ ⟨b', x'⟩ h
+    obtain rfl := hf <| congrArg proj h
+    obtain rfl := hf' _ <| mk_inj.1 h
+    rfl
+
+omit [TopologicalSpace (Bundle.TotalSpace F E)] [TopologicalSpace (Bundle.TotalSpace F' E')] in
+lemma Bundle.TotalSpace.map_surjective (hf : Surjective f) {f' : ∀ b, E b → E' (f b)}
+    (hf' : ∀ b, Surjective (f' b)) : Surjective (map F F' f') := by
+  intro ⟨b, x⟩
+  obtain ⟨b', rfl⟩ := hf b
+  obtain ⟨x', rfl⟩ := hf' b' x
+  exact ⟨⟨b', x'⟩, by simp [map]⟩
+
+omit [TopologicalSpace (Bundle.TotalSpace F E)] [TopologicalSpace (Bundle.TotalSpace F' E')] in
+lemma Bundle.TotalSpace.map_surjective_iff (hf : Bijective f) {f' : ∀ b, E b → E' (f b)} :
+    Surjective (map F F' f') ↔ ∀ b, Surjective (f' b) := by
+  refine ⟨fun hf' b x ↦ ?_, map_surjective _ _ _ _ hf.surjective⟩
+  have ⟨⟨b', x'⟩, h⟩ := hf' ⟨f b, x⟩
+  obtain rfl : b' = b := hf.injective <| congrArg proj h
+  exact ⟨x', mk_inj.1 h⟩
+
+omit [TopologicalSpace (Bundle.TotalSpace F E)] [TopologicalSpace (Bundle.TotalSpace F' E')] in
+lemma Bundle.TotalSpace.map_bijective_iff (hf : Bijective f) {f' : ∀ b, E b → E' (f b)} :
+    Bijective (map F F' f') ↔ ∀ b, Bijective (f' b) := by
+  simp only [Bijective, map_injective_iff, map_surjective_iff _ _ _ _ hf, hf.injective, forall_and]
+
+omit [TopologicalSpace (Bundle.TotalSpace F E)] [TopologicalSpace (Bundle.TotalSpace F' E')] in
+lemma Bundle.TotalSpace.map_bijOn_iff {f' : ∀ b, E b → E' (f b)} {b : B} :
+    Set.BijOn (map F F' f') (π F E ⁻¹' {b}) (π F' E' ⁻¹' {f b}) ↔ Bijective (f' b) := by
+  sorry
+
 /-- A continuous fibrewise map between bundles, relative to a given map of the base spaces. -/
 structure ContinuousBundleHom (f : B → B') where
   toFun (b : B) (x : E b) : E' (f b)
