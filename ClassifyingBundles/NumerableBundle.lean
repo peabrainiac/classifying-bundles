@@ -5,7 +5,7 @@ Authors: Ben Eltschig
 -/
 import ClassifyingBundles.IsTrivialOn
 import ClassifyingBundles.NumerableCover
-import Mathlib.Topology.Homotopy.Basic
+import Mathlib.Topology.Homotopy.Contractible
 
 /-! # Numerable bundles
 In this file we define numerable bundles, i.e. fibre bundles that can be trivialised on some
@@ -488,3 +488,26 @@ lemma NumerableBundle.pullbackIsoPullback [∀ b, TopologicalSpace (E b)] [Fiber
   replace e := (ContinuousBundleIso.pullbackPullbackIso _ _).symm.trans e
     |>.trans (.pullbackPullbackIso _ _) |>.trans (.pullbackPullbackIso _ _)
   convert Nonempty.intro e <;> ext x <;> simp [hH₁, hH₂]
+
+/-- TODO: move -/
+lemma nullhomotopic_of_contractibleSpace_dom {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [ContractibleSpace X] {f : C(X, Y)} : f.Nullhomotopic :=
+  (id_nullhomotopic X).comp_right f
+
+/-- TODO: move -/
+lemma nullhomotopic_of_contractibleSpace_cod {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [ContractibleSpace Y] {f : C(X, Y)} : f.Nullhomotopic :=
+  (id_nullhomotopic Y).comp_left f
+
+/-- Every numerable fibre bundle on a contractible base space is trivial. -/
+lemma IsTrivial.of_contractibleSpace [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+    [(b : B) → Zero (E b)] [NumerableBundle F E] [ContractibleSpace B] : IsTrivial F E := by
+  rw [← isTrivialOn_univ, IsTrivialOn]
+  have ⟨b, h⟩ := nullhomotopic_of_contractibleSpace_cod
+    (f := (ContinuousMap.subtypeVal : C((Set.univ : Set B), B)))
+  have ⟨e⟩ := NumerableBundle.pullbackIsoPullback F E h
+  have : CompTriple (Equiv.refl (univ : Set B)) (Equiv.refl (univ : Set B))
+    (Homeomorph.refl (univ : Set B)) := ⟨rfl⟩
+  replace e := e.trans <| .pullbackConstIsoTrivial (F := F) (E := E) (B' := (univ : Set B)) b
+  rw [show (Homeomorph.refl (univ : Set B)).toEquiv = Homeomorph.refl (univ : Set B) from rfl] at e
+  exact (e.isTrivial_iff _).2 <| isTrivial_trivial _

@@ -324,6 +324,21 @@ def pullbackTrivialIso (f : C(B', B)) : f *ᵖ (Trivial B F) ≃ₜᶠ[F, F] Tri
     (Pullback.TotalSpace.continuous_iff _).2 ⟨continuous_proj _ _, (Trivial.continuous_iff _).2
       ⟨(map_continuous f).comp <| continuous_proj _ _, TotalSpace.continuous_trivialSnd⟩⟩
 
+/-- The pullback of any bundle along a constant map is isomorphic to the trivial bundle with
+standard fibre the fibre of that point. -/
+def pullbackConstIsoTrivial (b : B) :
+    (ContinuousMap.const B' b) *ᵖ E ≃ₜᶠ[F, E b] Trivial B' (E b) where
+  toFun _ x := x
+  invFun _ x := x
+  left_inv' _ := by simp
+  right_inv' _ := by simp
+  continuous_toFun :=
+    (Trivial.continuous_iff _).2 ⟨Pullback.continuous_proj _ _ _,
+      (totalSpaceMk_isInducing F E b).continuous_iff.2 <| Pullback.continuous_lift F E _⟩
+  continuous_invFun :=
+    (Pullback.TotalSpace.continuous_iff _).2 ⟨continuous_proj _ _,
+      (totalSpaceMk_isInducing F E b).continuous.comp TotalSpace.continuous_trivialSnd⟩
+
 /-- The pullback of a pullback bundle is isomorphic to the pullback of the original bundle along the
 composition. -/
 def pullbackPullbackIso (f : C(B', B)) (g : C(B'', B')) :

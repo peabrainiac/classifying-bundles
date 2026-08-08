@@ -26,6 +26,8 @@ This is equivalent to the existing `IsHomeomorphicTrivialFiberBundle` in mathlib
 in terms of actual bundle isomorphisms instead of homeomorphisms that respect the fibres. -/
 def IsTrivial : Prop := Nonempty (E ≃ₜᶠ[F, F] Trivial B F)
 
+lemma isTrivial_trivial : IsTrivial F (Trivial B F) := ⟨.refl F _⟩
+
 /-- A bundle is trivial iff there exists a homeomorphism `TotalSpace F E ≃ₜ B × F` that respects
 the fibres. -/
 lemma isTrivial_iff_isHomeomorphicTrivialFiberBundle :
@@ -99,6 +101,12 @@ lemma _root_.ContinuousMap.subtypeVal_comp_inclusion {X : Type*} [TopologicalSpa
     (h : s ⊆ t) : ContinuousMap.subtypeVal.comp (.inclusion h) = .subtypeVal := by
   ext; simp [ContinuousMap.subtypeVal, ContinuousMap.inclusion]
 
+/-- TODO: move -/
+@[simp]
+lemma _root_.Homeomorph.Set.univ_toContinuousMap {X : Type*} [TopologicalSpace X] :
+    toContinuousMap (Homeomorph.Set.univ X) = .subtypeVal :=
+  rfl
+
 /-- A bundle is trivial on `u` if its pullback to `u` is trivial. -/
 def IsTrivialOn (u : Set B) : Prop :=
   IsTrivial F (ContinuousMap.subtypeVal (s := u) *ᵖ E)
@@ -106,6 +114,43 @@ def IsTrivialOn (u : Set B) : Prop :=
 lemma isTrivialOn_empty : IsTrivialOn F E ∅ := by
   rw [IsTrivialOn, isTrivial_iff_isHomeomorphicTrivialFiberBundle]
   exact ⟨Homeomorph.empty, fun x ↦ IsEmpty.elim inferInstance x⟩
+
+-- TODO: find home
+instance [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [Nonempty B] [Nonempty F] :
+    Nonempty (TotalSpace F E) :=
+  ⟨⟨_, (FiberBundle.homeomorphAt F E (Classical.arbitrary B)).symm (Classical.arbitrary F)⟩⟩
+
+instance [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [IsEmpty F] : IsEmpty (TotalSpace F E) :=
+  ⟨fun x ↦ IsEmpty.elim  ‹_› (FiberBundle.homeomorphAt F E x.1 x.snd)⟩
+
+lemma _root_.FiberBundle.isEmpty_totalSpace_iff [∀ b, TopologicalSpace (E b)] [FiberBundle F E] :
+    IsEmpty (TotalSpace F E) ↔ IsEmpty B ∨ IsEmpty F := by
+  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
+  · contrapose! h
+    obtain ⟨_, _⟩ := h
+    infer_instance
+  · obtain _ | _ := h <;> infer_instance
+
+instance [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [IsEmpty (TotalSpace F E)] {f : C(B', B)} :
+    IsEmpty (TotalSpace F (f *ᵖ E)) :=
+  (Pullback.lift f).isEmpty
+
+/-- TODO: generalize -/
+lemma isTrivialOn_singleton [∀ b, TopologicalSpace (E b)] [FiberBundle F E] {b : B} :
+    IsTrivialOn F E {b} := by
+  rw [IsTrivialOn, show ContinuousMap.subtypeVal (s := {b}) = .const _ b by ext ⟨_, rfl⟩; rfl]
+  let e := ContinuousBundleIso.pullbackConstIsoTrivial (F := F) (E := E) (B' := ({b} : Set B)) b
+  by_cases! IsEmpty F
+  · exact isTrivial_of_empty _ _
+  · have _ b : Zero (E b) := ⟨(FiberBundle.homeomorphAt F E b).symm (Classical.arbitrary F)⟩
+    exact isTrivial_of_continuousBundleIso _ _ _ (e := Homeomorph.refl _) e
+
+/-- TODO: generalize -/
+lemma isTrivialOn_of_subsingleton [∀ b, TopologicalSpace (E b)] [FiberBundle F E] {s : Set B}
+    (hs : s.Subsingleton) : IsTrivialOn F E s := by
+  obtain rfl | ⟨b, rfl⟩ := hs.eq_empty_or_singleton
+  · exact isTrivialOn_empty F E
+  · exact isTrivialOn_singleton F E
 
 variable [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [∀ b, Zero (E b)] in
 /-- TODO: generalise, clean up -/
@@ -177,22 +222,6 @@ lemma Trivialization.isTrivialOn_baseSet [FiberBundle F E] (e : Trivialization F
   dsimp [Homeomorph.setCongr]
   erw [Subtype.mk.injEq, e.proj_toFun]
   simpa [e.source_eq]
-
--- TODO: find home
-instance [FiberBundle F E] [Nonempty B] [Nonempty F] :
-    Nonempty (TotalSpace F E) :=
-  ⟨⟨_, (FiberBundle.homeomorphAt F E (Classical.arbitrary B)).symm (Classical.arbitrary F)⟩⟩
-
-instance [FiberBundle F E] [IsEmpty F] : IsEmpty (TotalSpace F E) :=
-  ⟨fun x ↦ IsEmpty.elim  ‹_› (FiberBundle.homeomorphAt F E x.1 x.snd)⟩
-
-lemma _root_.FiberBundle.isEmpty_totalSpace_iff [FiberBundle F E] :
-    IsEmpty (TotalSpace F E) ↔ IsEmpty B ∨ IsEmpty F := by
-  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
-  · contrapose! h
-    obtain ⟨_, _⟩ := h
-    infer_instance
-  · obtain _ | _ := h <;> infer_instance
 
 lemma isTrivialOn_iff_exists_trivialization [FiberBundle F E] {u : Set B} (hu : IsOpen u) :
     IsTrivialOn F E u ↔ ∃ e : Trivialization F (π F E), e.baseSet = u := by
