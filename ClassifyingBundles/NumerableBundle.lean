@@ -209,18 +209,27 @@ lemma ContinuousOn.inter_union_of_isOpen {X Y : Type*} [TopologicalSpace X] [Top
 
 attribute [local fun_prop] FiberBundle.continuous_proj in
 /-- The covering homotopy theorem: every fibre bundle over `B × I` is isomorphic to the pullback of
-itself along the map `B × I → B × I` sending `(b, t)` to `(b, 1)`.
+itself along the map `B × I → B × I` sending `(b, t)` to `(b, 1)`. This version of the lemma takes
+in an explicit choice of trivialisations as well as a predicate `P` that the transitions between
+trivialisations are required to fulfill fibrewise, and produces an isomorphism that also fulfills
+the predicate fibrewise. In this way the lemma can be specialised to fibre bundles to produce fibre
+bundle isomorphisms, to principal bundles to produce principal bundle isomorphisms, to vector
+bundles to produce vector bundle isomorphisms and so on.
 
-The isomorphism is not canonical; we wrap it in `Nonempty` to not surface the details of its
-construction, and because nothing interesting could be said about this specific choice of
-isomorphism anyway. For example, it does not preserve any extra structure that `E` carries -
-analogous lemmas for things like vector bundles and principal bundles have to be proven separately.
+The constructed isomorphism is not canonical; we wrap it in an existential statement to not surface
+the details of its construction, and because nothing interesting could be said about this specific
+choice of isomorphism anyway.
 
 TODO: rename, get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
-lemma NumerableBundle.coveringHomotopyLemma (E : B × I → Type*)
+lemma coveringHomotopyLemma_of_prop (E : B × I → Type*)
     [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
-    [∀ b, Zero (E b)] [NumerableBundle F E] :
-    Nonempty (E ≃ₜᶠ[F, F] (ContinuousMap.prodMap (.id B) (.const I 1)) *ᵖ E) := by
+    [∀ b, Zero (E b)] (P : ∀ x x', (E x → E x') → Prop)
+    (hP : ∀ x x' x'' g g', P x x' g → P x' x'' g' → P x x'' (g' ∘ g))
+    {u : ℕ → Set B} (hu : NumerableCover u)
+    (e : ℕ → Trivialization F (π F E)) (he : ∀ n, (e n).baseSet = u n ×ˢ univ)
+    (he' : ∀ n m, ∀ x ∈ (e n).baseSet, ∀ x' ∈ (e m).baseSet,
+      P x x' (fun x : E x ↦ (e m).symm x' (e n x).2)) :
+    ∃ e : E ≃ₜᶠ[F, F] (ContinuousMap.prodMap (.id B) (.const I 1)) *ᵖ E, ∀ x, P x _ (e x) := by
   /- It suffices to give a map `g : TotalSpace F E → TotalSpace F E` whose underlying map is
   `fun x ↦ (x, 1)` and that becomes an isomorphism when viewed as a map to the pullback. The
   advantage of this formulation is that the type of the map we need to give no longer directly
@@ -228,11 +237,12 @@ lemma NumerableBundle.coveringHomotopyLemma (E : B × I → Type*)
   underlying maps. -/
   suffices h : ∃ g : TotalSpace F E → TotalSpace F E, (∀ x, (g x).proj = (x.proj.1, 1)) ∧
       (∀ x : B × I, BijOn g (π F E ⁻¹' {x}) (π F E ⁻¹' {(x.1, 1)})) ∧
-        IsInducing (fun x ↦ (x.proj, g x)) by
-    have ⟨g, hg, hg', hg''⟩ := h
-    have hg''' : Continuous g := continuous_snd.comp hg''.continuous
+        IsInducing (fun x ↦ (x.proj, g x)) ∧ ∀ x, ∃ g', P x (x.1, 1) g' ∧ ∀ x', g' x' = g x' by
+    have ⟨g, hg, hg', hg'', hg'''⟩ := h
+    have hg'''' : Continuous g := continuous_snd.comp hg''.continuous
     refine ⟨.ofHomeomorph ((Equiv.ofBijective (ContinuousBundleHom.pullbackEquiv <| .ofContinuousMap
-      (f := fun x ↦ (x.1, 1)) ⟨g, hg'''⟩ hg).toContinuousMap ?_).toHomeomorphOfIsInducing ?_) ?_⟩
+      (f := fun x ↦ (x.1, 1)) ⟨g, hg''''⟩ hg).toContinuousMap ?_).toHomeomorphOfIsInducing ?_)
+      fun x ↦ ?_, fun x ↦ ?_⟩
     · refine (TotalSpace.map_bijective_iff _ _ _ _ bijective_id).2 fun x ↦ ?_
       rw [← Function.Bijective.of_comp_iff' (α := ((fun x ↦ (x.1, 1)) *ᵖ E) (id x))
         (β := E (x.1, 1)) (f := by exact fun x ↦ x) (by exact bijective_id) _]
@@ -248,19 +258,32 @@ lemma NumerableBundle.coveringHomotopyLemma (E : B × I → Type*)
       · ext1
         · simp [hg]
         · exact cast_heq _ _
-    · intro x
-      erw [Equiv.toHomeomorphOfIsInducing_apply]
+    · erw [Equiv.toHomeomorphOfIsInducing_apply]
       simp
-  /- Since `E` is numerable we can obtain an open cover `u` of `B` such that `E` is trivial on every
-  set of the form `u i × univ`, and a bump cover subordinate to it. For later convenience we
-  choose `u` such that `u 0` is empty. -/
-  have ⟨u, hu₀, hu⟩ : ∃ u : ℕ → Set B, u 0 = ∅ ∧ NumerableCover u ∧ ∀ (i : ℕ), IsOpen (u i) ∧
-      IsTrivialOn F E (u i ×ˢ univ) := by
-    have ⟨u, hu⟩ := exists_countable_isTrivialOn_cover_prod_unitInterval F E
-    exact ⟨fun n ↦ n.rec ∅ (fun n _ ↦ u n), by simp, hu.2.1.mono' fun n ↦ ⟨n + 1, by simp⟩,
-      fun n ↦ ⟨n.rec isOpen_empty fun m _ ↦ (hu.2.2 m).1,
-        n.rec (by simp [isTrivialOn_empty]) fun m _ ↦ (hu.2.2 m).2⟩⟩
-  have ⟨f, hf⟩ := hu.1.exists_bumpCovering
+    · have ⟨g', hg'''⟩ := hg''' x
+      convert! hg'''.1 using 1
+      ext x'
+      refine (TotalSpace.mk_inj (F := F) (E := E)).1 ?_
+      convert! (hg'''.2 x').symm using 1
+      ext1
+      · exact (hg ⟨x, x'⟩).symm
+      · simp only [TotalSpace.mk', ContinuousBundleIso.ofHomeomorph, ContinuousBundleIso.ofHoms,
+        ContinuousBundleIso.coe_mk, ContinuousBundleHom.ofContinuousMap,
+        ContinuousBundleHom.coeFn_mk, Equiv.toHomeomorphOfIsInducing, ContinuousMap.coe_mk,
+        ContinuousMap.coe_coe]
+        exact (cast_heq_iff_heq _ _ _).2 (cast_heq _ _)
+  /- Since `u` is numerable, we can obtain a bump covering that is subordinate to it. For later
+  convenience we first modify `u` such that `u 0` is empty. -/
+  wlog hu₀ : u 0 = ∅ generalizing u e with h
+  · refine h (u := fun n ↦ n.rec ∅ (fun n _ ↦ u n)) (hu.mono' fun n ↦ ⟨n + 1, by simp⟩)
+      (fun n ↦ n.rec ((e 0).restrOpen ∅ isOpen_empty) fun n _ ↦ e n)
+      (fun n ↦ by cases n <;> simp [Trivialization.restrOpen, he]) (fun n m ↦ ?_) (by simp)
+    exact n.rec (by simp [Trivialization.restrOpen]) fun n _ ↦
+      m.rec (by simp [Trivialization.restrOpen]) fun m _ ↦ he' n m
+  have hu' n : IsOpen (u n) := by
+    rw [← fst_image_prod (α := I) (u n) univ_nonempty, ← he]
+    exact isOpenMap_fst _ (e n).open_baseSet
+  have ⟨f, hf⟩ := hu.exists_bumpCovering
   have hf₀ : f 0 = 0 := by have := subset_closure.trans <| hf 0; ext1; simp_all
   /- Let `w n` be the subset of `B` where `f n` reaches its maximum, `w' n` the union of all `w m`
   with `m ≤ n`, and `w'' n` the interior of the correspond subset of `B × I`. -/
@@ -314,17 +337,19 @@ lemma NumerableBundle.coveringHomotopyLemma (E : B × I → Type*)
   pullback bundle, and that stabilise on the sets `w'' n` as the maps `f'' n` do. -/
   suffices h : ∃ g : ℕ → TotalSpace F E → TotalSpace F E, ∀ n, (∀ x, (g n x).proj = f'' n x.proj) ∧
       (∀ x : B × I, BijOn (g n) (π F E ⁻¹' {x}) (π F E ⁻¹' {f'' n x})) ∧
-        IsInducing (fun x ↦ (x.proj, g n x)) ∧ (π F E ⁻¹' w'' n).EqOn (g n) (g (n + 1)) by
+        IsInducing (fun x ↦ (x.proj, g n x)) ∧
+          (∀ x, ∃ g', P x (f'' n x) g' ∧ ∀ x', g' x' = g n x') ∧
+            (π F E ⁻¹' w'' n).EqOn (g n) (g (n + 1)) by
     obtain ⟨g, hg⟩ := h
     have hg' n m (h : n ≤ m) : (π F E ⁻¹' w'' n).EqOn (g n) (g m) := by
       obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le h
       refine k.rec ?_ fun k hk ↦ ?_
       · simp [Set.eqOn_refl]
       · rw [k.succ_eq_add_one, ← add_assoc]
-        exact hk.trans <| (hg _).2.2.2.mono <| preimage_mono <| hw''' _ _ <| by simp
+        exact hk.trans <| (hg _).2.2.2.2.mono <| preimage_mono <| hw''' _ _ <| by simp
     have hg'' n m x (hxn : x.proj ∈ w'' n) (hxm : x.proj ∈ w'' m) : g n x = g m x := by
       rw [hg' n (n + m) (by simp) hxn, hg' m (n + m) (by simp) hxm]
-    refine ⟨fun x ↦ g (f.ind x.proj.1 trivial) x, fun x ↦ ?_, ?_, ?_⟩
+    refine ⟨fun x ↦ g (f.ind x.proj.1 trivial) x, fun x ↦ ?_, ?_, ?_, fun x ↦ ?_⟩
     · simp only [hg, hf'' (f.ind x.proj.1 trivial) _ le_rfl x.proj (by simp [f.ind_apply])]
     · intro x
       rw [← hf'' (f.ind x.1 trivial) _ le_rfl x (by simp [f.ind_apply])]
@@ -346,48 +371,58 @@ lemma NumerableBundle.coveringHomotopyLemma (E : B × I → Type*)
         · ext x
           refine and_congr_right_iff.2 fun hx ↦ ?_
           simp [hx, hg, hf''', hw'''']
+    · rw [← hf''' _ _ (hw'''' x)]
+      exact (hg (f.ind x.1 trivial)).2.2.2.1 x
   /- By induction, to construct the sequence of maps it suffices to show that given a valid map for
   any `n` we can construct a valid map for `n + 1`. The base case `0` is trivial thanks to us
   having chosen `u` such that `u 0 = ∅`, which implies `f'' 0 = id`. -/
   suffices h : ∀ (n : ℕ) (g : TotalSpace F E → TotalSpace F E), (∀ x, (g x).proj = f'' n x.proj) →
       (∀ x, BijOn g (TotalSpace.proj ⁻¹' {x}) (TotalSpace.proj ⁻¹' {f'' n x})) →
-        (IsInducing fun x ↦ (x.proj, g x)) → ∃ g' : TotalSpace F E → TotalSpace F E,
-          (∀ x, (g' x).proj = f'' (n + 1) x.proj) ∧
+        (IsInducing fun x ↦ (x.proj, g x)) → (∀ x, ∃ g', P x (f'' n x) g' ∧ ∀ x', g' x' = g x') →
+          ∃ g' : TotalSpace F E → TotalSpace F E, (∀ x, (g' x).proj = f'' (n + 1) x.proj) ∧
             (∀ x, BijOn g' (TotalSpace.proj ⁻¹' {x}) (TotalSpace.proj ⁻¹' {f'' (n + 1) x})) ∧
-              (IsInducing fun x ↦ (x.proj, g' x)) ∧ EqOn g g' (TotalSpace.proj ⁻¹' w'' n) by
+              (IsInducing fun x ↦ (x.proj, g' x)) ∧
+                (∀ x, ∃ g'', P x (f'' (n + 1) x) g'' ∧ ∀ x', g'' x' = g' x') ∧
+                  EqOn g g' (TotalSpace.proj ⁻¹' w'' n) by
     choose g hg using h
     let g' : (n : ℕ) → {g : TotalSpace F E → TotalSpace F E | (∀ x, (g x).proj = f'' n x.proj) ∧
         (∀ x, BijOn g (TotalSpace.proj ⁻¹' {x}) (TotalSpace.proj ⁻¹' {f'' n x})) ∧
-          (IsInducing fun x ↦ (x.proj, g x))} :=
-      Nat.rec ⟨id, by simp [hf''₀], fun x ↦ by simp [hf''₀, bijOn_id], by fun_prop⟩
-        fun n ⟨g', hg'⟩ ↦ ⟨g n g' hg'.1 hg'.2.1 hg'.2.2, by
-          simp [hg n g' hg'.1 hg'.2.1 hg'.2.2]⟩
-    refine ⟨fun n ↦ (g' n).1, fun n ↦ ⟨(g' n).2.1, (g' n).2.2.1, (g' n).2.2.2, ?_⟩⟩
-    exact (hg n (g' n).1 (g' n).2.1 (g' n).2.2.1 (g' n).2.2.2).2.2.2
+          (IsInducing fun x ↦ (x.proj, g x)) ∧
+            (∀ x, ∃ g', P x (f'' n x) g' ∧ ∀ x', g' x' = g x')} :=
+      Nat.rec ⟨id, by simp [hf''₀], fun x ↦ by simp [hf''₀, bijOn_id], by fun_prop, fun x ↦ by
+          suffices hP' : P x x id by rw [hf''₀, ContinuousMap.id_apply]; use id; simp [hP']
+          have ⟨n, hn⟩ := iUnion_eq_univ_iff.1 hu.cover x.1
+          convert he' n n x (by simp [he, hn]) x (by simp [he, hn])
+          simp [show x ∈ (e n).baseSet by simp [he, hn]]⟩
+        fun n ⟨g', hg'⟩ ↦ ⟨g n g' hg'.1 hg'.2.1 hg'.2.2.1 hg'.2.2.2, by
+          simp [hg n g' hg'.1 hg'.2.1 hg'.2.2.1 hg'.2.2.2]⟩
+    refine ⟨fun n ↦ (g' n).1, fun n ↦
+      ⟨(g' n).2.1, (g' n).2.2.1, (g' n).2.2.2.1, (g' n).2.2.2.2, ?_⟩⟩
+    exact (hg n (g' n).1 (g' n).2.1 (g' n).2.2.1 (g' n).2.2.2.1 (g' n).2.2.2.2).2.2.2.2
   /- Finally, given a map `g` for `n` we can construct a map `g'` for `n + 1` out of it by moving
   the points within `π F E ⁻¹' u (n + 1) ×ˢ univ` from the fibers over `f'' n` to the fibers over
   `f'' (n + 1)` using some trivialisation `e` on `u (n + 1) ×ˢ univ`, while leaving it unchanged
   everywhere else. -/
-  intro n g hg hg' hg''
-  have hg''' : Continuous g := hg''.continuous.snd
-  have ⟨e, he⟩ := (isTrivialOn_iff_exists_trivialization _ _ <| (hu.2 (n + 1)).1.prod isOpen_univ).1
-    (hu.2 (n + 1)).2
+  intro n g hg hg' hg'' hg'''
+  have hg'''' : Continuous g := hg''.continuous.snd
   classical
-  refine ⟨(fun x ↦ if x.proj.1 ∈ u (n + 1) then ⟨f'' (n + 1) x.proj, e.symm _ (e x).2⟩ else x) ∘ g,
-    fun x ↦ ?_, fun x ↦ ?_, ?_, fun x hx ↦ ?_⟩
+  refine ⟨(fun x ↦ if x.proj.1 ∈ u (n + 1) then
+    ⟨f'' (n + 1) x.proj, (e (n + 1)).symm _ (e (n + 1) x).2⟩ else x) ∘ g,
+      fun x ↦ ?_, fun x ↦ ?_, ?_, fun x ↦ ?_, fun x hx ↦ ?_⟩
   · by_cases hx : (g x).proj.1 ∈ u (n + 1)
     · simp [↓hx, hg, hf''''']
     · suffices f'' n x.proj = f'' (n + 1) x.proj by simpa [↓hx, hg]
       exact (hf'''' _ _ <| notMem_subset (hf (n + 1)) <| by rwa [hg] at hx).symm
   · refine .comp ?_ (hg' _)
     by_cases hx : x.1 ∈ u (n + 1)
-    · refine .congr (f₁ := e.toOpenPartialHomeomorph.symm ∘ (fun x' ↦ (f'' (n + 1) x, x'.2)) ∘ e) ?_
+    · refine .congr (f₁ := (e (n + 1)).toOpenPartialHomeomorph.symm ∘
+          (fun x' ↦ (f'' (n + 1) x, x'.2)) ∘ e (n + 1)) ?_
         (fun x' hx' ↦ by
           simp only [mem_preimage, mem_singleton_iff] at hx'
           simp only [↓reduceIte, show x'.proj.1 ∈ u (n + 1) by simp [hx', f'', hx]]
-          rw [e.mk_symm (by simp [he, f'', hx', hx]), hx', hf''''', comp_apply, comp_apply])
-      refine (e.bijOn_symm_preimage_fst (by simp [he, f'', hx])).comp <| .comp ?_ <|
-        e.bijOn_preimage_proj (by simp [he, f'', hx])
+          rw [(e _).mk_symm (by simp [he, f'', hx', hx]), hx', hf''''', comp_apply, comp_apply])
+      refine ((e _).bijOn_symm_preimage_fst (by simp [he, f'', hx])).comp <| .comp ?_ <|
+        (e _).bijOn_preimage_proj (by simp [he, f'', hx])
       refine ⟨fun _ _ ↦ by simp, fun x₁ hx₁ x₂ hx₂ h ↦ ?_, fun x' hx' ↦ ?_⟩
       · simp only [mem_preimage, mem_singleton_iff, Prod.mk.injEq, true_and] at hx₁ hx₂ h
         exact Prod.ext (hx₁.trans hx₂.symm) h
@@ -399,19 +434,20 @@ lemma NumerableBundle.coveringHomotopyLemma (E : B × I → Type*)
       simp at hx'
       simp [hx', f'', hx]
   · refine .of_comp_of_continuousOn (Z := (B × ↑I) × TotalSpace F E) (g := fun x ↦
-      (x.1, if x.1.1 ∈ u (n + 1) then ⟨f'' n x.1, e.symm _ (e x.2).2⟩ else x.2)) ?_ ?_ ?_
+      (x.1, if x.1.1 ∈ u (n + 1) then ⟨f'' n x.1, (e (n + 1)).symm _ (e (n + 1) x.2).2⟩ else x.2))
+        ?_ ?_ ?_
     · rw [← continuousOn_univ, ← preimage_univ (f := Prod.fst ∘ π F E),
         show univ = u (n + 1) ∪ (tsupport (f (n + 1)))ᶜ by grind [hf (n + 1)], preimage_union]
-      refine .union_of_isOpen ?_ ?_ ((hu.2 (n + 1)).1.preimage (by fun_prop))
+      refine .union_of_isOpen ?_ ?_ ((hu' (n + 1)).preimage (by fun_prop))
         ((isClosed_tsupport _).isOpen_compl.preimage (by fun_prop))
-      · refine .congr (f := fun x ↦ (x.proj, ⟨_, e.symm (f'' (n + 1) (g x).proj) (e (g x)).2⟩)) ?_
-          fun x hx ↦ ?_
+      · refine .congr (f := fun x ↦ (x.proj,
+          ⟨_, (e (n + 1)).symm (f'' (n + 1) (g x).proj) (e (n + 1) (g x)).2⟩)) ?_ fun x hx ↦ ?_
         · refine .prodMk (by fun_prop) ?_
-          refine e.continuousOn_symm.comp (f := fun x ↦ (f'' (n + 1) (g x).proj, (e (g x)).2)) ?_
-            (fun x hx ↦ by simpa [he, hg, f''] using hx)
+          refine (e _).continuousOn_symm.comp (f := fun x ↦
+            (f'' (n + 1) (g x).proj, (e _ (g x)).2)) ?_ (fun x hx ↦ by simpa [he, hg, f''] using hx)
           · refine .prodMk (by fun_prop) <| continuous_snd.comp_continuousOn ?_
-            refine e.continuousOn.comp hg'''.continuousOn fun x hx ↦ ?_
-            simpa [e.source_eq, he, hg, f''] using hx
+            refine (e _).continuousOn.comp hg''''.continuousOn fun x hx ↦ ?_
+            simpa [(e _).source_eq, he, hg, f''] using hx
         · simp [show (g x).proj.1 ∈ u (n + 1) by simpa [hg, f'', hx], ↓reduceIte]
       · refine hg''.continuous.continuousOn.congr fun x hx ↦ ?_
         simp only [preimage_compl, mem_compl_iff, mem_preimage, comp_apply] at hx
@@ -419,21 +455,21 @@ lemma NumerableBundle.coveringHomotopyLemma (E : B × I → Type*)
         intro _
         rw [hf'''' n (g x).proj (by simpa [hg, f'']), hg,
           show f'' n (f'' n x.proj) = f'' n x.proj by simp [f''],
-          ← hg, e.symm_proj_apply _ (by simpa [he])]
+          ← hg, (e _).symm_proj_apply _ (by simpa [he])]
     · refine .mono (s := {x | x.2.proj = f'' (n + 1) x.1}) ?_ ?_
       · rw [← inter_univ {x : (B × ↑I) × TotalSpace F E | x.2.proj = f'' (n + 1) x.1},
           ← preimage_univ (f := Prod.fst ∘ Prod.fst),
           show univ = u (n + 1) ∪ (tsupport (f (n + 1)))ᶜ by grind [hf (n + 1)], preimage_union]
-        refine .inter_union_of_isOpen ?_ ?_ ((hu.2 (n + 1)).1.preimage (by fun_prop))
+        refine .inter_union_of_isOpen ?_ ?_ ((hu' (n + 1)).preimage (by fun_prop))
           ((isClosed_tsupport _).isOpen_compl.preimage (by fun_prop))
-        · refine .congr (f := fun x ↦ ⟨x.1, e.symm (f'' n x.1) (e x.2).2⟩) ?_
+        · refine .congr (f := fun x ↦ ⟨x.1, (e (n + 1)).symm (f'' n x.1) (e (n + 1) x.2).2⟩) ?_
             fun x hx ↦ by simp [show x.1.1 ∈ u (n + 1) by simpa using hx.2]
-          refine .prodMk (by fun_prop) <| e.continuousOn_symm.comp
-            (f := fun x : (B × ↑I) × TotalSpace F E ↦ ((f'' n) x.1, (e x.2).2)) ?_
+          refine .prodMk (by fun_prop) <| (e _).continuousOn_symm.comp
+            (f := fun x : (B × ↑I) × TotalSpace F E ↦ ((f'' n) x.1, (e _ x.2).2)) ?_
             fun x hx ↦ by simpa [f'', he] using hx.2
           refine .prodMk (by fun_prop) <| continuous_snd.comp_continuousOn ?_
-          refine e.continuousOn.comp (by fun_prop) fun x hx ↦ ?_
-          simpa [e.source_eq, he, (Prod.ext_iff.1 hx.1).1, f''] using hx.2
+          refine (e _).continuousOn.comp (by fun_prop) fun x hx ↦ ?_
+          simpa [(e _).source_eq, he, (Prod.ext_iff.1 hx.1).1, f''] using hx.2
         · refine .congr continuousOn_id fun x hx ↦ Prod.ext rfl <| ite_eq_right_iff.2 fun hx' ↦ ?_
           simp only [preimage_compl, mem_inter_iff, mem_setOf_eq, mem_compl_iff, mem_preimage,
             comp_apply] at hx
@@ -450,17 +486,41 @@ lemma NumerableBundle.coveringHomotopyLemma (E : B × I → Type*)
       rw [show (g x).proj.1 = x.proj.1 by simp [hg, f'']]
       by_cases h : x.proj.1 ∈ u (n + 1)
       · simp only [h, ↓reduceIte]
-        rw [e.apply_mk_symm (by simp [hg, he, f'', h]), e.mk_symm (by simp [he, f'', h])]
-        rw [show ((f'' n) x.proj, (e (g x)).2) = e (g x) by
+        rw [(e _).apply_mk_symm (by simp [hg, he, f'', h]), (e _).mk_symm (by simp [he, f'', h])]
+        rw [show ((f'' n) x.proj, (e (n + 1) (g x)).2) = e (n + 1) (g x) by
           refine Prod.ext ?_ rfl
-          simp [hg, show g x ∈ e.source by simp [e.source_eq, he, hg, f'', h]]]
-        rw [e.symm_apply_apply (by simp [e.source_eq, he, hg, f'', h])]
+          simp [hg, show g x ∈ (e (n + 1)).source by simp [(e _).source_eq, he, hg, f'', h]]]
+        rw [(e _).symm_apply_apply (by simp [(e _).source_eq, he, hg, f'', h])]
       · simp [h]
+  · have ⟨g', hg'''⟩ := hg''' x
+    by_cases hx : x.1 ∈ u (n + 1)
+    · simp only [comp_apply, hg, show ((f'' n) x).1 ∈ u (n + 1) by simpa [f''] using hx,
+        ↓reduceIte]
+      refine ⟨_, hP _ _ _ _ _ hg'''.1 <| he' (n + 1) (n + 1)
+        (f'' n x) (by simp [f'', he, hx]) (f'' (n + 1) x) (by simp [f'', he, hx]), fun x' ↦ ?_⟩
+      rw [hg, hf''''']
+      simp [hg''']
+    · rw [hf'''' _ _ <| notMem_subset (hf (n + 1)) hx]
+      refine ⟨g', hg'''.1, fun x' ↦ ?_⟩
+      simp [hg, show ((f'' n) x).1 ∉ u (n + 1) by simpa [f''] using hx, hg''']
   · simp only [comp_apply, right_eq_ite_iff, hg, mem_preimage] at hx ⊢
     intro hx'
     rw [hg, hf''' n x.proj hx, hf''' (n + 1) (x.proj.1, 1) <| hw''' n _ (by simp) hx,
-      ← hf''' n x.proj hx, ← hg, e.symm_apply_apply_mk ?_]
+      ← hf''' n x.proj hx, ← hg, (e _).symm_apply_apply_mk ?_]
     simp [he, hg, hx']
+
+/-- The covering homotopy theorem for fibre bundles: every numerable fibre bundle over `B × I` is
+isomorphic to the pullback of itself along the map `B × I → B × I` sending `(b, t)` to `(b, 1)`.
+
+TODO: rename, get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
+lemma NumerableBundle.coveringHomotopyLemma (E : B × I → Type*)
+    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+    [∀ b, Zero (E b)] [NumerableBundle F E] :
+    Nonempty (E ≃ₜᶠ[F, F] (ContinuousMap.prodMap (.id B) (.const I 1)) *ᵖ E) := by
+  have ⟨u, hu⟩ := exists_countable_isTrivialOn_cover_prod_unitInterval F E
+  choose e he using fun n ↦
+    (isTrivialOn_iff_exists_trivialization _ _ <| (hu.2.2 n).1.prod isOpen_univ).1 (hu.2.2 n).2
+  simpa using coveringHomotopyLemma_of_prop F E (fun _ _ _ ↦ True) (by simp) hu.2.1 e he (by simp)
 
 /-- Pullbacks of a numerable bundle along homotopic maps are isomorphic.
 
