@@ -3,11 +3,9 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
-import ClassifyingBundles.ContinuousSection
 import ClassifyingBundles.ContinuousBundleActionHom
-import ClassifyingBundles.IsTrivialOn
 import ClassifyingBundles.MulActionEquiv
-import Mathlib.Topology.ContinuousMap.Algebra
+import ClassifyingBundles.NumerableBundle
 
 /-! # `G`-principal bundles
 
@@ -25,7 +23,7 @@ we instead start with a bundle `E : B → Type*` whose fibers `E b` are `G`-tors
 bundle of `G`-torsors equipped with a bundle atlas with `G`-equivariant changes of charts.
 -/
 
-open Bundle FiberBundle
+open Bundle FiberBundle unitInterval
 
 variable (G : Type*) [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
   (F : Type*) [TopologicalSpace F] {B : Type*} [TopologicalSpace B]
@@ -53,6 +51,19 @@ noncomputable def Bundle.Trivialization.mulActionEquivAt (e : Trivialization F (
   left_inv := e.symm_apply_apply_mk hb
   right_inv x := by simp_rw [e.apply_mk_symm hb x]
   map_smul' g x := IsEquivariant.map_smul hb
+
+omit [Group G] [TopologicalSpace G] [IsTopologicalGroup G] [(b : B) → TopologicalSpace (E b)]
+  [(b : B) → Zero (E b)] in
+lemma Bundle.Trivialization.map_smul (e : Trivialization F (π F E))
+    [SMul G F] [∀ b, SMul G (E b)] [e.IsEquivariant G] {b : B} (hb : b ∈ e.baseSet)
+    {g : G} {x : E b} : (e ⟨_, g • x⟩).2 = g • (e ⟨_, x⟩).2 :=
+  IsEquivariant.map_smul hb
+
+omit [Group G] [TopologicalSpace G] [IsTopologicalGroup G] [(b : B) → TopologicalSpace (E b)] in
+lemma Bundle.Trivialization.symm_map_smul (e : Trivialization F (π F E))
+    [SMul G F] [∀ b, SMul G (E b)] [e.IsEquivariant G] {b : B} (hb : b ∈ e.baseSet)
+    {g : G} {x : F} : e.symm b (g • x) = g • e.symm b x :=
+  (e.mulActionEquivAt hb).symm.map_smul g x
 
 open Classical in
 /-- The coordinate change function between two trivialisations, as an equivariant automorphism of
@@ -142,20 +153,51 @@ lemma smul_toFun' [IsPrincipalBundle G F E] (f : C(B, G)) (s : Cₛ⟮F, E⟯) (
 instance [IsPrincipalBundle G F E] : IsScalarTower G C(B, G) Cₛ⟮F, E⟯ where
   smul_assoc g f s := by ext; simp [smul_smul]
 
+omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+attribute [local simp] Trivialization.source_eq mem_baseSet_trivializationAt in
+lemma _root_.ContinuousWithinAt.section_sdiv [IsPrincipalBundle G F E] {s t : ∀ b, E b} {u : Set B}
+    {b : B} (hs : ContinuousWithinAt (fun b ↦ (⟨b, s b⟩ : TotalSpace F E)) u b)
+    (ht : ContinuousWithinAt (fun b ↦ (⟨b, t b⟩ : TotalSpace F E)) u b) :
+    ContinuousWithinAt (fun b ↦ s b /ₛ t b) u b := by
+  refine .mono_of_mem_nhdsWithin ?_ <| inter_mem_nhdsWithin _ <|
+    (trivializationAt F E b).open_baseSet.mem_nhds <| mem_baseSet_trivializationAt F E b
+  refine .congr (f := fun b' ↦ (trivializationAt F E b ⟨_, s b'⟩).2 /ₛ
+    (trivializationAt F E b ⟨_, t b'⟩).2) ?_ (fun b' hb' ↦ ?_) ?_
+  · refine .sdiv (continuous_snd.continuousAt.comp_continuousWithinAt ?_)
+      (continuous_snd.continuousAt.comp_continuousWithinAt ?_)
+    · exact (trivializationAt F E b).continuousOn _ (by simp)
+        |>.comp (hs.mono Set.inter_subset_left) fun x hx ↦ by simp [hx.2]
+    · exact (trivializationAt F E b).continuousOn _ (by simp)
+        |>.comp (ht.mono Set.inter_subset_left) fun x hx ↦ by simp [hx.2]
+  · exact trivializationAt F E b |>.mulActionEquivAt hb'.2 |>.map_sdiv_map (s _) (t _) |>.symm
+  · exact trivializationAt F E b |>.mulActionEquivAt (by simp) |>.map_sdiv_map (s b) (t b) |>.symm
+
+omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+lemma _root_.ContinuousAt.section_sdiv [IsPrincipalBundle G F E] {s t : ∀ b, E b} {b : B}
+    (hs : ContinuousAt (fun b ↦ (⟨b, s b⟩ : TotalSpace F E)) b)
+    (ht : ContinuousAt (fun b ↦ (⟨b, t b⟩ : TotalSpace F E)) b) :
+    ContinuousAt (fun b ↦ s b /ₛ t b) b := by
+  rw [← continuousWithinAt_univ] at hs ht ⊢
+  exact hs.section_sdiv ht
+
+omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+lemma _root_.ContinuousOn.section_sdiv [IsPrincipalBundle G F E] {s t : ∀ b, E b} {u : Set B}
+    (hs : ContinuousOn (fun b ↦ (⟨b, s b⟩ : TotalSpace F E)) u)
+    (ht : ContinuousOn (fun b ↦ (⟨b, t b⟩ : TotalSpace F E)) u) :
+    ContinuousOn (fun b ↦ s b /ₛ t b) u :=
+  fun b hb ↦ (hs b hb).section_sdiv (ht b hb)
+
+omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+lemma _root_.Continuous.section_sdiv [IsPrincipalBundle G F E] {s t : ∀ b, E b}
+    (hs : Continuous (fun b ↦ (⟨b, s b⟩ : TotalSpace F E)))
+    (ht : Continuous (fun b ↦ (⟨b, t b⟩ : TotalSpace F E))) :
+    Continuous (fun b ↦ s b /ₛ t b) := by
+  rw [← continuousOn_univ] at hs ht ⊢
+  exact hs.section_sdiv ht
+
 @[simps]
 instance [IsPrincipalBundle G F E] : SDiv C(B, G) Cₛ⟮F, E⟯ where
-  sdiv s t := ⟨fun b ↦ s b /ₛ t b, by
-    suffices h : ∀ b, ContinuousOn (fun b' ↦ s b' /ₛ t b') (trivializationAt F E b).baseSet from
-      continuous_iff_continuousAt.2 fun b ↦ (h b).continuousAt <|
-        (trivializationAt F E b).open_baseSet.mem_nhds <| mem_baseSet_trivializationAt F E b
-    refine fun b ↦ .congr (f := fun b' ↦ (trivializationAt F E b ⟨_, s b'⟩).2 /ₛ
-      (trivializationAt F E b ⟨_, t b'⟩).2) ?_ fun b' hb' ↦
-        trivializationAt F E b|>.mulActionEquivAt hb'|>.map_sdiv_map (s b') (t b')|>.symm
-    refine .sdiv (continuous_snd.comp_continuousOn ?_) (continuous_snd.comp_continuousOn ?_)
-    · exact (trivializationAt F E b).continuousOn.comp s.continuous.continuousOn fun b' ↦ by
-        simp [Bundle.Trivialization.mem_source]
-    · exact (trivializationAt F E b).continuousOn.comp t.continuous.continuousOn fun b' ↦ by
-        simp [Bundle.Trivialization.mem_source]⟩
+  sdiv s t := ⟨fun b ↦ s b /ₛ t b, s.continuous.section_sdiv t.continuous⟩
 
 /-- For any `G`-principal bundle `E` over `B`, the type `Cₛ⟮F, E⟯` of continuous sections of `E` is
 a `C(B, G)`-torsor if it isn't empty.
@@ -218,24 +260,59 @@ instance [IsPrincipalBundle G F E] :
     IsScalarTower G C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
   smul_assoc g f' f'' := by ext; simp [smul_smul]
 
+omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+attribute [local fun_prop] FiberBundle.continuous_proj in
+attribute [local simp] Trivialization.source_eq mem_baseSet_trivializationAt in
+lemma _root_.ContinuousWithinAt.bundleHom_sdiv [IsPrincipalBundle G F E]
+    {g g' : ∀ b, E' b → E (f b)} {u : Set (TotalSpace F' E')} {x : TotalSpace F' E'}
+    (hg : ContinuousWithinAt (TotalSpace.map F' F g) u x)
+    (hg' : ContinuousWithinAt (TotalSpace.map F' F g') u x) :
+    ContinuousWithinAt (fun x : TotalSpace F' E' ↦ g x.1 x.2 /ₛ g' x.1 x.2) u x := by
+  refine .mono_of_mem_nhdsWithin ?_ <| inter_mem_nhdsWithin _ <|
+    ((trivializationAt F E (f x.1)).open_baseSet.preimage (map_continuous f)
+    |>.preimage (f := π F' E') (by fun_prop)).mem_nhds <| mem_baseSet_trivializationAt F E _
+  refine .congr (f := fun x' ↦ (trivializationAt F E (f x.1) ⟨_, g x'.1 x'.2⟩).2 /ₛ
+    (trivializationAt F E (f x.1) ⟨_, g' x'.1 x'.2⟩).2) ?_ (fun x' hx' ↦ ?_) ?_
+  · refine .sdiv (continuous_snd.continuousAt.comp_continuousWithinAt ?_)
+      (continuous_snd.continuousAt.comp_continuousWithinAt ?_)
+    · exact (trivializationAt F E (f x.1)).continuousOn _ (by simp)
+        |>.comp (hg.mono Set.inter_subset_left) fun x hx ↦ by simpa using hx.2
+    · exact (trivializationAt F E (f x.1)).continuousOn _ (by simp)
+        |>.comp (hg'.mono Set.inter_subset_left) fun x hx ↦ by simpa using hx.2
+  · exact trivializationAt F E (f x.1) |>.mulActionEquivAt hx'.2
+      |>.map_sdiv_map (g x'.1 x'.2) (g' x'.1 x'.2) |>.symm
+  · exact trivializationAt F E (f x.1) |>.mulActionEquivAt (by simp)
+      |>.map_sdiv_map (g x.1 x.2) (g' x.1 x.2) |>.symm
+
+omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+lemma _root_.ContinuousAt.bundleHom_sdiv [IsPrincipalBundle G F E]
+    {g g' : ∀ b, E' b → E (f b)} {x : TotalSpace F' E'}
+    (hg : ContinuousAt (TotalSpace.map F' F g) x)
+    (hg' : ContinuousAt (TotalSpace.map F' F g') x) :
+    ContinuousAt (fun x : TotalSpace F' E' ↦ g x.1 x.2 /ₛ g' x.1 x.2) x := by
+  rw [← continuousWithinAt_univ] at hg hg' ⊢
+  exact hg.bundleHom_sdiv _ _ _ hg'
+
+omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+lemma _root_.ContinuousOn.bundleHom_sdiv [IsPrincipalBundle G F E]
+    {g g' : ∀ b, E' b → E (f b)} {u : Set (TotalSpace F' E')}
+    (hg : ContinuousOn (TotalSpace.map F' F g) u)
+    (hg' : ContinuousOn (TotalSpace.map F' F g') u) :
+    ContinuousOn (fun x : TotalSpace F' E' ↦ g x.1 x.2 /ₛ g' x.1 x.2) u :=
+  fun b hb ↦ (hg b hb).bundleHom_sdiv _ _ _ (hg' b hb)
+
+omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+lemma _root_.Continuous.bundleHom_sdiv [IsPrincipalBundle G F E] {g g' : ∀ b, E' b → E (f b)}
+    (hg : Continuous (TotalSpace.map F' F g))
+    (hg' : Continuous (TotalSpace.map F' F g')) :
+    Continuous (fun x : TotalSpace F' E' ↦ g x.1 x.2 /ₛ g' x.1 x.2) := by
+  rw [← continuousOn_univ] at hg hg' ⊢
+  exact hg.bundleHom_sdiv _ _ _ hg'
+
 @[simps]
 instance [IsPrincipalBundle G F E] : SDiv C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
-  sdiv f' f'' := ⟨fun x ↦ f' x.1 x.2 /ₛ f'' x.1 x.2, by
-    suffices h : ∀ b, ContinuousOn (fun x : TotalSpace F' E' ↦ f' x.1 x.2 /ₛ f'' x.1 x.2)
-        (TotalSpace.proj ⁻¹' f ⁻¹' (trivializationAt F E b).baseSet) from
-      continuous_iff_continuousAt.2 fun x ↦ (h (f x.1)).continuousAt <|
-        (continuous_proj _ _).continuousAt.preimage_mem_nhds <|
-        (map_continuousAt f _).preimage_mem_nhds <|
-        (trivializationAt F E (f x.1)).open_baseSet.mem_nhds <|
-          mem_baseSet_trivializationAt F E (f x.1)
-    refine fun b ↦ .congr (f := fun x ↦ (trivializationAt F E b ⟨_, f' x.1 x.2⟩).2 /ₛ
-      (trivializationAt F E b ⟨_, f'' x.1 x.2⟩).2) ?_ fun x hx ↦ trivializationAt F E b
-        |>.mulActionEquivAt hx|>.map_sdiv_map (f' x.1 x.2) (f'' x.1 x.2)|>.symm
-    refine .sdiv (continuous_snd.comp_continuousOn ?_) (continuous_snd.comp_continuousOn ?_)
-    · exact (trivializationAt F E b).continuousOn.comp f'.continuous_toFun.continuousOn fun _ ↦ by
-        simp [Bundle.Trivialization.mem_source]
-    · exact (trivializationAt F E b).continuousOn.comp f''.continuous_toFun.continuousOn fun _ ↦ by
-        simp [Bundle.Trivialization.mem_source]⟩
+  sdiv f' f'' := ⟨fun x ↦ f' x.1 x.2 /ₛ f'' x.1 x.2,
+    f'.continuous_toFun.bundleHom_sdiv _ _ _ f''.continuous_toFun⟩
 
 /-- For any `G`-principal bundle `E` over `B` and any other bundle `E'`, the type
 `Cᶠ[f]⟮F', E'; F, E⟯` of continuous fibrewise maps from `E'` to `E` is
@@ -305,6 +382,45 @@ lemma Bundle.isTrivial_iff_nonempty_continuousSection [IsPrincipalBundle G F E] 
     IsTrivial F E ↔ Nonempty Cₛ⟮F, E⟯ :=
   IsPrincipalBundle.isTrivial_tfae.out 0 3
 
+omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+attribute [local fun_prop] FiberBundle.continuous_proj in
+/-- A `G`-principal bundle is trivial on an open set `u` if and only if it admits a `G`-equivariant
+trivialisation on `u`. -/
+lemma isTrivialOn_iff_exists_equivariant_trivialization [IsPrincipalBundle G F E]
+    {u : Set B} (hu : IsOpen u) :
+    IsTrivialOn F E u ↔ ∃ e : Trivialization F (π F E), e.baseSet = u ∧ e.IsEquivariant G := by
+  rw [isTrivialOn_iff_exists_trivialization _ _ hu]
+  refine ⟨fun ⟨e, he⟩ ↦ ?_, fun ⟨e, he, _⟩ ↦ ⟨e, he⟩⟩
+  use {
+    toFun x := ⟨x.proj, (x.snd /ₛ e.symm x.proj (Classical.arbitrary F)) • Classical.arbitrary F⟩
+    invFun x := (x.2 /ₛ Classical.arbitrary F) • e.symm x.1 (Classical.arbitrary F)
+    source := e.source
+    target := e.target
+    map_source' := by simp [e.source_eq, e.target_eq]
+    map_target' := by simp [e.source_eq, e.target_eq]
+    left_inv' := by simp
+    right_inv' := by simp
+    open_source := e.open_source
+    open_target := e.open_target
+    continuousOn_toFun := by
+      refine .prodMk (by fun_prop) <| .smul ?_ (by fun_prop)
+      refine .bundleHom_sdiv (F := F) (G := G) (E := E) F E (.id B) (g := fun b x ↦ x)
+        (g' := fun b x ↦ e.symm b (Classical.arbitrary F)) continuousOn_id ?_
+      refine e.continuousOn_symm.comp
+        (f := fun x : TotalSpace F E ↦ (x.1, Classical.arbitrary F)) (by fun_prop) fun x hx ↦ ?_
+      simpa [e.source_eq] using hx
+    continuousOn_invFun := by
+      refine .smul (by fun_prop) <| e.continuousOn_symm.comp
+        (f := fun x : B × F ↦ (x.1, Classical.arbitrary F)) (by fun_prop) fun x hx ↦ ?_
+      simpa [e.target_eq] using hx
+    baseSet := e.baseSet
+    open_baseSet := e.open_baseSet
+    source_eq := e.source_eq
+    target_eq := e.target_eq
+    proj_toFun := by simp }
+  refine ⟨he, ⟨fun {b} hb g {x} ↦ ?_⟩⟩
+  simp [smul_sdiv_assoc, mul_smul]
+
 section Pullback
 
 instance Bundle.Trivialization.IsEquivariant.pullback {B' : Type*} [TopologicalSpace B']
@@ -323,5 +439,23 @@ instance IsPrincipalBundle.pullback [IsPrincipalBundle G F E] {B' : Type*} [Topo
   trivialization_equivariant e he := by
     obtain ⟨⟨e, he, rfl⟩⟩ := he
     exact (trivialization_equivariant e).pullback
+
+omit [IsTopologicalGroup G] in
+/-- The covering homotopy theorem for principal bundles: every numerable principal bundle over
+`B × I` is isomorphic to the pullback of itself along the map `B × I → B × I` sending `(b, t)` to
+`(b, 1)`.
+
+TODO: rename, get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
+lemma IsPrincipalBundle.coveringHomotopyLemma (E : B × I → Type*)
+    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+    [∀ b, Zero (E b)] [NumerableBundle F E] [∀ b, Torsor G (E b)] [IsPrincipalBundle G F E] :
+    Nonempty (E ≃ₜᶠₑ[G; F, F] (ContinuousMap.prodMap (.id B) (.const I 1)) *ᵖ E) := by
+  have ⟨u, hu⟩ := NumerableBundle.exists_countable_isTrivialOn_cover_prod_unitInterval F E
+  choose e he he' using fun n ↦ (isTrivialOn_iff_exists_equivariant_trivialization
+      <| (hu.2.2 n).1.prod isOpen_univ).1 (hu.2.2 n).2
+  have ⟨e, he⟩ := coveringHomotopyLemma_of_prop F E (fun _ _ f ↦ ∀ (g : G) x, f (g • x) = g • f x)
+    (by grind) hu.2.1 e he fun n m x hx x' hx' g x'' ↦ by
+      simp [(e n).map_smul hx, (e m).symm_map_smul hx']
+  exact ⟨⟨e, fun g x ↦ he x g⟩⟩
 
 end Pullback

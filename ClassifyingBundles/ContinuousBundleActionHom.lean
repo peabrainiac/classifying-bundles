@@ -35,13 +35,17 @@ scoped[Bundle] notation "Cᶠₑ[" φ "]⟮" F ", " E "; " F' ", " E' "⟯" =>
 scoped[Bundle] notation "Cᶠ[" G "]⟮" F ", " E "; " F' ", " E' "⟯" =>
   ContinuousBundleActionHom F E F' E' (@id G) id
 
-
 /-- When `G` acts on every fibre of a bundle `E`, we equip `Bundle.TotalSpace F E` with the
 corresponding `G`-action as well.
 TODO: find a more permanent home for this. -/
 @[simps]
 instance : SMul G (TotalSpace F E) where
   smul g x := ⟨_, g • x.2⟩
+
+omit [TopologicalSpace (TotalSpace F E)] in
+@[simp]
+lemma Bundle.TotalSpace.smul_mk {g : G} {b : B} {x : E b} :
+    g • (⟨b, x⟩ : TotalSpace F E) = ⟨b, g • x⟩ := by rfl
 
 namespace ContinuousBundleActionHom
 
