@@ -3,6 +3,7 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
+import ClassifyingBundles.Equiv
 import ClassifyingBundles.Join
 import Mathlib.Geometry.Convex.ConvexSpace.Defs
 
@@ -73,7 +74,7 @@ we provide an API lemma applying `(map hf g x).points` to `f i` for some `i` ins
 noncomputable def map {ι' : Type*} {X' : ι' → Type*} {f : ι → ι'} [∀ i, Decidable (∃ i', f i' = i)]
     (hf : f.Injective) (g : ∀ i, X i → X' (f i)) (x : IJoin X) : IJoin X' where
   points i := if h : ∃ i', f i' = i then
-    Option.map (cast (congrArg X' h.choose_spec) ∘ g h.choose) (x.points h.choose) else none
+    Option.map (Equiv.congrArg X' h.choose_spec ∘ g h.choose) (x.points h.choose) else none
   toStdSimplex := x.toStdSimplex.map f
   points_eq_none_iff := by
     intro i
@@ -90,7 +91,7 @@ lemma map_points_apply {ι' : Type*} {X' : ι' → Type*} {f : ι → ι'} [∀ 
   convert rfl using 2
   · rw [hf (exists_apply_eq_apply f i).choose_spec]
   · rw! [hf (exists_apply_eq_apply f i).choose_spec]
-    simp [show cast (rfl : X' (f i) = _) = id by ext; simp]
+    simp
   · rw [hf (exists_apply_eq_apply f i).choose_spec]
 
 @[simp]
@@ -193,6 +194,7 @@ lemma continuous_ofJoin [DecidableEq ι] {i j : ι} (h : i ≠ j) :
       · simpa [h] using Join.continuous_snd
       · simpa [h''.symm, h'.symm] using continuous_const
 
+@[fun_prop]
 lemma continuous_map {ι' : Type*} {X' : ι' → Type*} [∀ i, TopologicalSpace (X' i)] {f : ι → ι'}
     [∀ i, Decidable (∃ i', f i' = i)] (hf : f.Injective) {g : ∀ i, X i → X' (f i)}
     (hg : ∀ i, Continuous (g i)) : Continuous (map hf g) := by
@@ -216,7 +218,7 @@ noncomputable def _root_.Homeomorph.ijoinCongr {ι' : Type*} {X' : (i : ι') →
     [∀ i, Decidable (∃ i', e.symm i' = i)] (e' : ∀ i, X i ≃ₜ X' (e i)) : IJoin X ≃ₜ IJoin X' where
   toFun := map e.injective fun i ↦ e' i
   invFun := map e.symm.injective fun i x ↦ (e' (e.symm i)).symm <|
-    cast (congrArg X' (e.apply_symm_apply i).symm) x
+    Equiv.congrArg X' (e.apply_symm_apply i).symm x
   left_inv := by
     refine Function.RightInverse.leftInverse_of_injective (fun x ↦ ?_) <|
       map_injective e.injective fun i ↦ (e' i).injective
@@ -226,7 +228,7 @@ noncomputable def _root_.Homeomorph.ijoinCongr {ι' : Type*} {X' : (i : ι') →
     · simp [show (fun x : ι' ↦ x) = id from rfl]
     · obtain ⟨i', rfl⟩ : ∃ i', (e ∘ e.symm) i' = i := ⟨_, e.apply_symm_apply i⟩
       have : ∀ i j (h : i = j) (f : (i : _) → Option (X' i)),
-          Option.map (fun x ↦ cast (congrArg X' h) x) (f i) = f j := by
+          Option.map (fun x ↦ Equiv.congrArg X' h x) (f i) = f j := by
         rintro i j rfl; simp
       simpa using this _ _ (by simp) _
   right_inv x := by
@@ -236,14 +238,9 @@ noncomputable def _root_.Homeomorph.ijoinCongr {ι' : Type*} {X' : (i : ι') →
     · simp [show (fun x : ι' ↦ x) = id from rfl]
     · obtain ⟨i', rfl⟩ : ∃ i', (e ∘ e.symm) i' = i := ⟨_, e.apply_symm_apply i⟩
       have : ∀ i j (h : i = j) (f : (i : _) → Option (X' i)),
-          Option.map (fun x ↦ cast (congrArg X' h) x) (f i) = f j := by
+          Option.map (fun x ↦ Equiv.congrArg X' h x) (f i) = f j := by
         rintro i j rfl; simp
       simpa using this _ _ (by simp) _
-  continuous_toFun := continuous_map e.injective fun i ↦ (e' i).continuous
-  continuous_invFun := continuous_map e.symm.injective fun i ↦ by
-    have : ∀ i j (h : i = j), Continuous (cast (congrArg X' h)) := by
-      rintro i j rfl; exact continuous_id
-    exact (e' (e.symm i)).symm.continuous.comp (this _ _  <| (e.apply_symm_apply i).symm)
 
 @[simp]
 lemma _root_.Homeomorph.ijoinCongr_symm_apply_points {ι' : Type*} {X' : (i : ι') → Type*}
