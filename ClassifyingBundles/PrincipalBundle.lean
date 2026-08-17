@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleActionHom
-import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.NumerableBundle
 
 /-! # `G`-principal bundles
@@ -457,5 +456,26 @@ lemma IsPrincipalBundle.coveringHomotopyLemma (E : B × I → Type*)
     (by grind) hu.2.1 e he fun n m x hx x' hx' g x'' ↦ by
       simp [(e n).map_smul hx, (e m).symm_map_smul hx']
   exact ⟨⟨e, fun g x ↦ he x g⟩⟩
+
+omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+/-- Pullbacks of a numerable principal bundle along homotopic maps are isomorphic.
+
+TODO: get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
+lemma IsPrincipalBundle.pullbackIsoPullback {B' : Type*} [TopologicalSpace B']
+    [NumerableBundle F E] [IsPrincipalBundle G F E] {f₁ f₂ : C(B', B)}
+    (h : f₁.Homotopic f₂) : Nonempty (f₁ *ᵖ E ≃ₜᶠₑ[G; F, F] f₂ *ᵖ E) := by
+  obtain ⟨H⟩ := h
+  replace ⟨H, hH₁, hH₂⟩ :
+      ∃ H : C(B' × I, B), (∀ b', H (b', 0) = f₁ b') ∧ (∀ b', H (b', 1) = f₂ b') := by
+    exact ⟨.comp H .prodSwap, by simp⟩
+  have _ b : Zero ((⇑H *ᵖ E) b) := inferInstanceAs (Zero (E _))
+  have ⟨e⟩ := IsPrincipalBundle.coveringHomotopyLemma (F := F) (H *ᵖ E)
+  replace e := e.pullbackCongr (.prodMk (.id B') (.const B' 0)) (.prodMk (.id B') (.const B' 0))
+    (.refl B') (by simp)
+  have : CompTriple (Homeomorph.refl B').symm (Homeomorph.refl B') (Homeomorph.refl B') := ⟨by simp⟩
+  have : CompTriple (Homeomorph.refl B') (Homeomorph.refl B') (Homeomorph.refl B') := ⟨by simp⟩
+  replace e := (ContinuousBundleActionEquiv.pullbackPullbackIso _ _).symm.trans e
+    |>.trans (.pullbackPullbackIso _ _) |>.trans (.pullbackPullbackIso _ _)
+  convert Nonempty.intro e <;> ext x <;> simp [hH₁, hH₂]
 
 end Pullback

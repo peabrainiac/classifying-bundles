@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleIso
+import ClassifyingBundles.MulActionEquiv
+import Mathlib.Logic.Lemmas
 import Mathlib.Topology.Algebra.Group.Torsor
 
 /-! # Bundled continuous fibrewise equivariant maps between fibre bundles-/
@@ -15,7 +17,9 @@ variable (G : Type*) (F : Type*) {B : Type*} (E : B → Type*)
   [TopologicalSpace (Bundle.TotalSpace F E)]
   (H : Type*) (F' : Type*) {B' : Type*} (E' : B' → Type*)
   [TopologicalSpace (Bundle.TotalSpace F' E')]
-  [∀ b, SMul G (E b)] [∀ b', SMul H (E' b')] {φ : G → H} {f : B → B'}
+  (H' : Type*) (F'' : Type*) {B'' : Type*} (E'' : B'' → Type*)
+  [TopologicalSpace (Bundle.TotalSpace F'' E'')]
+  [∀ b, SMul G (E b)] [∀ b', SMul H (E' b')] [∀ b'', SMul H' (E'' b'')] {φ : G → H} {f : B → B'}
 
 variable {G H} in
 /-- A continuous fibrewise equivariant map between bundles, relative to given maps of the base
@@ -49,7 +53,7 @@ lemma Bundle.TotalSpace.smul_mk {g : G} {b : B} {x : E b} :
 
 namespace ContinuousBundleActionHom
 
-variable {G F E H F' E'}
+variable {G F E H F' E' H' F'' E''}
 
 instance instDFunLike : DFunLike Cᶠₑ[φ, f]⟮F, E; F', E'⟯ B (fun b ↦ (E b → E' (f b))) where
   coe f := f.toFun
@@ -91,6 +95,8 @@ def mulActionHomAt (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) (b : B) : E b →ₑ[
 
 variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
   [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E']
+  [TopologicalSpace F''] [TopologicalSpace B''] [∀ b, TopologicalSpace (E'' b)]
+  [FiberBundle F'' E'']
 
 instance {f : B' → B} {b' : B'} [SMul G (E (f b'))] : SMul G ((f *ᵖ E) b') :=
   inferInstanceAs (SMul G (E (f b')))
@@ -109,7 +115,7 @@ def pullbackEquiv : Cᶠₑ[φ, f]⟮F, E; F', E'⟯ ≃ Cᶠₑ[φ]⟮F, E; F',
 
 end ContinuousBundleActionHom
 
-variable [TopologicalSpace B] [TopologicalSpace B'] (φ : G ≃ H) (e : B ≃ₜ B')
+variable [TopologicalSpace B] [TopologicalSpace B'] [TopologicalSpace B''] (φ : G ≃ H) (e : B ≃ₜ B')
 
 variable {G H} in
 /-- A continuous fibrewise equivariant isomorphism between bundles, relative to given maps of the
@@ -124,9 +130,9 @@ structure ContinuousBundleActionEquiv (φ : G ≃ H) (e : B ≃ₜ B') extends
 scoped[Bundle] notation E " ≃ₜᶠₑ["G "; " F ", " F' "] " E' =>
   ContinuousBundleActionEquiv F E F' E' (Equiv.refl G) (Homeomorph.refl _)
 
-namespace  ContinuousBundleActionEquiv
+namespace ContinuousBundleActionEquiv
 
-variable {G F E H F' E' φ e}
+variable {G F E H F' E' H' F'' E'' φ e}
 
 instance instDFunLike : DFunLike (E ≃ₜᶠₑ[φ, e; F, F'] E') B (fun b ↦ (E b → E' (e b))) where
   coe f := f.toFun
@@ -143,5 +149,77 @@ lemma coe_toContinuousBundleIso (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') :
 lemma map_smul (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') (g : G) {b : B} (x : E b) :
     e' b (g • x) = φ g • e' b x :=
   e'.map_smul' g x
+
+variable [TopologicalSpace F] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+  [TopologicalSpace F'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E'] in
+/-- The restriction of a continuous fibrewise equivariant map to a single fibre.
+TODO: upgrade this to a `ContinuousMulActionEquiv` once that is defined. -/
+@[simps]
+def mulActionEquivAt (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') (b : B) : E b ≃ₑ[φ] E' (e b) where
+  toEquiv := (e'.homeomorphAt b).toEquiv
+  __ := e'.mulActionHomAt b
+
+variable [TopologicalSpace F] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+  [TopologicalSpace F'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E'] in
+/-- The inverse of an equivariant bundle isomorphism. -/
+nonrec def symm (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') : E' ≃ₜᶠₑ[φ.symm, e.symm; F', F] E where
+  toContinuousBundleIso := e'.toContinuousBundleIso.symm
+  map_smul' g b x := by
+    have h : cast _ (e'.symm _ _) = _ • cast _ (e'.symm _ _) :=
+      (e'.mulActionEquivAt (e.symm b)).symm.map_smul'' g (cast (by simp) x)
+    rw [(show ∀ i j (h : i = j) x, g • cast (congrArg E' h) x = cast (congrArg E' h) (g • x) by
+      intro i j h x; obtain rfl := h; simp) _ _ (by simp)] at h
+    have h' i j (h : i = j) x :
+        cast (by simp [h]) (e'.symm j (cast (congrArg E' h) x)) = e'.symm i x := by
+      obtain rfl := h; simp
+    erw [h' _ _ (by simp), h' _ _ (by simp)] at h
+    exact h
+
+/-- The composition of two equivariant bundle isomorphisms along two group isomorphisms and two
+homeomorphisms of the base spaces,
+as an equivariant bundle isomorphism along a third isomorphism and homeomorphism that
+propositionally equal the composition of the first two. -/
+def trans {φ₁ : G ≃ H} {φ₂ : H ≃ H'} {φ₃ : G ≃ H'} [CompTriple φ₁ φ₂ φ₃]
+    {e₁ : B ≃ₜ B'} {e₂ : B' ≃ₜ B''} {e₃ : B ≃ₜ B''} [CompTriple e₁ e₂ e₃]
+    (e₁' : E ≃ₜᶠₑ[φ₁, e₁; F, F'] E') (e₂' : E' ≃ₜᶠₑ[φ₂, e₂; F', F''] E'') :
+    E ≃ₜᶠₑ[φ₃, e₃; F, F''] E'' where
+  toContinuousBundleIso :=
+    haveI : CompTriple (EquivLike.toEquiv e₁) (EquivLike.toEquiv e₂) (EquivLike.toEquiv e₃) :=
+      ⟨CompTriple.comp_eq (φ := e₁) (ψ := e₂)⟩
+    e₁'.toContinuousBundleIso.trans e₂'.toContinuousBundleIso
+  map_smul' g b x := by
+    change cast _ (e₂' _ (e₁' _ _)) = _ • cast _ (e₂' _ (e₁' _ _))
+    simp only [map_smul]
+    rw [(show ∀ i j (h : i = j) g x, g • cast (congrArg E'' h) x = cast (congrArg E'' h) (g • x) by
+        intro i j h x; obtain rfl := h; simp) _ _ (CompTriple.comp_apply ‹_› _),
+      ‹CompTriple φ₁ φ₂ φ₃›.comp_apply _]
+
+section Pullback
+
+/-- Pull back an equivariant isomorphism `e'` of bundles along a group isomorphism `φ` and a
+homeomorphism `e` of the bases to an equivariant isomorphism of pullback bundles along a
+homeomorphism `e''` that forms a commutative square with `e`
+and the maps the bundles are pulled back along. -/
+def pullbackCongr {φ : G ≃ H} {e : B ≃ₜ B'} (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') {B'' B''' : Type*}
+    [TopologicalSpace B''] [TopologicalSpace B'''] (f : C(B'', B)) (f' : C(B''', B'))
+    (e'' : B'' ≃ₜ B''') (h : e ∘ f = f' ∘ e'') :
+    (f *ᵖ E) ≃ₜᶠₑ[φ, e''; F, F'] (f' *ᵖ E') where
+  toContinuousBundleIso := e'.toContinuousBundleIso.pullbackCongr f f' e'' h
+  map_smul' g {b} x := by
+    refine cast_eq_iff_heq.2 <| (e'.map_smul g x).heq.trans ?_
+    have h' b b' (h : b = b') (g : H) x :
+        cast (congrArg E' h) (g • x) = g • cast (congrArg E' h) x := by
+      obtain rfl := h; rfl
+    refine .trans ?_ (h' (e (f b)) (f' (e'' b)) (congrFun h b) (φ g) _).heq
+    simp; rfl
+
+/-- The pullback of a pullback bundle is isomorphic to the pullback of the original bundle along the
+composition. -/
+def pullbackPullbackIso (f : C(B', B)) (g : C(B'', B')) :
+    g *ᵖ (f *ᵖ E) ≃ₜᶠₑ[G; F, F] (f.comp g) *ᵖ E where
+  toContinuousBundleIso := ContinuousBundleIso.pullbackPullbackIso f g
+  map_smul' _ _ _ := rfl
+
+end Pullback
 
 end ContinuousBundleActionEquiv
