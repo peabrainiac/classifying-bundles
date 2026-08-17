@@ -65,10 +65,28 @@ lemma Bundle.TotalSpace.map_bijective_iff (hf : Bijective f) {f' : ∀ b, E b �
     Bijective (map F F' f') ↔ ∀ b, Bijective (f' b) := by
   simp only [Bijective, map_injective_iff, map_surjective_iff _ _ _ _ hf, hf.injective, forall_and]
 
+/-- The equivalence between the fiber of a bundle as a type and as a subtype of the total space.
+
+The forwards direction of this has good defeq properties, the backwards
+direction does not. -/
+@[simps apply_coe_proj apply_coe_snd]
+def Bundle.TotalSpace.fiberEquiv (b : B) : E b ≃ π F E ⁻¹' {b} where
+  toFun x := ⟨x, rfl⟩
+  invFun x := cast (congrArg _ x.2) x.1.2
+  right_inv x := by ext <;> simp [show x.1.proj = b from x.2]
+
+/-- TODO: move -/
+@[simp]
+lemma Set.MapsTo.restrict_bijective_iff {α β : Type*} {s : Set α} {t : Set β} {f : α → β}
+    (hf : s.MapsTo f t) : Bijective (hf.restrict f s t) ↔ s.BijOn f t := by
+  simp [BijOn, hf, Bijective, hf.restrict_inj]
+
 omit [TopologicalSpace (Bundle.TotalSpace F E)] [TopologicalSpace (Bundle.TotalSpace F' E')] in
 lemma Bundle.TotalSpace.map_bijOn_iff {f' : ∀ b, E b → E' (f b)} {b : B} :
     Set.BijOn (map F F' f') (π F E ⁻¹' {b}) (π F' E' ⁻¹' {f b}) ↔ Bijective (f' b) := by
-  sorry
+  rw [← Set.MapsTo.restrict_bijective_iff fun _ _ ↦ by grind [map_proj],
+    ← (fiberEquiv F E b).bijective_comp, ← (fiberEquiv F' E' (f b)).comp_bijective]
+  rfl
 
 /-- A continuous fibrewise map between bundles, relative to a given map of the base spaces. -/
 structure ContinuousBundleHom (f : B → B') where
