@@ -268,10 +268,10 @@ lemma coveringHomotopyLemma_of_prop (E : B × I → Type*)
       ext1
       · exact (hg ⟨x, x'⟩).symm
       · simp only [TotalSpace.mk', ContinuousBundleIso.ofHomeomorph, ContinuousBundleIso.ofHoms,
-        ContinuousBundleIso.coe_mk, ContinuousBundleHom.ofContinuousMap,
-        ContinuousBundleHom.coeFn_mk, Equiv.toHomeomorphOfIsInducing, ContinuousMap.coe_mk,
-        ContinuousMap.coe_coe]
-        exact (cast_heq_iff_heq _ _ _).2 (cast_heq _ _)
+          ContinuousBundleIso.coe_mk, ContinuousBundleHom.ofContinuousMap,
+          ContinuousBundleHom.coeFn_mk, Equiv.toHomeomorphOfIsInducing, ContinuousMap.coe_mk,
+          ContinuousMap.coe_coe]
+        refine (cast_heq_iff_heq _ _ _).2 HEq.rfl
   /- Since `u` is numerable, we can obtain a bump covering that is subordinate to it. For later
   convenience we first modify `u` such that `u 0` is empty. -/
   wlog hu₀ : u 0 = ∅ generalizing u e with h

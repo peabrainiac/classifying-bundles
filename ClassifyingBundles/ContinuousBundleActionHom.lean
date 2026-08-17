@@ -6,7 +6,6 @@ Authors: Ben Eltschig
 import ClassifyingBundles.ContinuousBundleIso
 import ClassifyingBundles.MulActionEquiv
 import Mathlib.Logic.Lemmas
-import Mathlib.Topology.Algebra.Group.Torsor
 
 /-! # Bundled continuous fibrewise equivariant maps between fibre bundles-/
 
@@ -159,22 +158,23 @@ def mulActionEquivAt (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') (b : B) : E b ≃ₑ
   toEquiv := (e'.homeomorphAt b).toEquiv
   __ := e'.mulActionHomAt b
 
+set_option backward.isDefEq.respectTransparency false in
 variable [TopologicalSpace F] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
   [TopologicalSpace F'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E'] in
 /-- The inverse of an equivariant bundle isomorphism. -/
 nonrec def symm (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') : E' ≃ₜᶠₑ[φ.symm, e.symm; F', F] E where
   toContinuousBundleIso := e'.toContinuousBundleIso.symm
   map_smul' g b x := by
-    have h : cast _ (e'.symm _ _) = _ • cast _ (e'.symm _ _) :=
-      (e'.mulActionEquivAt (e.symm b)).symm.map_smul'' g (cast (by simp) x)
-    rw [(show ∀ i j (h : i = j) x, g • cast (congrArg E' h) x = cast (congrArg E' h) (g • x) by
-      intro i j h x; obtain rfl := h; simp) _ _ (by simp)] at h
-    have h' i j (h : i = j) x :
-        cast (by simp [h]) (e'.symm j (cast (congrArg E' h) x)) = e'.symm i x := by
-      obtain rfl := h; simp
-    erw [h' _ _ (by simp), h' _ _ (by simp)] at h
+    have h := (e'.mulActionEquivAt (e.symm b)).symm.map_smul'' g (Equiv.congrArg _ (by simp) x)
+    simp only [Equiv.smul_congrArg, MulActionEquiv.symm_toFun, mulActionEquivAt_invFun,
+      ContinuousBundleIso.homeomorphAt] at h
+    simp only [EquivLike.coe_coe, ContinuousBundleHom.continuousMapAt, ContinuousMap.coe_mk,
+      comp_apply, Equiv.apply_congrArg, ContinuousBundleIso.toHom_apply, Equiv.smul_congrArg,
+      Equiv.eq_congrArg_iff_heq, Equiv.congrArg_heq_iff_heq, heq_eq_eq,
+      EmbeddingLike.apply_eq_iff_eq] at h
     exact h
 
+set_option backward.isDefEq.respectTransparency false in
 /-- The composition of two equivariant bundle isomorphisms along two group isomorphisms and two
 homeomorphisms of the base spaces,
 as an equivariant bundle isomorphism along a third isomorphism and homeomorphism that
@@ -188,11 +188,8 @@ def trans {φ₁ : G ≃ H} {φ₂ : H ≃ H'} {φ₃ : G ≃ H'} [CompTriple φ
       ⟨CompTriple.comp_eq (φ := e₁) (ψ := e₂)⟩
     e₁'.toContinuousBundleIso.trans e₂'.toContinuousBundleIso
   map_smul' g b x := by
-    change cast _ (e₂' _ (e₁' _ _)) = _ • cast _ (e₂' _ (e₁' _ _))
-    simp only [map_smul]
-    rw [(show ∀ i j (h : i = j) g x, g • cast (congrArg E'' h) x = cast (congrArg E'' h) (g • x) by
-        intro i j h x; obtain rfl := h; simp) _ _ (CompTriple.comp_apply ‹_› _),
-      ‹CompTriple φ₁ φ₂ φ₃›.comp_apply _]
+    change Equiv.congrArg _ _ (e₂' _ (e₁' _ _)) = _ • Equiv.congrArg _ _ (e₂' _ (e₁' _ _))
+    simp [‹CompTriple φ₁ φ₂ φ₃›.comp_apply _]
 
 section Pullback
 

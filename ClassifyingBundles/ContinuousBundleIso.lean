@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleHom
-import Mathlib.Logic.Function.CompTypeclasses
 
 /-! # Bundled continuous fibrewise homeomorphisms between fibre bundles -/
 
@@ -19,8 +18,8 @@ spaces. -/
 structure ContinuousBundleIso (e : B ≃ B') where
   toFun (b : B) (x : E b) : E' (e b)
   invFun (b' : B') (x : E' b') : E (e.symm b')
-  left_inv' (b' : B') (x : E' b') : toFun _ (invFun _ x) = cast (congrArg E' (by simp)) x
-  right_inv' (b : B) (x : E b) : invFun _ (toFun _ x) = cast (congrArg E (by simp)) x
+  left_inv' (b' : B') (x : E' b') : toFun _ (invFun _ x) = Equiv.congrArg E' (by simp) x
+  right_inv' (b : B) (x : E b) : invFun _ (toFun _ x) = Equiv.congrArg E (by simp) x
   continuous_toFun : Continuous (TotalSpace.map F F' toFun)
   continuous_invFun : Continuous (TotalSpace.map F' F invFun)
 
@@ -49,12 +48,12 @@ instance instDFunLike : DFunLike (E ≃ₜᶠ[e; F, F'] E') B (fun b ↦ (E b �
       rw [right_inv, h, right_inv']
     obtain ⟨b', rfl⟩ := e.symm.surjective b
     refine Surjective.of_comp (g := invFun b') ?_
-    simpa [Function.comp_def, left_inv] using (cast_bijective _).surjective
+    simp [Function.comp_def, left_inv, Equiv.surjective]
 
 @[simp]
 lemma coe_mk (toFun : (b : B) → E b → E' (e b)) (invFun : (b' : B') → E' b' → E (e.symm b'))
-    (left_inv' : (b' : B') → (x : E' b') → toFun _ (invFun _ x) = cast (congrArg E' (by simp)) x)
-    (right_inv' : (b : B) → (x : E b) → invFun _ (toFun _ x) = cast (congrArg E (by simp)) x)
+    (left_inv' : (b' : B') → (x : E' b') → toFun _ (invFun _ x) = Equiv.congrArg E' (by simp) x)
+    (right_inv' : (b : B) → (x : E b) → invFun _ (toFun _ x) = Equiv.congrArg E (by simp) x)
     (continuous_toFun : Continuous (TotalSpace.map F F' toFun))
     (continuous_invFun : Continuous (TotalSpace.map F' F invFun)) {b : B} {x : E b} :
     mk toFun invFun left_inv' right_inv' continuous_toFun continuous_invFun b x = toFun b x :=
@@ -94,9 +93,9 @@ def ofHoms (f : Cᶠ[e]⟮F, E; F', E'⟯) (g : Cᶠ[e.symm]⟮F', E'; F, E⟯)
   invFun := g
   continuous_invFun := g.continuous_toFun
   left_inv' b' x := by
-    simpa [ContinuousBundleHom.toContinuousMap, TotalSpace.map, eq_cast_iff_heq] using h ⟨b', x⟩
+    simpa [ContinuousBundleHom.toContinuousMap, TotalSpace.map] using h ⟨b', x⟩
   right_inv' b x := by
-    simpa [ContinuousBundleHom.toContinuousMap, TotalSpace.map, eq_cast_iff_heq] using h' ⟨b, x⟩
+    simpa [ContinuousBundleHom.toContinuousMap, TotalSpace.map] using h' ⟨b, x⟩
 
 /-- The homeomorphism of total spaces induced by an isomorphism of bundles. -/
 def toHomeomorph (e' : E ≃ₜᶠ[e; F, F'] E') : TotalSpace F E ≃ₜ TotalSpace F' E' where
@@ -122,6 +121,7 @@ def ofHomeomorph (e' : TotalSpace F E ≃ₜ TotalSpace F' E') (he' : ∀ x, (e'
   · simpa using e'.symm.left_inv
   · simpa using e'.symm.right_inv
 
+set_option backward.isDefEq.respectTransparency false in
 variable (F E) in
 /-- The identity isomorphism of a bundle `E`. -/
 def refl : E ≃ₜᶠ[F, F] E where
@@ -165,12 +165,12 @@ def symm' [TopologicalSpace B] [TopologicalSpace B'] {e : B ≃ₜ B'} (e' : E �
 
 @[simp]
 lemma left_inv (e' : E ≃ₜᶠ[e; F, F'] E') (b : B') (x : E' b) :
-    e' _ (e'.symm b x) = cast (by simp) x :=
+    e' _ (e'.symm b x) = Equiv.congrArg E' (by simp) x :=
   e'.left_inv' b x
 
 @[simp]
 lemma right_inv (e' : E ≃ₜᶠ[e; F, F'] E') (b : B) (x : E b) :
-    e'.symm _ (e' b x) = cast (by simp) x :=
+    e'.symm _ (e' b x) = Equiv.congrArg E (by simp) x :=
   e'.right_inv' b x
 
 -- TODO: find home
@@ -181,42 +181,27 @@ local instance {e₁ : B ≃ B'} {e₂ : B' ≃ B''} {e₃ : B ≃ B''} [CompTri
     ext x
     simp [CompTriple.comp_apply]
 
+set_option backward.isDefEq.respectTransparency false in
 /-- The composition of two bundle isomorphisms along two homeomorphisms of the base spaces,
 as a bundle isomorphism along a third homeomorphism of base spaces that propositionally equals the
 composition of the first two. -/
 def trans {e₁ : B ≃ B'} {e₂ : B' ≃ B''} {e₃ : B ≃ B''} [CompTriple e₁ e₂ e₃]
     (e₁' : E ≃ₜᶠ[e₁; F, F'] E') (e₂' : E' ≃ₜᶠ[e₂; F', F''] E'') : E ≃ₜᶠ[e₃; F, F''] E'' where
-  toFun b x := cast (congrArg _ (CompTriple.comp_apply ‹_› _)) (e₂' _ (e₁' b x))
-  invFun b' x := cast (congrArg _ (CompTriple.comp_apply inferInstance _))
+  toFun b x := Equiv.congrArg _ (CompTriple.comp_apply ‹_› _) (e₂' _ (e₁' b x))
+  invFun b' x := Equiv.congrArg _ (CompTriple.comp_apply inferInstance _)
     (e₁'.symm _ (e₂'.symm b' x))
   left_inv' b x := by
     obtain rfl : e₃ = e₁.trans e₂ := by ext _; simp [CompTriple.comp_apply]
-    simp only [Equiv.symm_trans, Equiv.trans_apply, cast_eq, left_inv]
-    suffices h : ∀ (b b' : B') (h : b = b') (x : E' b),
-        e₂' _ (cast (congrArg E' h) x) = cast (by rw [h]) (e₂' _ x) by
-      rw [h _ _ (by simp)]; simp
-    intro b b' rfl x
-    simp
+    simp [Equiv.apply_congrArg, Equiv.congrArg_comp_apply]
   right_inv' b x := by
     obtain rfl : e₃ = e₁.trans e₂ := by ext _; simp [CompTriple.comp_apply]
-    simp only [Equiv.symm_trans, Equiv.trans_apply, cast_eq, right_inv]
-    suffices h : ∀ (b b' : B') (h : b = b') (x : E' b),
-        e₁'.symm _ (cast (congrArg E' h) x) = cast (by rw [h]) (e₁'.symm _ x) by
-      rw [h _ _ (by simp)]; simp
-    intro b b' rfl x
-    simp
+    simp [Equiv.apply_congrArg, Equiv.congrArg_comp_apply]
   continuous_toFun := by
     refine (e₂'.continuous_toFun.comp (e₁'.continuous_toFun)).congr fun ⟨b, x⟩ ↦ ?_
-    ext
-    · simp [CompTriple.comp_apply]
-    · simp only [comp_apply, TotalSpace.map, heq_cast_iff_heq, heq_eq_eq]
-      rfl
+    ext <;> simp [CompTriple.comp_apply, comp_apply, TotalSpace.map]
   continuous_invFun := by
     refine (e₁'.symm.continuous_toFun.comp (e₂'.symm.continuous_toFun)).congr fun ⟨b, x⟩ ↦ ?_
-    ext
-    · simp [CompTriple.comp_apply]
-    · simp only [comp_apply, TotalSpace.map, heq_cast_iff_heq, heq_eq_eq]
-      rfl
+    ext <;> simp [CompTriple.comp_apply, comp_apply, TotalSpace.map]
 
 variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
   [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E']
@@ -227,16 +212,9 @@ set_option backward.defeqAttrib.useBackward true in
 /-- The restriction of a fibrewise bundle homeomorphism to a single fibre. -/
 def homeomorphAt (e' : E ≃ₜᶠ[e; F, F'] E') (b : B) : E b ≃ₜ E' (e b) where
   toFun := e'.toHom.continuousMapAt b
-  invFun := cast (by simp) ∘ e'.symm.toHom.continuousMapAt (e b)
+  invFun := Equiv.congrArg E (by simp) ∘ e'.symm.toHom.continuousMapAt (e b)
   left_inv x := by simp
-  right_inv := Function.LeftInverse.rightInverse_of_surjective
-    (fun x ↦ by simp) (e'.apply_bijective b).surjective
-  continuous_toFun := map_continuous _
-  continuous_invFun := by
-    refine .comp ?_ (map_continuous _)
-    suffices h : ∀ (b' : B) (hb : b' = b), Continuous (cast (congrArg E hb)) from h _ (by simp)
-    rintro b rfl
-    exact continuous_id.congr fun x ↦ by simp
+  right_inv x := by simp [Equiv.apply_congrArg]
 
 -- TODO: find home
 @[simp]
@@ -249,8 +227,8 @@ homeomorphism of the standard fibres. -/
 def trivialCongr (e : B ≃ₜ B') (e' : F ≃ₜ F') : Trivial B F ≃ₜᶠ[e; F, F'] Trivial B' F' where
   toFun b x := e' x
   invFun b' x := e'.symm x
-  left_inv' := by simp
-  right_inv' := by simp
+  left_inv' := by simp [Equiv.congrArg]
+  right_inv' _ _ := by simp [Equiv.congrArg]
   continuous_toFun := by
     rw [← (Trivial.homeomorphProd B F).symm.comp_continuous_iff',
       ← (Trivial.homeomorphProd B' F').comp_continuous_iff]
@@ -276,25 +254,19 @@ and the maps the bundles are pulled back along. -/
 def pullbackCongr {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] E') {B'' B''' : Type*} [TopologicalSpace B'']
     [TopologicalSpace B'''] (f : C(B'', B)) (f' : C(B''', B')) (e'' : B'' ≃ₜ B''')
     (h : e ∘ f = f' ∘ e'') : (f *ᵖ E) ≃ₜᶠ[e''; F, F'] (f' *ᵖ E') where
-  toFun b x := cast (congrArg E' <| by simpa using congrFun h b) (e' _ x)
-  invFun b x := cast (congrArg E <| by have := congrFun h (e''.symm b); simp_all [e.symm_apply_eq])
+  toFun b x := Equiv.congrArg E' (by simpa using congrFun h b) (e' _ x)
+  invFun b x := Equiv.congrArg E (by have := congrFun h (e''.symm b); simp_all [e.symm_apply_eq])
     (e'.symm _ x)
   left_inv' b x := by
-    suffices h' : ∀ (b b' : B) (h : b = b') (x : E b),
-        e' _ (cast (congrArg E h) x) = cast (by rw [h]) (e' _ x) by
-      erw [h' _ _ (by
-        have := congrFun h (e''.symm b)
-        simp_all [e.symm_apply_eq]), e'.left_inv]
-      simp
-    intro b b' rfl x
-    simp
+    unfold Bundle.Pullback
+    simp only [Equiv.apply_congrArg]
+    erw [e'.left_inv]
+    simp [Equiv.congrArg_comp_apply]
   right_inv' b x := by
-    suffices h' : ∀ (b b' : B') (h : b = b') (x : E' b),
-        e'.symm _ (cast (congrArg E' h) x) = cast (by rw [h]) (e'.symm _ x) by
-      erw [h' _ _ (congrFun h _), e'.right_inv]
-      simp
-    intro b b' rfl x
-    simp
+    unfold Bundle.Pullback
+    simp only [Equiv.apply_congrArg]
+    erw [e'.right_inv]
+    simp [Equiv.congrArg_comp_apply]
   continuous_toFun := by
     refine (Pullback.TotalSpace.continuous_iff _).2
       ⟨e''.continuous.comp <| Pullback.continuous_proj _ _ _, ?_⟩
@@ -316,7 +288,7 @@ def pullbackTrivialIso (f : C(B', B)) : f *ᵖ (Trivial B F) ≃ₜᶠ[F, F] Tri
   toFun _ x := x
   invFun _ x := x
   left_inv' := by simp
-  right_inv' := by simp
+  right_inv' := by unfold Bundle.Pullback; simp
   continuous_toFun :=
     (Trivial.continuous_iff _).2 ⟨Pullback.continuous_proj _ _ _,
       (TotalSpace.continuous_trivialSnd.comp <| Pullback.continuous_lift F (Trivial B F) f:)⟩
@@ -331,7 +303,7 @@ def pullbackConstIsoTrivial (b : B) :
   toFun _ x := x
   invFun _ x := x
   left_inv' _ := by simp
-  right_inv' _ := by simp
+  right_inv' _ _ := rfl
   continuous_toFun :=
     (Trivial.continuous_iff _).2 ⟨Pullback.continuous_proj _ _ _,
       (totalSpaceMk_isInducing F E b).continuous_iff.2 <| Pullback.continuous_lift F E _⟩
@@ -345,8 +317,8 @@ def pullbackPullbackIso (f : C(B', B)) (g : C(B'', B')) :
     g *ᵖ (f *ᵖ E) ≃ₜᶠ[F, F] (f.comp g) *ᵖ E where
   toFun _ x := x
   invFun _ x := x
-  left_inv' := by simp
-  right_inv' := by simp
+  left_inv' _ _ := rfl
+  right_inv' _ _ := rfl
   continuous_toFun := by
     refine (Pullback.TotalSpace.continuous_iff _).2 ⟨Pullback.continuous_proj _ _ _, ?_⟩
     refine ((Pullback.continuous_lift F E f).comp <| Pullback.continuous_lift F (f *ᵖ E) g).congr ?_
@@ -369,27 +341,20 @@ def continuousSectionEquiv {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] E') :
     simp only [ContinuousBundleHom.compContinuousSection, Homeomorph.symm_symm, toHom,
       EquivLike.coe_coe, symm', ContinuousBundleHom.coeFn_mk, ContinuousSection.coeFn_mk]
     erw [coe_mk]
-    suffices h : ∀ (b b' : B') (h : b = b') (x : E' b),
-        e'.invFun _ (cast (congrArg E' h) x) = cast (by rw [h]) (e'.symm _ x) by
-      simp only [Homeomorph.symm_apply_apply, h, cast_cast]
-      erw [right_inv]
-      simp only [EquivLike.coe_coe, cast_cast]
-      exact cast_eq_iff_heq.2 <| congr_arg_heq _ <| by simp
-    intro b b' rfl x
-    simp
+    simp only [Equiv.apply_congrArg, Equiv.congrArg_comp_apply, invFun_eq_coe]
+    erw [Equiv.congrArg_congrArg, right_inv]
+    simp only [Equiv.congrArg, EquivLike.coe_coe, Equiv.cast_apply, cast_cast]
+    exact cast_eq_iff_heq.2 <| congr_arg_heq _ <| by simp
   right_inv s := by
     ext
+    dsimp
     simp only [ContinuousBundleHom.compContinuousSection, Homeomorph.symm_symm, toHom,
       EquivLike.coe_coe, symm', ContinuousBundleHom.coeFn_mk, ContinuousSection.coeFn_mk]
     erw [coe_mk (toFun := e'.invFun)]
-    suffices h : ∀ (b b' : B) (h : b = b') (x : E b),
-        e' _ (cast (congrArg E h) x) = cast (by rw [h]) (e' _ x) by
-      erw [h _ _ (by simp)]
-      simp only [EquivLike.coe_coe, invFun_eq_coe, cast_cast]
-      erw [left_inv]
-      simp only [EquivLike.coe_coe, cast_cast]
-      exact cast_eq_iff_heq.2 <| congr_arg_heq _ <| by simp
-    intro b b' rfl x
-    simp
+    simp only [invFun_eq_coe, Equiv.apply_congrArg, Equiv.congrArg_comp_apply,
+      Equiv.congrArg_congrArg]
+    erw [left_inv]
+    simp only [Equiv.congrArg, EquivLike.coe_coe, Equiv.cast_apply, cast_cast]
+    exact cast_eq_iff_heq.2 <| congr_arg_heq _ <| by simp
 
 end ContinuousBundleIso

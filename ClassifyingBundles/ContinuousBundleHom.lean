@@ -3,8 +3,8 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
-import Mathlib.Topology.FiberBundle.Constructions
 import ClassifyingBundles.ContinuousSection
+import ClassifyingBundles.Equiv
 
 /-! # Bundled continuous fibrewise maps between fibre bundles -/
 
@@ -72,7 +72,7 @@ direction does not. -/
 @[simps apply_coe_proj apply_coe_snd]
 def Bundle.TotalSpace.fiberEquiv (b : B) : E b ≃ π F E ⁻¹' {b} where
   toFun x := ⟨x, rfl⟩
-  invFun x := cast (congrArg _ x.2) x.1.2
+  invFun x := Equiv.congrArg _ x.2 x.1.2
   right_inv x := by ext <;> simp [show x.1.proj = b from x.2]
 
 /-- TODO: move -/
@@ -136,12 +136,10 @@ fibres. This construction has really bad defeq properties, so it should be used 
 absolutely necessary. -/
 def ofContinuousMap (g : C(TotalSpace F E, TotalSpace F' E')) (hg : ∀ x, (g x).proj = f x.proj) :
     Cᶠ[f]⟮F, E; F', E'⟯ where
-  toFun b x := cast (congrArg E' <| hg ⟨b, x⟩) (g ⟨b, x⟩).2
+  toFun b x := Equiv.congrArg E' (hg ⟨b, x⟩) (g ⟨b, x⟩).2
   continuous_toFun := by
     refine (map_continuous g).congr fun ⟨b, x⟩ ↦ ?_
-    ext
-    · simp [hg]
-    · simp
+    ext <;> simp [hg]
 
 @[simp]
 lemma ofContinuousMap_toContinuousMap (g : Cᶠ[f]⟮F, E; F', E'⟯) :
@@ -215,7 +213,7 @@ def pullbackEquiv : Cᶠ[f]⟮F, E; F', E'⟯ ≃ Cᶠ⟮F, E; F', f *ᵖ E'⟯ 
 a section of `E` by composing it with a bundle morphism from `E` to `E'`. We generalise this to
 bundle morphisms along a homeomorphism `e : B ≃ₜ B` of the base spaces. -/
 def compContinuousSection {e : B ≃ₜ B'} (g : Cᶠ[e]⟮F, E; F', E'⟯) (s : Cₛ⟮F, E⟯) : Cₛ⟮F', E'⟯ where
-  toFun b := cast (by simp) (g _ (s (e.symm b)))
+  toFun b := Equiv.congrArg E' (by simp) (g _ (s (e.symm b)))
   continuous_toFun := by
     refine (g.continuous_toFun.comp <| s.continuous_toFun.comp e.symm.continuous).congr fun x ↦ ?_
     ext <;> simp [TotalSpace.map]
