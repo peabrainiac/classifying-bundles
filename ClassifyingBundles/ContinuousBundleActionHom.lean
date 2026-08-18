@@ -92,10 +92,10 @@ def mulActionHomAt (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) (b : B) : E b →ₑ[
   toFun := f' b
   map_smul' g x := f'.map_smul g x
 
-variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
-  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E']
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [IsFiberBundle F' E']
   [TopologicalSpace F''] [TopologicalSpace B''] [∀ b, TopologicalSpace (E'' b)]
-  [FiberBundle F'' E'']
+  [IsFiberBundle F'' E'']
 
 instance {f : B' → B} {b' : B'} [SMul G (E (f b'))] : SMul G ((f *ᵖ E) b') :=
   inferInstanceAs (SMul G (E (f b')))

@@ -32,7 +32,7 @@ class NumerableBundle : Prop where
   numerableCover_isTrivialOn : NumerableCover ((↑) : {u | IsTrivialOn F E u} → Set B)
 
 /-- Every fibre bundle on a paracompact Hausdorff space is numerable. -/
-instance NumerableBundle.of_paracompactSpace [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+instance NumerableBundle.of_paracompactSpace [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
     [ParacompactSpace B] [T2Space B] : NumerableBundle F E where
   numerableCover_isTrivialOn := .of_paracompactSpace fun b ↦ by
       have ⟨u, hu, hu'⟩ := exists_mem_nhds_isTrivialOn F E b
@@ -46,7 +46,7 @@ lemma NumerableCover.numerableBundle {ι : Type*} {u : ι → Set B}
 /-- Pullbacks of numerable bundles are numerable.
 
 TODO: get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
-instance NumerableBundle.pullback [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+instance NumerableBundle.pullback [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
     [(b : B) → Zero (E b)] [NumerableBundle F E] {B' : Type*} [TopologicalSpace B']
     (f : C(B', B)) : NumerableBundle F (f *ᵖ E) := by
   refine numerableCover_isTrivialOn (F := F) (E := E) |>.preimage (map_continuous f)
@@ -56,7 +56,7 @@ instance NumerableBundle.pullback [∀ b, TopologicalSpace (E b)] [FiberBundle F
 
 TODO: get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
 lemma NumerableBundle.exists_countable_isTrivialOn_cover [∀ b, TopologicalSpace (E b)]
-    [FiberBundle F E] [(b : B) → Zero (E b)] [NumerableBundle F E] :
+    [IsFiberBundle F E] [(b : B) → Zero (E b)] [NumerableBundle F E] :
     ∃ u : ℕ → Set B, LocallyFinite u ∧ NumerableCover u ∧
       ∀ i, IsOpen (u i) ∧ IsTrivialOn F E (u i) := by
   have _ : Nonempty {u | IsTrivialOn F E u} := ⟨⟨∅, isTrivialOn_empty F E⟩⟩
@@ -75,7 +75,7 @@ lemma NumerableBundle.exists_countable_isTrivialOn_cover [∀ b, TopologicalSpac
 
 TODO: get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
 lemma NumerableBundle.exists_countable_isTrivialOn_cover_prod_unitInterval (E : B × I → Type*)
-    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
     [∀ b, Zero (E b)] [NumerableBundle F E] :
     ∃ u : ℕ → Set B, LocallyFinite u ∧ NumerableCover u ∧
       ∀ i, IsOpen (u i) ∧ IsTrivialOn F E (u i ×ˢ .univ) := by
@@ -222,7 +222,7 @@ choice of isomorphism anyway.
 
 TODO: rename, get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
 lemma coveringHomotopyLemma_of_prop (E : B × I → Type*)
-    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
     [∀ b, Zero (E b)] (P : ∀ x x', (E x → E x') → Prop)
     (hP : ∀ x x' x'' g g', P x x' g → P x' x'' g' → P x x'' (g' ∘ g))
     {u : ℕ → Set B} (hu : NumerableCover u)
@@ -359,12 +359,12 @@ lemma coveringHomotopyLemma_of_prop (E : B × I → Type*)
         (hg' _ _ (Nat.le_add_left _ _) (hw'''' _)).symm
     · refine (isInducing_iff_of_open_cover (u := fun n ↦ w'' n ×ˢ (π F E ⁻¹' w'' n))
         (fun n ↦ ?_) ?_ (fun n ↦ ?_)).2 fun n ↦ ?_
-      · exact (hw'' n).prod <| (hw'' n).preimage <| FiberBundle.continuous_proj F E
+      · exact (hw'' n).prod <| (hw'' n).preimage <| IsFiberBundle.continuous_proj F E
       · refine range_subset_iff.2 fun x ↦ mem_iUnion_of_mem (f.ind x.proj.1 trivial) ⟨hw'''' _, ?_⟩
         simpa [hg, f'', w''] using (hw'''' x.proj).1
       · suffices IsOpen {x : TotalSpace F E | x.proj.1 ∈ interior (w' n)} by
           simpa [preimage, w'', hg, f'']
-        exact isOpen_interior.preimage <| continuous_fst.comp <| FiberBundle.continuous_proj F E
+        exact isOpen_interior.preimage <| continuous_fst.comp <| IsFiberBundle.continuous_proj F E
       · refine ⟨_, (hg n).2.2.1, fun x hx ↦ ?_, ?_⟩
         · simp only [mem_preimage, mem_prod, Prod.mk.injEq, true_and] at hx ⊢
           exact hg'' _ _ _ (hw'''' _) hx.1
@@ -514,7 +514,7 @@ isomorphic to the pullback of itself along the map `B × I → B × I` sending `
 
 TODO: rename, get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
 lemma NumerableBundle.coveringHomotopyLemma (E : B × I → Type*)
-    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
     [∀ b, Zero (E b)] [NumerableBundle F E] :
     Nonempty (E ≃ₜᶠ[F, F] (ContinuousMap.prodMap (.id B) (.const I 1)) *ᵖ E) := by
   have ⟨u, hu⟩ := exists_countable_isTrivialOn_cover_prod_unitInterval F E
@@ -530,7 +530,7 @@ isomorphism anyway. For example, it does not preserve any extra structure that `
 analogous lemmas for things like vector bundles and principal bundles have to be proven separately.
 
 TODO: get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
-lemma NumerableBundle.pullbackIsoPullback [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+lemma NumerableBundle.pullbackIsoPullback [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
     [(b : B) → Zero (E b)] [NumerableBundle F E] {f₁ f₂ : C(B', B)}
     (h : f₁.Homotopic f₂) : Nonempty (f₁ *ᵖ E ≃ₜᶠ[F, F] f₂ *ᵖ E) := by
   obtain ⟨H⟩ := h
@@ -560,7 +560,7 @@ lemma nullhomotopic_of_contractibleSpace_cod {X Y : Type*} [TopologicalSpace X] 
   (id_nullhomotopic Y).comp_left f
 
 /-- Every numerable fibre bundle on a contractible base space is trivial. -/
-lemma IsTrivial.of_contractibleSpace [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+lemma IsTrivial.of_contractibleSpace [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
     [(b : B) → Zero (E b)] [NumerableBundle F E] [ContractibleSpace B] : IsTrivial F E := by
   rw [← isTrivialOn_univ, IsTrivialOn]
   have ⟨b, h⟩ := nullhomotopic_of_contractibleSpace_cod

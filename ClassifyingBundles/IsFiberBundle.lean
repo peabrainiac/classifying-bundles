@@ -62,6 +62,21 @@ theorem continuous_totalSpaceMk (x : B) : Continuous (@TotalSpace.mk B F E x) :=
 theorem totalSpaceMk_isEmbedding (x : B) : IsEmbedding (@TotalSpace.mk B F E x) :=
   ⟨totalSpaceMk_isInducing F E x, TotalSpace.mk_injective x⟩
 
+variable {E} in
+theorem map_proj_nhds (x : TotalSpace F E) : map (π F E) (𝓝 x) = 𝓝 x.proj :=
+  (exists_trivialization F E x.proj).choose.map_proj_nhds <|
+    (exists_trivialization F E x.proj).choose.mem_source.2 <|
+      (exists_trivialization F E x.proj).choose_spec
+
+/-- The projection from a fiber bundle to its base is continuous. -/
+@[fun_prop]
+theorem continuous_proj : Continuous (π F E) :=
+  continuous_iff_continuousAt.2 fun x => (map_proj_nhds F x).le
+
+/-- The projection from a fiber bundle to its base is an open map. -/
+theorem isOpenMap_proj : IsOpenMap (π F E) :=
+  IsOpenMap.of_nhds_le fun x => (map_proj_nhds F x).ge
+
 /-- An arbitrary homeomorphism between any fiber and the model fiber.
 This is useful to transfer topological properties of the model fiber. -/
 noncomputable def homeomorphAt (b : B) : E b ≃ₜ F :=

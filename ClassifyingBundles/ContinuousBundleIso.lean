@@ -7,7 +7,7 @@ import ClassifyingBundles.ContinuousBundleHom
 
 /-! # Bundled continuous fibrewise homeomorphisms between fibre bundles -/
 
-open Bundle FiberBundle Function
+open Bundle IsFiberBundle Function
 
 variable (F : Type*) {B : Type*} (E : B → Type*) [TopologicalSpace (Bundle.TotalSpace F E)]
   (F' : Type*) {B' : Type*} (E' : B' → Type*) [TopologicalSpace (Bundle.TotalSpace F' E')]
@@ -203,10 +203,10 @@ def trans {e₁ : B ≃ B'} {e₂ : B' ≃ B''} {e₃ : B ≃ B''} [CompTriple e
     refine (e₁'.symm.continuous_toFun.comp (e₂'.symm.continuous_toFun)).congr fun ⟨b, x⟩ ↦ ?_
     ext <;> simp [CompTriple.comp_apply, comp_apply, TotalSpace.map]
 
-variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
-  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E']
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [IsFiberBundle F' E']
   [TopologicalSpace F''] [TopologicalSpace B''] [∀ b, TopologicalSpace (E'' b)]
-  [FiberBundle F'' E'']
+  [IsFiberBundle F'' E'']
 
 set_option backward.defeqAttrib.useBackward true in
 /-- The restriction of a fibrewise bundle homeomorphism to a single fibre. -/

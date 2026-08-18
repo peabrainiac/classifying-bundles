@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleIso
-import ClassifyingBundles.IsFiberBundle
 import ClassifyingBundles.OpenPartialHomeomorph
 import ClassifyingBundles.RealInduction
 import Mathlib.Topology.FiberBundle.IsHomeomorphicTrivialBundle
@@ -56,7 +55,7 @@ lemma isTrivial_of_empty [IsEmpty (TotalSpace F E)] [IsEmpty (B × F)] : IsTrivi
   rw [isTrivial_iff_isHomeomorphicTrivialFiberBundle]
   exact ⟨Homeomorph.empty, fun x ↦ IsEmpty.elim inferInstance x⟩
 
-variable [∀ b, TopologicalSpace (E b)] [FiberBundle F E] in
+variable [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] in
 /-- To show that a bundle is trivial it suffices to give an isomorphism to any trivial bundle, not
 just a bundle with the same base space and standard fibre. This works only if the bundle is already
 known to be a fibre bundle, because otherwise the standard fibre `F` could be anything. -/
@@ -64,19 +63,19 @@ lemma isTrivial_of_continuousBundleIso {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F,
     IsTrivial F E := by
   refine (isEmpty_or_nonempty B).rec (fun _ ↦ isTrivial_of_empty F E) fun _ ↦ ⟨?_⟩
   have e'' : F ≃ₜ F' :=
-    (FiberBundle.homeomorphAt F E _).symm.trans (e'.homeomorphAt (Classical.arbitrary _))
+    (IsFiberBundle.homeomorphAt F E _).symm.trans (e'.homeomorphAt (Classical.arbitrary _))
   have : CompTriple (e : Equiv B B') (e : Equiv B B').symm (Equiv.refl B) := ⟨by simp⟩
   exact e'.trans <| (ContinuousBundleIso.trivialCongr e e'').symm
 
-variable [∀ b, TopologicalSpace (E b)] [FiberBundle F E] in
+variable [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] in
 lemma _root_.ContinuousBundleIso.isTrivial {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] E')
     (h : IsTrivial F' E') : IsTrivial F E := by
   obtain ⟨e''⟩ := h
   have : CompTriple (e : Equiv B B') (Equiv.refl B') (e : Equiv B B') := ⟨by simp⟩
   exact isTrivial_of_continuousBundleIso F E F' (e'.trans e'')
 
-variable [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
-  [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E'] in
+variable [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
+  [∀ b, TopologicalSpace (E' b)] [IsFiberBundle F' E'] in
 lemma _root_.ContinuousBundleIso.isTrivial_iff {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] E') :
     IsTrivial F E ↔ IsTrivial F' E' :=
   ⟨e'.symm.isTrivial (e := e.symm) _ _ _ _, e'.isTrivial _ _ _ _⟩
@@ -116,12 +115,12 @@ lemma isTrivialOn_empty : IsTrivialOn F E ∅ := by
   exact ⟨Homeomorph.empty, fun x ↦ IsEmpty.elim inferInstance x⟩
 
 -- TODO: find home
-instance [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [Nonempty B] [Nonempty F] :
+instance [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] [Nonempty B] [Nonempty F] :
     Nonempty (TotalSpace F E) :=
-  ⟨⟨_, (FiberBundle.homeomorphAt F E (Classical.arbitrary B)).symm (Classical.arbitrary F)⟩⟩
+  ⟨⟨_, (IsFiberBundle.homeomorphAt F E (Classical.arbitrary B)).symm (Classical.arbitrary F)⟩⟩
 
-lemma _root_.FiberBundle.isEmpty_totalSpace_iff [∀ b, TopologicalSpace (E b)] [FiberBundle F E] :
-    IsEmpty (TotalSpace F E) ↔ IsEmpty B ∨ IsEmpty F := by
+lemma _root_.IsFiberBundle.isEmpty_totalSpace_iff [∀ b, TopologicalSpace (E b)]
+    [IsFiberBundle F E] : IsEmpty (TotalSpace F E) ↔ IsEmpty B ∨ IsEmpty F := by
   refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
   · contrapose! h
     obtain ⟨_, _⟩ := h
@@ -129,23 +128,23 @@ lemma _root_.FiberBundle.isEmpty_totalSpace_iff [∀ b, TopologicalSpace (E b)] 
   · obtain _ | _ := h <;> infer_instance
 
 /-- TODO: generalize -/
-lemma isTrivialOn_singleton [∀ b, TopologicalSpace (E b)] [FiberBundle F E] {b : B} :
+lemma isTrivialOn_singleton [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] {b : B} :
     IsTrivialOn F E {b} := by
   rw [IsTrivialOn, show ContinuousMap.subtypeVal (s := {b}) = .const _ b by ext ⟨_, rfl⟩; rfl]
   let e := ContinuousBundleIso.pullbackConstIsoTrivial (F := F) (E := E) (B' := ({b} : Set B)) b
   by_cases! IsEmpty F
   · exact isTrivial_of_empty _ _
-  · have _ b : Zero (E b) := ⟨(FiberBundle.homeomorphAt F E b).symm (Classical.arbitrary F)⟩
+  · have _ b : Zero (E b) := ⟨(IsFiberBundle.homeomorphAt F E b).symm (Classical.arbitrary F)⟩
     exact isTrivial_of_continuousBundleIso _ _ _ (e := Homeomorph.refl _) e
 
 /-- TODO: generalize -/
-lemma isTrivialOn_of_subsingleton [∀ b, TopologicalSpace (E b)] [FiberBundle F E] {s : Set B}
+lemma isTrivialOn_of_subsingleton [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] {s : Set B}
     (hs : s.Subsingleton) : IsTrivialOn F E s := by
   obtain rfl | ⟨b, rfl⟩ := hs.eq_empty_or_singleton
   · exact isTrivialOn_empty F E
   · exact isTrivialOn_singleton F E
 
-variable [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [∀ b, Zero (E b)] in
+variable [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] [∀ b, Zero (E b)] in
 /-- TODO: generalise, clean up -/
 @[gcongr]
 lemma IsTrivialOn.mono {u v : Set B} (huv : u ⊆ v) (h : IsTrivialOn F E v) : IsTrivialOn F E u := by
@@ -183,24 +182,24 @@ lemma _root_.Pullback.range_lift {f : B' → B} :
 /-- TODO: find home
 Note that this requires a fibre bundle because otherwise we have no assumptions on the relation
 between the topology of `TotalSpace F E` and `B`. -/
-lemma _root_.Topology.IsInducing.pullbackLift [FiberBundle F E] {f : B' → B} (hf : IsInducing f) :
+lemma _root_.Topology.IsInducing.pullbackLift [IsFiberBundle F E] {f : B' → B} (hf : IsInducing f) :
     IsInducing (Pullback.lift f : TotalSpace F (f *ᵖ E) → TotalSpace F E) := by
   rw [isInducing_iff, Pullback.TotalSpace.topologicalSpace, pullbackTopology, inf_eq_right,
     hf.eq_induced, induced_compose,
     show f ∘ TotalSpace.proj = TotalSpace.proj ∘ Pullback.lift f by rfl, ← induced_compose]
   gcongr
-  exact (FiberBundle.continuous_proj _ _).le_induced
+  exact (IsFiberBundle.continuous_proj _ _).le_induced
 
 /-- TODO: find home
 Note that this requires a fibre bundle because otherwise we have no assumptions on the relation
 between the topology of `TotalSpace F E` and `B`. -/
-lemma _root_.Topology.IsEmbedding.pullbackLift [FiberBundle F E] {f : B' → B} (hf : IsEmbedding f) :
-    IsEmbedding (Pullback.lift f : TotalSpace F (f *ᵖ E) → TotalSpace F E) :=
+lemma _root_.Topology.IsEmbedding.pullbackLift [IsFiberBundle F E] {f : B' → B}
+    (hf : IsEmbedding f) : IsEmbedding (Pullback.lift f : TotalSpace F (f *ᵖ E) → TotalSpace F E) :=
   ⟨hf.1.pullbackLift _ _, hf.2.pullbackLift _ _⟩
 
 set_option backward.defeqAttrib.useBackward true in
 set_option backward.isDefEq.respectTransparency false in
-lemma Trivialization.isTrivialOn_baseSet [FiberBundle F E] (e : Trivialization F (π F E)) :
+lemma Trivialization.isTrivialOn_baseSet [IsFiberBundle F E] (e : Trivialization F (π F E)) :
     IsTrivialOn F E e.baseSet := by
   refine (isTrivial_iff_isHomeomorphicTrivialFiberBundle _ _).2 ?_
   use (IsEmbedding.toHomeomorph (.pullbackLift _ _ .subtypeVal)
@@ -216,12 +215,12 @@ lemma Trivialization.isTrivialOn_baseSet [FiberBundle F E] (e : Trivialization F
   erw [Subtype.mk.injEq, e.proj_toFun]
   simpa [e.source_eq]
 
-lemma isTrivialOn_iff_exists_trivialization [FiberBundle F E] {u : Set B} (hu : IsOpen u) :
+lemma isTrivialOn_iff_exists_trivialization [IsFiberBundle F E] {u : Set B} (hu : IsOpen u) :
     IsTrivialOn F E u ↔ ∃ e : Trivialization F (π F E), e.baseSet = u := by
   refine ⟨fun h ↦ ?_, fun ⟨e, h⟩ ↦ h ▸ e.isTrivialOn_baseSet⟩
   by_cases! h : IsEmpty B ∨ IsEmpty F
   · have _ := isEmpty_prod.2 h
-    have _ := (FiberBundle.isEmpty_totalSpace_iff F E).2 h
+    have _ := (IsFiberBundle.isEmpty_totalSpace_iff F E).2 h
     use {
       toOpenPartialHomeomorph := Homeomorph.empty.toOpenPartialHomeomorph
       baseSet := u
@@ -236,7 +235,7 @@ lemma isTrivialOn_iff_exists_trivialization [FiberBundle F E] {u : Set B} (hu : 
       |>.trans (Homeomorph.Set.prod _ _).symm
     use {
       toOpenPartialHomeomorph := e'.toOpenPartialHomeomorph'
-        (by simpa using hu.preimage (FiberBundle.continuous_proj _ _)) (hu.prod isOpen_univ)
+        (by simpa using hu.preimage (IsFiberBundle.continuous_proj _ _)) (hu.prod isOpen_univ)
       baseSet := u
       open_baseSet := hu
       source_eq := by simp [Homeomorph.toOpenPartialHomeomorph']
@@ -249,21 +248,22 @@ lemma isTrivialOn_iff_exists_trivialization [FiberBundle F E] {u : Set B} (hu : 
         congr
         exact he _ }
 
-lemma exists_mem_nhds_isTrivialOn [FiberBundle F E] (b : B) : ∃ u ∈ 𝓝 b, IsTrivialOn F E u :=
-  ⟨_, (trivializationAt F E b).open_baseSet.mem_nhds (mem_baseSet_trivializationAt F E b),
-    (trivializationAt F E b).isTrivialOn_baseSet⟩
+lemma exists_mem_nhds_isTrivialOn [IsFiberBundle F E] (b : B) : ∃ u ∈ 𝓝 b, IsTrivialOn F E u :=
+  ⟨_, (IsFiberBundle.exists_trivialization F E b).choose.open_baseSet.mem_nhds
+    (IsFiberBundle.exists_trivialization F E b).choose_spec,
+      (IsFiberBundle.exists_trivialization F E b).choose.isTrivialOn_baseSet⟩
 
 @[simp]
-lemma isTrivialOn_univ [FiberBundle F E] : IsTrivialOn F E .univ ↔ IsTrivial F E := by
+lemma isTrivialOn_univ [IsFiberBundle F E] : IsTrivialOn F E .univ ↔ IsTrivial F E := by
   rw [isTrivial_iff_exists_trivialization,
     isTrivialOn_iff_exists_trivialization F E isOpen_univ]
 
-lemma IsTrivial.isTrivialOn [FiberBundle F E] [∀ b, Zero (E b)] (h : IsTrivial F E) {s : Set B} :
+lemma IsTrivial.isTrivialOn [IsFiberBundle F E] [∀ b, Zero (E b)] (h : IsTrivial F E) {s : Set B} :
     IsTrivialOn F E s :=
   ((isTrivialOn_univ F E).2 h).mono F E (by grind)
 
 /-- If `E` is trivial on `u`, the pullback of `f *ᵖ E` is trivial on `f ⁻¹' u`. -/
-lemma IsTrivialOn.pullback [FiberBundle F E] [∀ b, Zero (E b)] {u : Set B}
+lemma IsTrivialOn.pullback [IsFiberBundle F E] [∀ b, Zero (E b)] {u : Set B}
     (h : IsTrivialOn F E u) (f : C(B', B)) :
     IsTrivialOn F (f *ᵖ E) (f ⁻¹' u) := by
   have : ∀ b, Zero ((f *ᵖ E) b) := fun b ↦ inferInstanceAs (Zero (E (f b)))
@@ -284,7 +284,7 @@ section DisjointUnion
 /-- If a bundle is trivial on two disjoint open sets, it is also trivial on their union.
 TODO: generalise to non-open sets that are separated by open neighbourhoods
 TODO: generalise to indexed unions -/
-lemma IsTrivialOn.disjointUnion [FiberBundle F E] {s t : Set B} (hs : IsTrivialOn F E s)
+lemma IsTrivialOn.disjointUnion [IsFiberBundle F E] {s t : Set B} (hs : IsTrivialOn F E s)
     (ht : IsTrivialOn F E t) (hs' : IsOpen s) (ht' : IsOpen t) (h : Disjoint s t) :
     IsTrivialOn F E (s ∪ t) := by
   rw [isTrivialOn_iff_exists_trivialization _ _ (by assumption)] at hs ht
@@ -330,12 +330,12 @@ disjoint union of the total spaces of the restrictions. -/
 @[simps!]
 def TotalSpace.homeomorphSigma {ι : Type*} {B : ι → Type*} [∀ i, TopologicalSpace (B i)]
     (E : (Σ i, B i) → Type*) [∀ b, TopologicalSpace (E b)] [TopologicalSpace (TotalSpace F E)]
-    [FiberBundle F E] :
+    [IsFiberBundle F E] :
     TotalSpace F E ≃ₜ Σ i, (TotalSpace F (ContinuousMap.sigmaMk i *ᵖ E)) := by
   refine .symm <| Equiv.toHomeomorphOfIsInducing
     { toFun x := ⟨⟨x.1, x.2.1⟩, x.2.2⟩, invFun x := ⟨x.1.1, x.1.2, x.2⟩ } ?_
   refine inducing_sigma.2 ⟨fun i ↦ IsEmbedding.sigmaMk.isInducing.pullbackLift F E, fun i ↦ ?_⟩
-  exact ⟨_, (isOpen_sigma_fst_preimage {i}).preimage <| FiberBundle.continuous_proj F E, by simp⟩
+  exact ⟨_, (isOpen_sigma_fst_preimage {i}).preimage <| IsFiberBundle.continuous_proj F E, by simp⟩
 
 /-- The homeomorphism between two sigma types induced by homeomorphisms between the summands. -/
 @[simps!]
@@ -348,7 +348,7 @@ def _root_.Homeomorph.sigmaCongrRight {ι : Type*} {X : ι → Type*} {X' : ι �
 
 lemma isTrivial_sigma_iff {ι : Type*} {B : ι → Type*} [∀ i, TopologicalSpace (B i)]
     (E : (Σ i, B i) → Type*) [∀ b, TopologicalSpace (E b)] [TopologicalSpace (TotalSpace F E)]
-    [FiberBundle F E] : IsTrivial F E ↔ ∀ i, IsTrivial F (ContinuousMap.sigmaMk i *ᵖ E) := by
+    [IsFiberBundle F E] : IsTrivial F E ↔ ∀ i, IsTrivial F (ContinuousMap.sigmaMk i *ᵖ E) := by
   refine ⟨fun h i ↦ h.pullback _ _, fun h ↦ ?_⟩
   simp only [isTrivial_iff_isHomeomorphicTrivialFiberBundle] at h ⊢
   choose e he using h
@@ -362,7 +362,7 @@ lemma isTrivial_sigma_iff {ι : Type*} {B : ι → Type*} [∀ i, TopologicalSpa
 long as each set admits a neighbourhood separating it from the rest.
 
 TODO: get rid of the unnecessary `[∀ b, Zero (E b)]` assumption. -/
-lemma IsTrivialOn.disjointIUnion [FiberBundle F E] [∀ b, Zero (E b)] {ι : Type*} {s : ι → Set B}
+lemma IsTrivialOn.disjointIUnion [IsFiberBundle F E] [∀ b, Zero (E b)] {ι : Type*} {s : ι → Set B}
     (hs : ∀ i, ∃ u ∈ 𝓝ˢ (s i), ∀ j ≠ i, Disjoint u (s j)) (h : ∀ i, IsTrivialOn F E (s i)) :
     IsTrivialOn F E (⋃ i, s i) := by
   unfold IsTrivialOn at h ⊢
@@ -413,7 +413,7 @@ lemma Trivialization.continuousOn_coordChange {B F Z X : Type*} [TopologicalSpac
 /-- To prove that a bundle `E` on `B × I` is trivial on `u ×ˢ univ`, it suffices to prove that
 every `t` has a neighbourhood `w` for which `E` is trivial on `u ×ˢ w`. -/
 lemma isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSpace (TotalSpace F E)]
-    [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [∀ b, Zero (E b)] {u : Set B} (hu : IsOpen u)
+    [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] [∀ b, Zero (E b)] {u : Set B} (hu : IsOpen u)
     (hu' : ∀ t, ∃ w ∈ 𝓝 t, IsTrivialOn F E (u ×ˢ w)) :
     IsTrivialOn F E (u ×ˢ Set.univ) := by
   /- Using induction, we can reduce this to proving that certain sets `v₁ v₂ : Set I` for which
@@ -477,7 +477,7 @@ lemma isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSpace (To
 that every `b : B` has a neighbourhood `u` such that the bundle is trivial on
 `u ×ˢ (univ : Set I)`. -/
 lemma exists_isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSpace (TotalSpace F E)]
-    [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [∀ b, Zero (E b)] (b : B) :
+    [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] [∀ b, Zero (E b)] (b : B) :
     ∃ u ∈ 𝓝 b, IsOpen u ∧ IsTrivialOn F E (u ×ˢ .univ) := by
   suffices h : ∃ u ∈ 𝓝 b, IsOpen u ∧ ∀ t ∈ Set.univ, ∃ w ∈ 𝓝 t, IsTrivialOn F E (u ×ˢ w) by
     obtain ⟨u, hu, hu', h⟩ := h

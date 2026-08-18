@@ -8,7 +8,7 @@ import ClassifyingBundles.Equiv
 
 /-! # Bundled continuous fibrewise maps between fibre bundles -/
 
-open Bundle FiberBundle Function
+open Bundle IsFiberBundle Function
 
 variable (F : Type*) {B : Type*} (E : B → Type*) [TopologicalSpace (Bundle.TotalSpace F E)]
   (F' : Type*) {B' : Type*} (E' : B' → Type*) [TopologicalSpace (Bundle.TotalSpace F' E')]
@@ -156,16 +156,16 @@ lemma toContinuousMap_ofContinuousMap (g : C(TotalSpace F E, TotalSpace F' E'))
   · simp [hg]
   · simp [ofContinuousMap]
 
-variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
-  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E']
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [IsFiberBundle F' E']
 
 /-- The restriction of a continuous fibrewise map to a single fibre. -/
 @[simps]
 def continuousMapAt (g : Cᶠ[f]⟮F, E; F', E'⟯) (b : B) : C(E b, E' (f b)) where
   toFun := g b
   continuous_toFun := by
-    rw [(FiberBundle.totalSpaceMk_isInducing F' E' (f b)).continuous_iff]
-    exact g.continuous_toFun.comp (FiberBundle.totalSpaceMk_isInducing F E b).continuous
+    rw [(totalSpaceMk_isInducing F' E' (f b)).continuous_iff]
+    exact g.continuous_toFun.comp (totalSpaceMk_isInducing F E b).continuous
 
 /-- TODO: find home -/
 lemma _root_.Bundle.Trivial.continuous_iff {X : Type*} [TopologicalSpace X]
@@ -190,7 +190,7 @@ def pullbackLift {f : B' → B} : Cᶠ[f]⟮F, f *ᵖ E; F, E⟯ where
   continuous_toFun := Pullback.continuous_lift F E f
 
 omit [TopologicalSpace F] [TopologicalSpace B] [(b : B) → TopologicalSpace (E b)]
-  [FiberBundle F E] in
+  [IsFiberBundle F E] in
 /-- TODO: find home -/
 lemma _root_.Pullback.TotalSpace.continuous_iff {X : Type*} [TopologicalSpace X] {f : B' → B}
     (g : X → TotalSpace F (f *ᵖ E)) :

@@ -3,8 +3,8 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
+import ClassifyingBundles.IsFiberBundle
 import Mathlib.Topology.VectorBundle.Basic
-import Mathlib.Topology.FiberBundle.Constructions
 
 /-! # Continuous sections of fibre bundles
 API for bundled continuous sections of topological fibre bundles. Adapted from the API for Cⁿ
@@ -20,13 +20,13 @@ open Bundle FiberBundle Function Filter
 
 variable (F : Type*) [TopologicalSpace F] {B : Type*} [TopologicalSpace B]
   (E : B → Type*) [∀ b, TopologicalSpace (E b)] [TopologicalSpace (TotalSpace F E)]
-  [FiberBundle F E]
+  [IsFiberBundle F E]
 
 /-- The type of continuous sections of a topological `FiberBundle F E`, written `Cₛ(F, E)` in
 the `Bundle` namespace. -/
 structure ContinuousSection (F : Type*) [TopologicalSpace F] {B : Type*} [TopologicalSpace B]
     (E : B → Type*) [∀ b, TopologicalSpace (E b)] [TopologicalSpace (TotalSpace F E)]
-    [FiberBundle F E] where
+    [IsFiberBundle F E] where
   toFun : ∀ b, E b
   continuous_toFun : Continuous fun b ↦ (⟨b, toFun b⟩ : TotalSpace F E)
 
