@@ -132,10 +132,7 @@ lemma isTrivialOn_singleton [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] 
     IsTrivialOn F E {b} := by
   rw [IsTrivialOn, show ContinuousMap.subtypeVal (s := {b}) = .const _ b by ext ⟨_, rfl⟩; rfl]
   let e := ContinuousBundleIso.pullbackConstIsoTrivial (F := F) (E := E) (B' := ({b} : Set B)) b
-  by_cases! IsEmpty F
-  · exact isTrivial_of_empty _ _
-  · have _ b : Zero (E b) := ⟨(IsFiberBundle.homeomorphAt F E b).symm (Classical.arbitrary F)⟩
-    exact isTrivial_of_continuousBundleIso _ _ _ (e := Homeomorph.refl _) e
+  exact isTrivial_of_continuousBundleIso _ _ _ (e := Homeomorph.refl _) e
 
 /-- TODO: generalize -/
 lemma isTrivialOn_of_subsingleton [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] {s : Set B}
@@ -144,14 +141,12 @@ lemma isTrivialOn_of_subsingleton [∀ b, TopologicalSpace (E b)] [IsFiberBundle
   · exact isTrivialOn_empty F E
   · exact isTrivialOn_singleton F E
 
-variable [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] [∀ b, Zero (E b)] in
+variable [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] in
 /-- TODO: generalise, clean up -/
 @[gcongr]
 lemma IsTrivialOn.mono {u v : Set B} (huv : u ⊆ v) (h : IsTrivialOn F E v) : IsTrivialOn F E u := by
   unfold IsTrivialOn
   rw [← ContinuousMap.subtypeVal_comp_inclusion huv]
-  have : ∀ b, Zero (((ContinuousMap.subtypeVal (s := v)) *ᵖ E) b) := fun b ↦
-    inferInstanceAs (Zero (E b))
   have e := ContinuousBundleIso.pullbackPullbackIso (ContinuousMap.subtypeVal)
     (ContinuousMap.inclusion huv) (E := E) (F := F)
   rw [show Equiv.refl u = Homeomorph.refl u from rfl] at e
@@ -258,15 +253,14 @@ lemma isTrivialOn_univ [IsFiberBundle F E] : IsTrivialOn F E .univ ↔ IsTrivial
   rw [isTrivial_iff_exists_trivialization,
     isTrivialOn_iff_exists_trivialization F E isOpen_univ]
 
-lemma IsTrivial.isTrivialOn [IsFiberBundle F E] [∀ b, Zero (E b)] (h : IsTrivial F E) {s : Set B} :
+lemma IsTrivial.isTrivialOn [IsFiberBundle F E] (h : IsTrivial F E) {s : Set B} :
     IsTrivialOn F E s :=
   ((isTrivialOn_univ F E).2 h).mono F E (by grind)
 
 /-- If `E` is trivial on `u`, the pullback of `f *ᵖ E` is trivial on `f ⁻¹' u`. -/
-lemma IsTrivialOn.pullback [IsFiberBundle F E] [∀ b, Zero (E b)] {u : Set B}
+lemma IsTrivialOn.pullback [IsFiberBundle F E] {u : Set B}
     (h : IsTrivialOn F E u) (f : C(B', B)) :
     IsTrivialOn F (f *ᵖ E) (f ⁻¹' u) := by
-  have : ∀ b, Zero ((f *ᵖ E) b) := fun b ↦ inferInstanceAs (Zero (E (f b)))
   have e := ContinuousBundleIso.pullbackPullbackIso (F := F) (E := E) f
     (.subtypeVal (s := f ⁻¹' u))
   rw [show Equiv.refl (f ⁻¹' u) = Homeomorph.refl (f ⁻¹' u) from rfl] at e
@@ -359,10 +353,8 @@ lemma isTrivial_sigma_iff {ι : Type*} {B : ι → Type*} [∀ i, TopologicalSpa
   · simp [Homeomorph.sigmaProdDistrib, Equiv.sigmaProdDistrib, TotalSpace.homeomorphSigma, he]; rfl
 
 /-- A fiber bundle that is trivial on a family of disjoint sets is also trivial on their union, as
-long as each set admits a neighbourhood separating it from the rest.
-
-TODO: get rid of the unnecessary `[∀ b, Zero (E b)]` assumption. -/
-lemma IsTrivialOn.disjointIUnion [IsFiberBundle F E] [∀ b, Zero (E b)] {ι : Type*} {s : ι → Set B}
+long as each set admits a neighbourhood separating it from the rest. -/
+lemma IsTrivialOn.disjointIUnion [IsFiberBundle F E] {ι : Type*} {s : ι → Set B}
     (hs : ∀ i, ∃ u ∈ 𝓝ˢ (s i), ∀ j ≠ i, Disjoint u (s j)) (h : ∀ i, IsTrivialOn F E (s i)) :
     IsTrivialOn F E (⋃ i, s i) := by
   unfold IsTrivialOn at h ⊢
@@ -371,8 +363,6 @@ lemma IsTrivialOn.disjointIUnion [IsFiberBundle F E] [∀ b, Zero (E b)] {ι : T
   have e := ContinuousBundleIso.pullbackPullbackIso (E := E) (F := F)
     (.sigma fun _ ↦ .subtypeVal) (Homeomorph.Set.iUnion hs : C(⋃ i, s i, Σ i, s i))
   rw [show Equiv.refl _ = (Homeomorph.refl (⋃ i, s i) : Equiv (⋃ i, s i) (⋃ i, s i)) from rfl] at e
-  have _ b : Zero ((ContinuousMap.sigma (fun i ↦ .subtypeVal (s := s i)) *ᵖ E) b) :=
-    inferInstanceAs (Zero (E b.snd))
   refine (e.isTrivial_iff _ _).1 <| IsTrivial.pullback F _ <| (isTrivial_sigma_iff F _).2 fun i ↦ ?_
   have e := ContinuousBundleIso.pullbackPullbackIso (E := E) (F := F)
     (.sigma fun _ ↦ .subtypeVal) (ContinuousMap.sigmaMk i : C(_, Σ i, s i))
@@ -413,7 +403,7 @@ lemma Trivialization.continuousOn_coordChange {B F Z X : Type*} [TopologicalSpac
 /-- To prove that a bundle `E` on `B × I` is trivial on `u ×ˢ univ`, it suffices to prove that
 every `t` has a neighbourhood `w` for which `E` is trivial on `u ×ˢ w`. -/
 lemma isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSpace (TotalSpace F E)]
-    [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] [∀ b, Zero (E b)] {u : Set B} (hu : IsOpen u)
+    [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] {u : Set B} (hu : IsOpen u)
     (hu' : ∀ t, ∃ w ∈ 𝓝 t, IsTrivialOn F E (u ×ˢ w)) :
     IsTrivialOn F E (u ×ˢ Set.univ) := by
   /- Using induction, we can reduce this to proving that certain sets `v₁ v₂ : Set I` for which
@@ -477,7 +467,7 @@ lemma isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSpace (To
 that every `b : B` has a neighbourhood `u` such that the bundle is trivial on
 `u ×ˢ (univ : Set I)`. -/
 lemma exists_isTrivialOn_prod_unitInterval (E : B × I → Type*) [TopologicalSpace (TotalSpace F E)]
-    [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] [∀ b, Zero (E b)] (b : B) :
+    [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] (b : B) :
     ∃ u ∈ 𝓝 b, IsOpen u ∧ IsTrivialOn F E (u ×ˢ .univ) := by
   suffices h : ∃ u ∈ 𝓝 b, IsOpen u ∧ ∀ t ∈ Set.univ, ∃ w ∈ 𝓝 t, IsTrivialOn F E (u ×ˢ w) by
     obtain ⟨u, hu, hu', h⟩ := h
