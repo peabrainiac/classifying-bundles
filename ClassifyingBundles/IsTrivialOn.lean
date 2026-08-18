@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleIso
+import ClassifyingBundles.IsFiberBundle
 import ClassifyingBundles.OpenPartialHomeomorph
 import ClassifyingBundles.RealInduction
 import Mathlib.Topology.FiberBundle.IsHomeomorphicTrivialBundle
-import Mathlib.Topology.Order.NhdsSet
 
 /-! # An `IsTrivial` / `IsTrivialOn` predicate for bundles -/
 
@@ -120,9 +120,6 @@ instance [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [Nonempty B] [Nonempt
     Nonempty (TotalSpace F E) :=
   ⟨⟨_, (FiberBundle.homeomorphAt F E (Classical.arbitrary B)).symm (Classical.arbitrary F)⟩⟩
 
-instance [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [IsEmpty F] : IsEmpty (TotalSpace F E) :=
-  ⟨fun x ↦ IsEmpty.elim  ‹_› (FiberBundle.homeomorphAt F E x.1 x.snd)⟩
-
 lemma _root_.FiberBundle.isEmpty_totalSpace_iff [∀ b, TopologicalSpace (E b)] [FiberBundle F E] :
     IsEmpty (TotalSpace F E) ↔ IsEmpty B ∨ IsEmpty F := by
   refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
@@ -130,10 +127,6 @@ lemma _root_.FiberBundle.isEmpty_totalSpace_iff [∀ b, TopologicalSpace (E b)] 
     obtain ⟨_, _⟩ := h
     infer_instance
   · obtain _ | _ := h <;> infer_instance
-
-instance [∀ b, TopologicalSpace (E b)] [FiberBundle F E] [IsEmpty (TotalSpace F E)] {f : C(B', B)} :
-    IsEmpty (TotalSpace F (f *ᵖ E)) :=
-  (Pullback.lift f).isEmpty
 
 /-- TODO: generalize -/
 lemma isTrivialOn_singleton [∀ b, TopologicalSpace (E b)] [FiberBundle F E] {b : B} :

@@ -9,6 +9,7 @@ import ClassifyingBundles.GBundle
 import ClassifyingBundles.IndexedJoin
 import ClassifyingBundles.InducingSMul
 import ClassifyingBundles.IsCozeroSet
+import ClassifyingBundles.IsFiberBundle
 import ClassifyingBundles.IsTrivialOn
 import ClassifyingBundles.Join
 import ClassifyingBundles.MulActionEquiv
