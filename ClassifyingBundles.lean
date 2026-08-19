@@ -11,6 +11,7 @@ import ClassifyingBundles.InducingSMul
 import ClassifyingBundles.IsCozeroSet
 import ClassifyingBundles.IsFiberBundle
 import ClassifyingBundles.IsTrivialOn
+import ClassifyingBundles.IsUniversalBundle
 import ClassifyingBundles.Join
 import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.NumerableBundle

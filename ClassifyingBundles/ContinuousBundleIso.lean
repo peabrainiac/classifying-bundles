@@ -283,6 +283,20 @@ def pullbackCongr {e : B ≃ₜ B'} (e' : E ≃ₜᶠ[e; F, F'] E') {B'' B''' : 
       simp_all [e.symm_apply_eq]
     · simp
 
+/-- Any pullback bundle `e *ᵖ E` along a homeomorphism `e` is isomorphic along `e` to the original
+bundle `E`. -/
+def pullbackHomeomorph (e : B' ≃ₜ B) : e *ᵖ E ≃ₜᶠ[e; F, F] E where
+  toFun _ x := x
+  invFun _ x := Equiv.congrArg E (by simp) x
+  left_inv' _ _ := rfl
+  right_inv' _ _ := rfl
+  continuous_toFun := Pullback.continuous_lift F E e
+  continuous_invFun := (Pullback.TotalSpace.continuous_iff _).2
+    ⟨show Continuous (e.symm ∘ π F E) by fun_prop, continuous_id.congr fun x ↦ by
+      ext
+      · simp [TotalSpace.map]
+      · exact (Equiv.heq_congrArg_iff_heq _).2 .rfl⟩
+
 /-- The pullback of a trivial bundle is isomorphic to a trivial bundle. -/
 def pullbackTrivialIso (f : C(B', B)) : f *ᵖ (Trivial B F) ≃ₜᶠ[F, F] Trivial B' F where
   toFun _ x := x

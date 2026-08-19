@@ -431,6 +431,10 @@ instance Bundle.Trivialization.IsEquivariant.pullback {B' : Type*} [TopologicalS
 instance {B' : Type*} {f : B' → B} {b' : B'} [Torsor G (E (f b'))] : Torsor G ((f *ᵖ E) b') :=
   inferInstanceAs (Torsor G (E (f b')))
 
+instance {B' : Type*} {f : B' → B} {b' : B'} [IsTopologicalTorsor (E (f b'))] :
+    IsTopologicalTorsor ((f *ᵖ E) b') :=
+  inferInstanceAs (IsTopologicalTorsor (E (f b')))
+
 /-- Pullbacks of `G`-principal bundles along continuous maps are `G`-principal bundles. -/
 instance IsPrincipalBundle.pullback [IsPrincipalBundle G F E] {B' : Type*} [TopologicalSpace B']
     {K : Type*} [FunLike K B' B] [ContinuousMapClass K B' B] {f : K} :

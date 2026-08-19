@@ -210,6 +210,13 @@ def pullbackCongr {φ : G ≃ H} {e : B ≃ₜ B'} (e' : E ≃ₜᶠₑ[φ, e; F
     refine .trans ?_ (h' (e (f b)) (f' (e'' b)) (congrFun h b) (φ g) _).heq
     simp; rfl
 
+variable [TopologicalSpace F] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E] in
+/-- Any pullback bundle `e *ᵖ E` along a homeomorphism `e` is isomorphic along `e` to the original
+bundle `E`. -/
+def pullbackHomeomorph (e : B' ≃ₜ B) : e *ᵖ E ≃ₜᶠₑ[Equiv.refl G, e; F, F] E where
+  toContinuousBundleIso := .pullbackHomeomorph e
+  map_smul' _ _ _ := rfl
+
 /-- The pullback of a pullback bundle is isomorphic to the pullback of the original bundle along the
 composition. -/
 def pullbackPullbackIso (f : C(B', B)) (g : C(B'', B')) :
