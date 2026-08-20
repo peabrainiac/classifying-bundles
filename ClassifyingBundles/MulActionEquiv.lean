@@ -13,7 +13,7 @@ define homomorphisms relative to a given homomorphism of groups, we also define 
 relative to a given isomorphism of groups and provide special notation for isomorphisms relative
 to the identity.
 
-We also prove a few lemmas about equivariant maps between torsors, and equiv the type `X ≃[G] Y` of
+We also prove a few lemmas about equivariant maps between torsors, and equip the type `X ≃[G] Y` of
 of isomorphisms between `G`-torsors `X` and `Y` with a topology that makes evaluation at `x` a
 homeomorphism for every `x : X`.
 

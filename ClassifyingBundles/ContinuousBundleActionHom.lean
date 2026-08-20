@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleIso
+import ClassifyingBundles.ContinuousMulActionHom
 import ClassifyingBundles.MulActionEquiv
 import Mathlib.Logic.Lemmas
 
@@ -71,25 +72,78 @@ lemma map_smul (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) (g : G) {b : B} (x : E b)
     f' b (g • x) = φ g • f' b x :=
   f'.map_smul' g x
 
-/-- The equivariant map between total spaces corresponding to a continuous fibrewise equivariant
-map.
-TODO: upgrade this to a `ContinuousMulActionHom` once that is defined. -/
+/-- The continuous equivariant map between total spaces corresponding to a continuous fibrewise
+equivariant map. -/
 @[simps]
-def toMulActionHom (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) : TotalSpace F E →ₑ[φ] TotalSpace F' E' where
+def toContinuousMulActionHom (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) :
+    Cₑ[φ](TotalSpace F E, TotalSpace F' E') where
   toFun := TotalSpace.map F F' f'
+  continuous_toFun := f'.continuous_toFun
   map_smul' g x := by ext <;> simp; rfl
 
-lemma toMulActionHom_injective :
-    Injective (toMulActionHom : Cᶠₑ[φ, f]⟮F, E; F', E'⟯ → _) := by
+lemma toContinuousMulActionHom_injective :
+    Injective (toContinuousMulActionHom : Cᶠₑ[φ, f]⟮F, E; F', E'⟯ → _) := by
   intro g g' h
   ext b x
-  simpa [toMulActionHom, TotalSpace.map] using congrFun (congrArg MulActionHom.toFun h) ⟨_, x⟩
+  simpa [toContinuousMulActionHom, TotalSpace.map] using
+    congrFun (congrArg (fun f : Cₑ[φ](_, _) ↦ ⇑f) h) ⟨_, x⟩
 
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E'] in
+/-- Every continuous equivariant map between principal bundles descends to a continuous map between
+the base spaces. -/
+noncomputable def _root_.ContinuousMulActionHom.baseMap [Nonempty F] [∀ b, Nonempty (E b)]
+    [∀ b, MulAction.IsPretransitive G (E b)] {φ : G → H}
+    (f : Cₑ[φ](TotalSpace F E, TotalSpace F' E')) : C(B, B') where
+  toFun b := (f ⟨b, Classical.arbitrary _⟩).proj
+  continuous_toFun := by
+    rw [(FiberBundle.isQuotientMap_proj F E).continuous_iff]
+    refine ((FiberBundle.continuous_proj _ _).comp (map_continuous f)).congr fun ⟨b, x⟩ ↦ ?_
+    obtain ⟨g, rfl⟩ := MulAction.exists_smul_eq G (Classical.arbitrary _) x
+    simp [← TotalSpace.smul_mk, f.map_smul'']
+
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E'] in
+@[simp]
+lemma _root_.ContinuousMulActionHom.baseMap_apply [Nonempty F] [∀ b, Nonempty (E b)]
+    [∀ b, MulAction.IsPretransitive G (E b)] {φ : G → H}
+    {f : Cₑ[φ](TotalSpace F E, TotalSpace F' E')} {x : TotalSpace F E} :
+    f.baseMap x.proj = (f x).proj := by
+  have ⟨g, h⟩ := MulAction.exists_smul_eq G x.snd (Classical.arbitrary _)
+  simp [ContinuousMulActionHom.baseMap, ← h, ← TotalSpace.smul_mk, f.map_smul'']
+
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E'] in
+@[simp]
+lemma toContinuousMulActionHom_baseMap [Nonempty F] [∀ b, Nonempty (E b)]
+    [∀ b, MulAction.IsPretransitive G (E b)] (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) :
+    f'.toContinuousMulActionHom.baseMap = f := by
+  simp [ContinuousMulActionHom.baseMap]
+
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E'] in
+/-- Every continuous equivariant map between the total spaces of principal bundles induces an
+equivariant bundle morphism along the corresponding map of the base spaces. -/
+noncomputable def ofContinuousMulActionHom [Nonempty F] [∀ b, Nonempty (E b)]
+    [∀ b, MulAction.IsPretransitive G (E b)] (f : Cₑ[φ](TotalSpace F E, TotalSpace F' E')) :
+    Cᶠₑ[φ, f.baseMap]⟮F, E; F', E'⟯ where
+  toContinuousBundleHom := .ofContinuousMap (toContinuousMap f) (by simp)
+  map_smul' g b x := by
+    simp only [ContinuousBundleHom.ofContinuousMap, ContinuousBundleHom.toFun_eq_coe,
+      ContinuousBundleHom.coeFn_mk, Equiv.smul_congrArg, Equiv.congrArg_eq_iff_heq,
+      Equiv.heq_congrArg_iff_heq]
+    rw [← TotalSpace.smul_mk, ContinuousMap.coe_coe, f.map_smul'']
+    simp
+
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)]
+  [IsFiberBundle F' E'] in
 /-- The restriction of a continuous fibrewise equivariant map to a single fibre.
 TODO: upgrade this to a `ContinuousMulActionHom` once that is defined. -/
 @[simps]
-def mulActionHomAt (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) (b : B) : E b →ₑ[φ] E' (f b) where
+def continuousMulActionHomAt (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) (b : B) : Cₑ[φ](E b, E' (f b)) where
   toFun := f' b
+  continuous_toFun := map_continuous (f'.continuousMapAt b)
   map_smul' g x := f'.map_smul g x
 
 variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
@@ -156,7 +210,7 @@ TODO: upgrade this to a `ContinuousMulActionEquiv` once that is defined. -/
 @[simps]
 def mulActionEquivAt (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') (b : B) : E b ≃ₑ[φ] E' (e b) where
   toEquiv := (e'.homeomorphAt b).toEquiv
-  __ := e'.mulActionHomAt b
+  __ := e'.continuousMulActionHomAt b
 
 set_option backward.isDefEq.respectTransparency false in
 variable [TopologicalSpace F] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]

@@ -3,6 +3,7 @@ import ClassifyingBundles.ContMDiffSMul
 import ClassifyingBundles.ContinuousBundleActionHom
 import ClassifyingBundles.ContinuousBundleHom
 import ClassifyingBundles.ContinuousBundleIso
+import ClassifyingBundles.ContinuousMulActionHom
 import ClassifyingBundles.ContinuousSection
 import ClassifyingBundles.Equiv
 import ClassifyingBundles.GBundle

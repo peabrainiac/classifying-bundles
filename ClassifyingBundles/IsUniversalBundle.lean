@@ -72,7 +72,7 @@ noncomputable def isoPullbackClassifyingMap [IsUniversalBundle G F E]
     E' ≃ₜᶠₑ[G; F, F] (classifyingMap G F E E') *ᵖ E :=
   (IsUniversalBundle.exists_classifyingMap (G := G) (F := F) (E := E) B' E').choose_spec.some
 
-omit [IsTopologicalGroup G] [IsTopologicalTorsor F] [∀ (b : B), IsTopologicalTorsor (E b)] in
+omit [IsTopologicalGroup G] [IsTopologicalTorsor F] [∀ b, IsTopologicalTorsor (E b)] in
 /-- TODO: get rid of unnecessary `[∀ b, Zero (E b)]` assumptions -/
 lemma classifyingMap_pullback_homotopic_comp [IsUniversalBundle G F E] [∀ b, Zero (E b)]
     [IsPrincipalBundle G F E'] [NumerableBundle F E'] [∀ b, Zero (E' b)]
