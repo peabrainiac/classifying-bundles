@@ -547,25 +547,28 @@ lemma NumerableBundle.pullbackIsoPullback [∀ b, TopologicalSpace (E b)] [IsFib
     |>.trans (.pullbackPullbackIso _ _) |>.trans (.pullbackPullbackIso _ _)
   convert Nonempty.intro e <;> ext x <;> simp [hH₁, hH₂]
 
-/-- TODO: move -/
+/-- TODO: move. no longer needed here, but could still make sense for mathlib. -/
 lemma nullhomotopic_of_contractibleSpace_dom {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
     [ContractibleSpace X] {f : C(X, Y)} : f.Nullhomotopic :=
   (id_nullhomotopic X).comp_right f
 
-/-- TODO: move -/
+/-- TODO: move. no longer needed here, but could still make sense for mathlib. -/
 lemma nullhomotopic_of_contractibleSpace_cod {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
     [ContractibleSpace Y] {f : C(X, Y)} : f.Nullhomotopic :=
   (id_nullhomotopic Y).comp_left f
 
+/-- Every numerable fibre bundle is trivial on every contractible set, or more generally on every
+set that is ambiently contractible in the sense that its inclusion into `B` is nullhomotopic. -/
+lemma IsContractibleIn.isTrivialOn [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
+    [NumerableBundle F E] {s t : Set B} (h : IsContractibleIn s t) : IsTrivialOn F E s := by
+  have ⟨b, h⟩ := h.subtypeVal_nullhomotopic
+  have ⟨e⟩ := NumerableBundle.pullbackIsoPullback F E h
+  have : CompTriple (Equiv.refl s) (Equiv.refl s) (Homeomorph.refl s) := ⟨rfl⟩
+  replace e := e.trans <| .pullbackConstIsoTrivial (F := F) (E := E) (B' := s) b
+  rw [show (Homeomorph.refl s).toEquiv = Homeomorph.refl s from rfl] at e
+  exact (e.isTrivial_iff _).2 <| isTrivial_trivial _
+
 /-- Every numerable fibre bundle on a contractible base space is trivial. -/
 lemma IsTrivial.of_contractibleSpace [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
     [NumerableBundle F E] [ContractibleSpace B] : IsTrivial F E := by
-  rw [← isTrivialOn_univ, IsTrivialOn]
-  have ⟨b, h⟩ := nullhomotopic_of_contractibleSpace_cod
-    (f := (ContinuousMap.subtypeVal : C((Set.univ : Set B), B)))
-  have ⟨e⟩ := NumerableBundle.pullbackIsoPullback F E h
-  have : CompTriple (Equiv.refl (univ : Set B)) (Equiv.refl (univ : Set B))
-    (Homeomorph.refl (univ : Set B)) := ⟨rfl⟩
-  replace e := e.trans <| .pullbackConstIsoTrivial (F := F) (E := E) (B' := (univ : Set B)) b
-  rw [show (Homeomorph.refl (univ : Set B)).toEquiv = Homeomorph.refl (univ : Set B) from rfl] at e
-  exact (e.isTrivial_iff _).2 <| isTrivial_trivial _
+  exact (isTrivialOn_univ F E).1 <| isContractibleIn_univ.isTrivialOn F E

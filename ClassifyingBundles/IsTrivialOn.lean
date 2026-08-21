@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleIso
+import ClassifyingBundles.IsContractibleIn
 import ClassifyingBundles.OpenPartialHomeomorph
 import ClassifyingBundles.RealInduction
 import Mathlib.Topology.FiberBundle.IsHomeomorphicTrivialBundle
@@ -86,25 +87,6 @@ lemma IsTrivial.pullback {f : C(B', B)} (h : IsTrivial F E) : IsTrivial F (f *�
   rw [show Equiv.refl B = Homeomorph.refl B from rfl] at e
   have : CompTriple (Homeomorph.refl B' : Equiv _ _) (Equiv.refl B') (Equiv.refl B') := ⟨rfl⟩
   exact ⟨(e.pullbackCongr f f (.refl _) (by simp)).trans (.pullbackTrivialIso _)⟩
-
-/-- The inclusion of a subset of a topological space, as a continuous map.
-TODO: move to some more fitting place. -/
-@[simps]
-def _root_.ContinuousMap.subtypeVal {X : Type*} [TopologicalSpace X] {s : Set X} :
-    C(s, X) where
-  toFun := (↑)
-
-/-- TODO: find home, add missing API lemmas for `.subtypeVal` and `.inclusion`. -/
-@[simp]
-lemma _root_.ContinuousMap.subtypeVal_comp_inclusion {X : Type*} [TopologicalSpace X] {s t : Set X}
-    (h : s ⊆ t) : ContinuousMap.subtypeVal.comp (.inclusion h) = .subtypeVal := by
-  ext; simp [ContinuousMap.subtypeVal, ContinuousMap.inclusion]
-
-/-- TODO: move -/
-@[simp]
-lemma _root_.Homeomorph.Set.univ_toContinuousMap {X : Type*} [TopologicalSpace X] :
-    toContinuousMap (Homeomorph.Set.univ X) = .subtypeVal :=
-  rfl
 
 /-- A bundle is trivial on `u` if its pullback to `u` is trivial. -/
 def IsTrivialOn (u : Set B) : Prop :=
