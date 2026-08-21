@@ -129,4 +129,25 @@ omit [IsTopologicalGroup G] [IsTopologicalTorsor F] in
 lemma coe_homotopyEquiv_symm [IsUniversalBundle G F E] [IsUniversalBundle G F E'] :
     ⇑(homotopyEquiv G F E E').symm = classifyingMap G F E E' := rfl
 
+omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+/-- The base space of any universal bundle is nonempty.
+
+This is can not be made into an instance because `Nonempty B` does not
+involve `G`, `F` and `E`, while `IsUniversalBundle G F E` does. -/
+lemma nonempty [IsUniversalBundle G F E] : Nonempty B :=
+  .map (classifyingMap G F E (Trivial PUnit F)) inferInstance
+
+/-- The total space of any universal bundle is contractible.
+
+This is can not be made into an instance because `ContractibleSpace (TotalSpace F E)` does not
+involve `G` while `IsUniversalBundle G F E` does.
+
+TODO: finish - I thought I could get this done abstractly before giving a construction of
+universal bundles, but it seems getting contractibility from the construction might actually be
+easier. -/
+lemma contractibleSpace [IsUniversalBundle G F E] : ContractibleSpace (TotalSpace F E) := by
+  have _ := nonempty G F E
+  refine (contractible_iff_id_nullhomotopic _).2 ⟨Classical.arbitrary _, ?_⟩
+  sorry
+
 end IsUniversalBundle

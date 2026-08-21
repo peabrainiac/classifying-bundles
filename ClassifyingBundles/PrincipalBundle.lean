@@ -479,6 +479,19 @@ lemma isTrivialOn_iff_exists_equivariant_trivialization [IsPrincipalBundle G F E
   refine ⟨he, ⟨fun {b} hb g {x} ↦ ?_⟩⟩
   simp [smul_sdiv_assoc, mul_smul]
 
+section Trivial
+
+instance Bundle.Trivialization.IsEquivariant.trivial :
+    (Trivial.trivialization B F).IsEquivariant G where
+  map_smul := by simp
+
+instance IsPrincipalBundle.trivial : IsPrincipalBundle G F (Trivial B F) where
+  trivialization_equivariant e _ := by
+    rw [Trivial.eq_trivialization B F e]
+    infer_instance
+
+end Trivial
+
 section Pullback
 
 instance Bundle.Trivialization.IsEquivariant.pullback {B' : Type*} [TopologicalSpace B']
