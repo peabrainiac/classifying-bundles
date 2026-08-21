@@ -57,6 +57,12 @@ lemma coe_mk (f : C(X, Y)) (hf : ∀ m x, f.toFun (m • x) = φ m • f.toFun x
 @[simp]
 lemma toFun_eq_coe {f : Cₑ[φ](X, Y)} : f.toFun = f := rfl
 
+@[simp]
+lemma coe_toContinuousMap {f : Cₑ[φ](X, Y)} : ⇑f.toContinuousMap = f := rfl
+
+@[simp]
+lemma coe_toMulActionHom {f : Cₑ[φ](X, Y)} : ⇑f.toMulActionHom = f := rfl
+
 initialize_simps_projections ContinuousMulActionHom (toFun → apply)
 
 variable (M) (X) in

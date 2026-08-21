@@ -103,6 +103,14 @@ def MulActionEquiv.symm {M N : Type*} {φ : M ≃ N} {X Y : Type*} [SMul M X] [S
     (e : X ≃ₑ[φ] Y) : Y ≃ₑ[φ.symm] X :=
   { e.toEquiv.symm, e.toMulActionHom.inverse' e.invFun φ.right_inv' e.left_inv' e.right_inv' with }
 
+lemma MulActionEquiv.symm_apply_eq {M N : Type*} {φ : M ≃ N} {X Y : Type*} [SMul M X] [SMul N Y]
+    (e : X ≃ₑ[φ] Y) {x : X} {y : Y} : e.symm y = x ↔ y = e x :=
+  e.toEquiv.symm_apply_eq
+
+lemma MulActionEquiv.eq_symm_apply {M N : Type*} {φ : M ≃ N} {X Y : Type*} [SMul M X] [SMul N Y]
+    (e : X ≃ₑ[φ] Y) {x : X} {y : Y} : x = e.symm y ↔ e x = y :=
+  e.toEquiv.eq_symm_apply
+
 instance {α : Type*} : CompTriple.IsId (Equiv.refl α) :=
   inferInstanceAs (CompTriple.IsId (@id α))
 

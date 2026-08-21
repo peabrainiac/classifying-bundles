@@ -199,6 +199,14 @@ lemma coe_toContinuousBundleIso (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') :
     ⇑e'.toContinuousBundleIso = e' := rfl
 
 @[simp]
+lemma coe_toContinuousBundleActionHom (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') :
+    ⇑e'.toContinuousBundleActionHom = e' := rfl
+
+@[ext]
+theorem ext {e' e'' : E ≃ₜᶠₑ[φ, e; F, F'] E'} (h : ∀ b x, e' b x = e'' b x) : e' = e'' :=
+  DFunLike.ext _ _ fun b ↦ funext <| h b
+
+@[simp]
 lemma map_smul (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') (g : G) {b : B} (x : E b) :
     e' b (g • x) = φ g • e' b x :=
   e'.map_smul' g x

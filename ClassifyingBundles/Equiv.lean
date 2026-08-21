@@ -117,4 +117,14 @@ lemma smul_congrArg {G : Type*} [∀ i, SMul G (α i)] {i j : ι} (h : i = j) {g
   subst h
   simp
 
+lemma congrArg_sdiv {G : Type*} [∀ i, SDiv G (α i)] {i j : ι} (h : i = j) {x : α i} {y : α j} :
+    Equiv.congrArg α h x /ₛ y = x /ₛ Equiv.congrArg α h.symm y := by
+  subst h
+  simp
+
+lemma sdiv_congrArg {G : Type*} [∀ i, SDiv G (α i)] {i j : ι} (h : i = j) {x : α j} {y : α i} :
+    x /ₛ Equiv.congrArg α h y = Equiv.congrArg α h.symm x /ₛ y := by
+  subst h
+  simp
+
 end Equiv

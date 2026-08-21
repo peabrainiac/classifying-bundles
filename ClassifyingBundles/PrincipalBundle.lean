@@ -324,6 +324,65 @@ instance [IsPrincipalBundle G F E] [Nonempty Cᶠ[f]⟮F', E'; F, E⟯] :
   sdiv_smul' s t := by ext; simp
   smul_sdiv' f s := by ext; simp
 
+attribute [local simp] FiberBundle.mem_baseSet_trivializationAt in
+/-- Every morphism of `G`-principal bundles whose underlying map is a homeomorphism is an
+isomorphism. -/
+noncomputable def _root_.ContinuousBundleActionHom.toContinuousBundleActionEquiv
+    [IsPrincipalBundle G F E] [Torsor G F'] [∀ b, Torsor G (E' b)] [IsTopologicalTorsor F']
+    [IsPrincipalBundle G F' E'] (e : B ≃ₜ B') (f : Cᶠₑ[Equiv.refl G, e]⟮F, E; F', E'⟯) :
+    E ≃ₜᶠₑ[Equiv.refl G, e; F, F'] E' where
+  toContinuousBundleActionHom := f
+  invFun b x := (f.continuousMulActionHomAt (e.symm b)).toMulActionHom.toEquiv.symm <|
+    Equiv.congrArg _ (by simp) x
+  left_inv' _ _ := (f.continuousMulActionHomAt _).toMulActionHom.toEquiv.apply_symm_apply _
+  right_inv' b x := by
+    erw [← Equiv.apply_congrArg (by simp)]
+    exact (f.continuousMulActionHomAt _).toMulActionHom.toEquiv.symm_apply_apply _
+  continuous_invFun := by
+    suffices h : ∀ b, ContinuousOn (TotalSpace.map F' F fun b x ↦
+        (f.continuousMulActionHomAt (e.symm b)).toEquiv.symm <| (Equiv.congrArg E' (by simp)) x)
+          (π F' E' ⁻¹' e.symm ⁻¹' (trivializationAt F E b).baseSet) from
+      continuous_iff_continuousAt.2 fun x ↦ (h (e.symm x.proj)).continuousAt <| IsOpen.mem_nhds
+        (.preimage (by fun_prop) <| .preimage (by fun_prop) <| Trivialization.open_baseSet _)
+          (by simp)
+    intro b
+    let s (b' : B) : E b' := (trivializationAt F E b).symm b' (Classical.arbitrary _)
+    have hs : ContinuousOn (fun b ↦ (s b : TotalSpace F E)) (trivializationAt F E b).baseSet :=
+      (trivializationAt F E b).continuousOn_symm.comp (f := fun b ↦ (b, Classical.arbitrary _))
+        (by fun_prop) fun b hb ↦ by simp [hb]
+    refine .congr (f := fun x ↦ (x.snd /ₛ Equiv.congrArg _ (by simp) (f _ <| s (e.symm x.1)))
+      • s (e.symm x.1)) ?_ fun x hx ↦ ?_
+    · simp only [← TotalSpace.smul_mk]
+      refine .smul ?_ (hs.comp (by fun_prop) fun x hx ↦ by simpa using hx)
+      have _ b : Zero (E' b) := ⟨Classical.arbitrary _⟩
+      refine .bundleHom_sdiv (G := G) (F := F') (E := E') F' E' (.id _) (g := fun b x ↦ x)
+        (g' := fun b x ↦ (Equiv.congrArg E' (by simp)) (f (e.symm b) (s (e.symm b))))
+          continuousOn_id ?_
+      refine ((f.continuous_toFun.comp_continuousOn hs).comp (f := fun x ↦ e.symm x.proj)
+        (by fun_prop) fun x hx ↦ by simpa using hx).congr fun x hx ↦ ?_
+      simp only [TotalSpace.map, ContinuousMap.id_apply,
+        toFun_eq_coe, ContinuousBundleActionHom.toContinuousBundleHom_coe, Function.comp_apply,
+        TotalSpace.mk.injEq, Homeomorph.apply_symm_apply, true_and]
+      exact cast_heq _ _
+    · simp only [TotalSpace.map, Equiv.refl_symm, Equiv.coe_refl, TotalSpace.mk_inj]
+      erw [MulActionEquiv.symm_apply_eq]
+      simp only [map_smul, MulActionHom.toEquiv_apply, MulActionHom.coe_mk,
+        ContinuousMap.toFun_eq_coe, ContinuousMulActionHom.coe_toContinuousMap,
+        ContinuousBundleActionHom.continuousMulActionHomAt_apply, Equiv.congrArg_eq_iff_heq,
+        Equiv.sdiv_congrArg]
+      erw [sdiv_smul]
+      simp
+
+/-- Every morphism of `G`-principal bundles whose underlying map is a homeomorphism is an
+isomorphism. -/
+@[simps apply symm_apply]
+noncomputable def _root_.ContinuousBundleActionHom.equivContinuousBundleActionEquiv
+    [IsPrincipalBundle G F E] [Torsor G F'] [∀ b, Torsor G (E' b)] [IsTopologicalTorsor F']
+    [IsPrincipalBundle G F' E'] (e : B ≃ₜ B') :
+    Cᶠₑ[Equiv.refl G, e]⟮F, E; F', E'⟯ ≃ (E ≃ₜᶠₑ[Equiv.refl G, e; F, F'] E') where
+  toFun f := f.toContinuousBundleActionEquiv
+  invFun e := e.toContinuousBundleActionHom
+
 end ContinuousBundleHom
 
 omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
@@ -481,5 +540,19 @@ lemma IsPrincipalBundle.pullbackIsoPullback {B' : Type*} [TopologicalSpace B']
   replace e := (ContinuousBundleActionEquiv.pullbackPullbackIso _ _).symm.trans e
     |>.trans (.pullbackPullbackIso _ _) |>.trans (.pullbackPullbackIso _ _)
   convert Nonempty.intro e <;> ext x <;> simp [hH₁, hH₂]
+
+variable {F' : Type*} [TopologicalSpace F'] {B' : Type*} [TopologicalSpace B']
+  {E' : B' → Type*} [∀ b, TopologicalSpace (E' b)] [TopologicalSpace (Bundle.TotalSpace F' E')]
+  [FiberBundle F' E'] (f : C(B', B)) in
+/-- Morphisms of principal bundles correspond to isomorphisms into pullbacks along the underlying
+map. -/
+@[simps! apply symm_apply]
+noncomputable def ContinuousBundleActionHom.pullbackEquivIso [IsPrincipalBundle G F E]
+    [Torsor G F'] [∀ b, Torsor G (E' b)] [IsTopologicalTorsor F'] [IsPrincipalBundle G F' E']
+    (f : C(B, B')) : Cᶠₑ[Equiv.refl G, f]⟮F, E; F', E'⟯ ≃ (E ≃ₜᶠₑ[G; F, F'] f *ᵖ E') :=
+  ContinuousBundleActionHom.pullbackEquiv.trans <| by
+    haveI _ b : Zero (E' b) := ⟨Classical.arbitrary _⟩
+    exact ContinuousBundleActionHom.equivContinuousBundleActionEquiv
+      F' (f *ᵖ E') (Homeomorph.refl B)
 
 end Pullback
