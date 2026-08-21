@@ -10,10 +10,27 @@ import Mathlib.Geometry.Convex.ConvexSpace.Defs
 /-! # Joins of topological spaces
 In this file we define joins of families of topological spaces.
 
+## Main definitions & results
+* `IJoin X`: the join of a family of topological spaces `X i`. We equip this with Milnor's coarse
+  topology, i.e. the topology induced by all the projections `IJoin.weights i` and `IJoin.points i`.
+* `IJoin.weights`: the projection `IJoin X → StdSimplex ℝ ι` of each point to its weights.
+  While there is no canonical topology on `StdSimplex ℝ ι`, this is continuous at least in the sense
+  that each component function `IJoin.weights i : IJoin X → ℝ` is.
+* `IJoin.points i`: the projection `IJoin X → Option (X i)`. This is always continuous, and sends
+  `x` to `none` if and only if `x.weights i` vanishes.
+* `IJoin.of i`: the inclusion `X i → IJoin X`. This is always continuous.
+* `IJoin.ofJoin h`: the inclusion `X i ⋆ X j → IJoin X` when `h : i ≠ j`. This is always continuous.
+* `IJoin.map hf g`: the map `IJoin X → IJoin X'` induced by an injective map `f : ι → ι'` and a
+  family of maps `g i : X i → X' (f i)`. This is always continuous.
+* When `G` acts on each `X i`, it also acts on `IJoin X`. This action is effective / free /
+  continuous whenever the actions on the `X i` are.
+
 ## TODO
-* Figure out which topology we actually want on infinite joins, the one induced by the projections
-  or the one coinduced by all finite joins
+* Prove that `IJoin.of` and `IJoin.ofJoin` are closed embeddings
 * Connect to iterated binary joins, use this to prove associativity of binary joins
+* prove that joins of Hausdorff spaces are Hausdorff
+* define Fσ sets, prove that Fσ sets in paracompact spaces are paracompact, use that to prove that
+  infinite joins of compact Hausdorff spaces are paracompact
 -/
 
 namespace Topology
@@ -49,6 +66,11 @@ noncomputable def of [DecidableEq ι] (i : ι) (x : X i) : IJoin X where
   points := Function.update (fun _ ↦ none) i x
   toStdSimplex := .single i
   points_eq_none_iff := by grind [StdSimplex.weights_single]
+
+lemma of_injective [DecidableEq ι] {i : ι} : Function.Injective (of (X := X) i) := by
+  refine .of_comp (f := fun x ↦ x.points i) ?_
+  convert Option.some_injective (X i)
+  ext; simp
 
 /-- The canonical inclusion `X i ⋆ X j → IJoin X` when `i ≠ j`. -/
 @[simps!]
@@ -213,7 +235,7 @@ lemma continuous_map {ι' : Type*} {X' : ι' → Type*} [∀ i, TopologicalSpace
 bijection between the index types. In particular, when the two index types are the same
 this proves associativity of the join. -/
 @[simps! apply symm_apply_weights]
-noncomputable def _root_.Homeomorph.ijoinCongr {ι' : Type*} {X' : (i : ι') → Type*}
+noncomputable def _root_.Homeomorph.ijoinCongr {ι' : Type*} {X' : ι' → Type*}
     [∀ i, TopologicalSpace (X' i)] (e : ι ≃ ι') [∀ i, Decidable (∃ i', e i' = i)]
     [∀ i, Decidable (∃ i', e.symm i' = i)] (e' : ∀ i, X i ≃ₜ X' (e i)) : IJoin X ≃ₜ IJoin X' where
   toFun := map e.injective fun i ↦ e' i
@@ -243,7 +265,7 @@ noncomputable def _root_.Homeomorph.ijoinCongr {ι' : Type*} {X' : (i : ι') →
       simpa using this _ _ (by simp) _
 
 @[simp]
-lemma _root_.Homeomorph.ijoinCongr_symm_apply_points {ι' : Type*} {X' : (i : ι') → Type*}
+lemma _root_.Homeomorph.ijoinCongr_symm_apply_points {ι' : Type*} {X' : ι' → Type*}
     [∀ i, TopologicalSpace (X' i)] (e : ι ≃ ι') [∀ i, Decidable (∃ i', e i' = i)]
     [∀ i, Decidable (∃ i', e.symm i' = i)] (e' : ∀ i, X i ≃ₜ X' (e i)) {x : IJoin X'} {i : ι} :
     ((Homeomorph.ijoinCongr e e').symm x).points i = Option.map (e' i).symm (x.points (e i)) := by
@@ -251,6 +273,124 @@ lemma _root_.Homeomorph.ijoinCongr_symm_apply_points {ι' : Type*} {X' : (i : ι
     ⟨_, (Homeomorph.ijoinCongr e e').apply_symm_apply x⟩
   rw [Homeomorph.symm_apply_apply]
   simp
+
+section SMul
+
+instance _root_.Option.smul {G X : Type*} [SMul G X] : SMul G (Option X) where
+  smul g x := Option.map (g • ·) x
+
+@[simp]
+lemma _root_.Option.smul_none {G X : Type*} [SMul G X] {g : G} :
+    g • (none : Option X) = none := rfl
+
+@[simp]
+lemma _root_.Option.smul_some {G X : Type*} [SMul G X] {g : G} {x : X} :
+    g • some x = some (g • x) := rfl
+
+lemma _root_.Option.smul_eq_map {G X : Type*} [SMul G X] {g : G} {x : Option X} :
+    g • x = Option.map (g • ·) x := rfl
+
+@[simp]
+lemma _root_.Option.smul_eq_none {G X : Type*} [SMul G X] {g : G} {x : Option X} :
+    g • x = none ↔ x = none := by
+  cases x <;> simp
+
+/-- TODO: generalise `smul_left_cancel_iff` to this -/
+@[simp]
+lemma _root_.IsLeftCancelSMul.left_cancel_iff {G X : Type*} [SMul G X] [IsLeftCancelSMul G X]
+    {g : G} {x x' : X} : g • x = g • x' ↔ x = x' :=
+  ⟨fun h ↦ IsLeftCancelSMul.left_cancel _ _ _ h, fun h ↦ by rw [h]⟩
+
+/-- TODO: generalise `smul_right_cancel_iff` to this -/
+@[simp]
+lemma _root_.IsCancelSMul.right_cancel_iff {G X : Type*} [SMul G X] [IsCancelSMul G X]
+    {g g' : G} {x : X} : g • x = g' • x ↔ g = g' :=
+  ⟨fun h ↦ IsCancelSMul.right_cancel _ _ _ h, fun h ↦ by rw [h]⟩
+
+@[simp]
+instance _root_.Option.isLeftCancelSMul {G X : Type*} [SMul G X] [IsLeftCancelSMul G X] :
+    IsLeftCancelSMul G (Option X) where
+  left_cancel' g x x' h := by
+    cases x <;> cases x'
+    · simp
+    · simp at h
+    · simp at h
+    · simpa using h
+
+instance {G : Type*} [∀ i, SMul G (X i)] : SMul G (IJoin X) where
+  smul g x := ⟨x.toStdSimplex, fun i ↦ g • x.points i, by
+    simp [x.points_eq_none_iff]⟩
+
+omit [∀ i, TopologicalSpace (X i)] in
+@[simp]
+lemma smul_weights {G : Type*} [∀ i, SMul G (X i)] {g : G} {x : IJoin X} :
+    (g • x).weights = x.weights := rfl
+
+omit [∀ i, TopologicalSpace (X i)] in
+@[simp]
+lemma smul_points_apply {G : Type*} [∀ i, SMul G (X i)] {g : G} {x : IJoin X} {i : ι} :
+    (g • x).points i = (g • x.points i) := rfl
+
+omit [∀ i, TopologicalSpace (X i)] in
+lemma smul_eq_map [∀ i : ι, Decidable (∃ i', id i' = i)] {G : Type*} [∀ i, SMul G (X i)]
+    {g : G} {x : IJoin X} :
+    g • x = map Function.injective_id (fun _ x ↦ g • x) x := by
+  refine ext (by simp) fun i _ ↦ (map_points_apply Function.injective_id (fun i x ↦ g • x)).symm
+
+instance {G : Type*} [Monoid G] [∀ i, MulAction G (X i)] : MulAction G (IJoin X) where
+  mul_smul _ _ _ := by ext <;> simp [Option.smul_eq_map, mul_smul, Function.comp_def]
+  one_smul _ := by ext <;> simp [Option.smul_eq_map]
+
+instance [Nonempty ι] {G : Type*} [∀ i, SMul G (X i)] [∀ i, FaithfulSMul G (X i)] :
+    FaithfulSMul G (IJoin X) := by
+  classical
+  refine .of_injective (f := MulActionHom.mk (of (Classical.arbitrary _)) ?_) of_injective
+  intro g x
+  simp [smul_eq_map]
+
+instance [Nonempty ι] {G : Type*} [∀ i, SMul G (X i)] [∀ i, IsLeftCancelSMul G (X i)] :
+    IsLeftCancelSMul G (IJoin X) where
+  left_cancel' _ _ _ h := by
+    refine ext (congrArg (fun x ↦ x.weights) h) fun i _ ↦ ?_
+    simpa using (congrArg (fun x ↦ x.points i) h)
+
+lemma _root_.Convexity.StdSimplex.exists_pos {R : Type*} [PartialOrder R] [Semiring R]
+    [Nontrivial R] {M : Type*} (x : Convexity.StdSimplex R M) :
+    ∃ i, 0 < x.weights i := by
+  have ⟨i, hi⟩ := x.support_weights_nonempty
+  exact ⟨i, (x.weights_nonneg i).lt_of_ne' <| by simpa using hi⟩
+
+instance [Nonempty ι] {G : Type*} [∀ i, SMul G (X i)] [∀ i, IsCancelSMul G (X i)] :
+    IsCancelSMul G (IJoin X) where
+  right_cancel' g g' x h := by
+    have ⟨i, hi⟩ := x.exists_pos
+    have ⟨x', hx'⟩ := Option.ne_none_iff_exists.1 <| x.points_eq_none_iff.not.2 hi.ne'
+    simpa [← hx'] using congrArg (fun x ↦ x.points i) h
+
+attribute [local fun_prop] Option.continuous_some_excludedPointTopology' in
+instance _root_.Option.continuousSMul_excludedPointTopology'
+    {G X : Type*} [TopologicalSpace G] [TopologicalSpace X] [SMul G X] [ContinuousSMul G X] :
+    ContinuousSMul G (Option X) where
+  continuous_smul := by
+    refine Option.continuous_excludedPointTopology'_iff.2 ⟨?_, ?_⟩
+    · rw [show (fun p ↦ p.1 • p.2) ⁻¹' {none}ᶜ = Set.univ ×ˢ {none}ᶜ by ext x; simp]
+      exact isOpen_univ.prod <| Option.isOpen_excludedPointTopology'_iff.2 <| by simp
+    · rw [show (fun p ↦ p.1 • p.2) ⁻¹' {none}ᶜ = Prod.map id some '' Set.univ by
+        ext x; simp [Option.ne_none_iff_exists]]
+      rw [IsOpenEmbedding.id.prodMap (Option.isOpenEmbedding_some_excludedPointTopology')
+        |>.continuousOn_image_iff, continuousOn_univ]
+      simp only [Function.comp_def, Prod.map_fst, id_eq, Prod.map_snd, Option.smul_some]
+      fun_prop
+
+instance {G : Type*} [TopologicalSpace G] [∀ i, SMul G (X i)] [∀ i, ContinuousSMul G (X i)] :
+    ContinuousSMul G (IJoin X) where
+  continuous_smul := by
+    refine continuous_iff.2 ⟨fun i ↦ ?_, fun i ↦ ?_⟩
+    · simp only [smul_weights]
+      exact continuous_weights.comp continuous_snd
+    · exact continuous_smul.comp <| continuous_id.prodMap continuous_points
+
+end SMul
 
 end IJoin
 
