@@ -110,3 +110,42 @@ instance {B' : Type*} [TopologicalSpace B'] {f : C(B', B)} :
         exact ⟨e.pullback f, he⟩
 
 end IsFiberBundle
+
+/-! Code for equivariance of local trivialisations. We place this here because
+like `IsFiberBundleMap`, it takes in just a map and not a bundle given as a family of types.
+
+TODO: find a better home for this. -/
+section SMul
+
+variable {F} in
+/-- Typeclass stating that a local trivialization of a bundle map is equivariant with respect
+to actions on its total space and the model fiber. -/
+class Bundle.Trivialization.IsEquivariant {Z : Type*} [TopologicalSpace Z] {proj : Z → B}
+    (e : Trivialization F proj) (G : Type*) [SMul G F] [SMul G Z] where
+  /-- `e.source` is `G`-invariant -/
+  smul_mem_source {g : G} {x : Z} (hx : x ∈ e.source) : g • x ∈ e.source
+  /-- `e`  is `G`-equivariant -/
+  map_smul {g : G} {x : Z} (hx : x ∈ e.source) : e (g • x) = ((e x).1, g • (e x).2)
+
+variable {Z : Type*} [TopologicalSpace Z] {proj : Z → B} {G : Type*} [SMul G F] [SMul G Z]
+
+/-- Since `e.target` is always `G`-invariant, to prove that `e` is equivariant in the sense of
+`e.IsEquivariant G` it suffices to prove that the inverse map of `e` is equivariant. -/
+lemma Bundle.Trivialization.isEquivariant_iff_symm (e : Trivialization F proj) :
+    e.IsEquivariant G ↔ ∀ b ∈ e.baseSet, ∀ (g : G) (x : F),
+      e.toOpenPartialHomeomorph.symm (b, g • x) = g • e.toOpenPartialHomeomorph.symm (b, x) := by
+  refine ⟨fun h b hb g x ↦ ?_, fun h ↦ ?_⟩
+  · rw [Eq.comm, e.eq_symm_apply (h.smul_mem_source <| e.map_target <| by simp [e.target_eq, hb])
+      (by simp [e.target_eq, hb]), e.coe_coe, h.map_smul
+        (e.map_target <| by simp [e.target_eq, hb]), e.apply_symm_apply (by simp [e.target_eq, hb])]
+  · suffices h : ∀ (g : G) (x : Z) (hx : x ∈ e.source),
+        g • x ∈ e.source ∧ e (g • x) = ((e x).1, g • (e x).2) from
+      ⟨fun {g x} hx ↦ (h g x hx).1, fun {g x} hx ↦ (h g x hx).2⟩
+    intro g x hx
+    replace h := @h (proj x) (by simpa [e.source_eq] using hx) g (e x).2
+    simp only [hx, symm_apply_mk_proj] at h
+    rw [← h]
+    refine ⟨e.map_target <| by simpa [e.source_eq, e.target_eq] using hx, ?_⟩
+    rw [e.apply_symm_apply (by simpa [e.source_eq, e.target_eq] using hx), e.coe_fst hx]
+
+end SMul

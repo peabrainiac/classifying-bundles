@@ -28,18 +28,40 @@ variable (G : Type*) [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
   (F : Type*) [TopologicalSpace F] {B : Type*} [TopologicalSpace B]
   (E : B → Type*) [∀ b, TopologicalSpace (E b)] [TopologicalSpace (Bundle.TotalSpace F E)]
 
-variable {F E}
+variable {G F E}
 
-/-- Typeclass stating that a local trivialization of a bundle is equivariant with respect
-to actions on its fibers and the model fiber. -/
-class Bundle.Trivialization.IsEquivariant [SMul G F] [∀ b, SMul G (E b)]
-    (e : Trivialization F (π F E)) where
-  map_smul {b : B} (hb : b ∈ e.baseSet) {g : G} {x : E b} : (e ⟨_, g • x⟩).2 = g • (e ⟨_, x⟩).2
+omit [Group G] [TopologicalSpace G] [IsTopologicalGroup G] [∀ b, TopologicalSpace (E b)] in
+/-- The source of a trivialization of a bundle whose `G`-action on the total space is derived from
+`G`-actions on the fibres is always `G`-invariant, so `e` is `G`-equivariant in the sense of
+`e.IsEquivariant G` iff it is equivariant as a map. -/
+lemma Bundle.Trivialization.isEquivariant_iff [SMul G F] [∀ b, SMul G (E b)]
+    (e : Trivialization F (π F E)) :
+    e.IsEquivariant G ↔ ∀ g : G, ∀ x ∈ e.source, (e (g • x)).2 = g • (e x).2 := by
+  refine ⟨fun h g x hx ↦ by simp [h.map_smul hx], fun h ↦ ⟨?_, fun hx ↦ ?_⟩⟩
+  · simp [e.mem_source]
+  · refine Prod.ext ?_ (by simp [← h _ _ hx])
+    rw [e.coe_fst (by simpa [e.mem_source] using hx), e.coe_fst hx, smul_proj]
 
-variable {G}
+omit [Group G] [TopologicalSpace G] [IsTopologicalGroup G] [∀ b, TopologicalSpace (E b)] in
+/-- A variant of `Trivialization.isEquivariant_iff`, stated in terms of the actions on
+the fibres. -/
+lemma Bundle.Trivialization.isEquivariant_iff' [SMul G F] [∀ b, SMul G (E b)]
+    (e : Trivialization F (π F E)) :
+    e.IsEquivariant G ↔ ∀ b ∈ e.baseSet, ∀ (g : G) (x : E b),
+      (e ⟨_, g • x⟩).2 = g • (e ⟨_, x⟩).2 := by
+  refine e.isEquivariant_iff.trans ⟨fun h b hb g x ↦ ?_, fun h g x hx ↦ ?_⟩
+  · simpa using h g ⟨b, x⟩ (by simpa [e.source_eq])
+  · simpa [← TotalSpace.smul_mk] using h x.proj (by simpa [e.source_eq] using hx) g x.snd
 
 -- TODO: get rid of unnecessary `∀ b, Zero (E b)` condition imposed by `Trivialization.symm`
 variable [∀ b, Zero (E b)]
+
+omit [Group G] [TopologicalSpace G] [IsTopologicalGroup G] [(b : B) → TopologicalSpace (E b)]
+  [(b : B) → Zero (E b)] in
+lemma Bundle.Trivialization.map_smul (e : Trivialization F (π F E))
+    [SMul G F] [∀ b, SMul G (E b)] [e.IsEquivariant G] {b : B} (hb : b ∈ e.baseSet)
+    {g : G} {x : E b} : (e ⟨_, g • x⟩).2 = g • (e ⟨_, x⟩).2 :=
+  e.isEquivariant_iff'.1 ‹_› b hb g x
 
 /-- The bijection between `E b` and the model fiber `F` as an isomorphism of torsors. -/
 noncomputable def Bundle.Trivialization.mulActionEquivAt (e : Trivialization F (π F E))
@@ -49,14 +71,7 @@ noncomputable def Bundle.Trivialization.mulActionEquivAt (e : Trivialization F (
   invFun := e.symm b
   left_inv := e.symm_apply_apply_mk hb
   right_inv x := by simp_rw [e.apply_mk_symm hb x]
-  map_smul' g x := IsEquivariant.map_smul hb
-
-omit [Group G] [TopologicalSpace G] [IsTopologicalGroup G] [(b : B) → TopologicalSpace (E b)]
-  [(b : B) → Zero (E b)] in
-lemma Bundle.Trivialization.map_smul (e : Trivialization F (π F E))
-    [SMul G F] [∀ b, SMul G (E b)] [e.IsEquivariant G] {b : B} (hb : b ∈ e.baseSet)
-    {g : G} {x : E b} : (e ⟨_, g • x⟩).2 = g • (e ⟨_, x⟩).2 :=
-  IsEquivariant.map_smul hb
+  map_smul' g x := e.map_smul hb
 
 omit [Group G] [TopologicalSpace G] [IsTopologicalGroup G] [(b : B) → TopologicalSpace (E b)] in
 lemma Bundle.Trivialization.symm_map_smul (e : Trivialization F (π F E))
@@ -115,7 +130,7 @@ instance [IsPrincipalBundle G F E] : ContinuousSMul G (TotalSpace F E) where
         (x.1 • (trivializationAt F E b x.2).2)⟩) ?_ fun ⟨g, x⟩ ⟨_, hx⟩ ↦ by
       ext
       · rfl
-      · simp only [heq_eq_eq, ← Trivialization.IsEquivariant.map_smul hx]
+      · simp only [heq_eq_eq, ← Trivialization.map_smul _ hx]
         exact ((trivializationAt F E b).symm_proj_apply ⟨x.1, g • x.2⟩ hx).symm
     refine (trivializationAt F E b).continuousOn_symm.comp
       (f := (fun x : G × TotalSpace F E ↦ ⟨x.2.1, x.1 • (trivializationAt F E b x.2).2⟩)) ?_ ?_
@@ -428,7 +443,8 @@ lemma IsPrincipalBundle.isTrivial_tfae [IsPrincipalBundle G F E] :
       open_baseSet := isOpen_univ
       source_eq := by simp
       target_eq := by simp
-      proj_toFun := by simp [ContinuousBundleIso.toHomeomorph] }, ⟨?_⟩, ?_⟩
+      proj_toFun := by simp [ContinuousBundleIso.toHomeomorph] },
+        (Trivialization.isEquivariant_iff' _).2 ?_, ?_⟩
     · simp [ContinuousBundleIso.toHomeomorph, mul_smul]
     · simp
   tfae_have 3 → 1 := fun ⟨e, he⟩ ↦ (isTrivial_iff_exists_trivialization _ _).2 ⟨e, he.2⟩
@@ -476,14 +492,14 @@ lemma isTrivialOn_iff_exists_equivariant_trivialization [IsPrincipalBundle G F E
     source_eq := e.source_eq
     target_eq := e.target_eq
     proj_toFun := by simp }
-  refine ⟨he, ⟨fun {b} hb g {x} ↦ ?_⟩⟩
+  refine ⟨he, (Trivialization.isEquivariant_iff' _).2 fun b hb g X ↦ ?_⟩
   simp [smul_sdiv_assoc, mul_smul]
 
 section Trivial
 
 instance Bundle.Trivialization.IsEquivariant.trivial :
-    (Trivial.trivialization B F).IsEquivariant G where
-  map_smul := by simp
+    (Trivial.trivialization B F).IsEquivariant G :=
+  (Trivialization.isEquivariant_iff' _).2 (by simp)
 
 instance IsPrincipalBundle.trivial : IsPrincipalBundle G F (Trivial B F) where
   trivialization_equivariant e _ := by
@@ -496,9 +512,9 @@ section Pullback
 
 instance Bundle.Trivialization.IsEquivariant.pullback {B' : Type*} [TopologicalSpace B']
     {K : Type*} [FunLike K B' B] [ContinuousMapClass K B' B] {f : K} (e : Trivialization F (π F E))
-    [e.IsEquivariant G] : (e.pullback f).IsEquivariant G where
-  map_smul {b} hb {g x} :=
-    Trivialization.IsEquivariant.map_smul (by simpa using hb : f b ∈ e.baseSet)
+    [e.IsEquivariant G] : (e.pullback f).IsEquivariant G :=
+  (Trivialization.isEquivariant_iff' _).2 fun b hb g x ↦
+    Trivialization.map_smul _ (by simpa using hb : f b ∈ e.baseSet)
 
 instance {B' : Type*} {f : B' → B} {b' : B'} [Torsor G (E (f b'))] : Torsor G ((f *ᵖ E) b') :=
   inferInstanceAs (Torsor G (E (f b')))

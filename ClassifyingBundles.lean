@@ -15,6 +15,7 @@ import ClassifyingBundles.IsFiberBundle
 import ClassifyingBundles.IsTrivialOn
 import ClassifyingBundles.IsUniversalBundle
 import ClassifyingBundles.Join
+import ClassifyingBundles.LocallyTrivialSMul
 import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.NumerableBundle
 import ClassifyingBundles.NumerableCover
