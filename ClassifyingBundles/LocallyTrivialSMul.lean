@@ -5,16 +5,27 @@ Authors: Ben Eltschig
 -/
 import ClassifyingBundles.IsFiberBundle
 import Mathlib.Topology.Algebra.Group.Torsor
+import Mathlib.Topology.Algebra.ProperAction.Basic
 
 /-! # Locally trivial `G`-spaces
 In this file we define locally trivial `G`-spaces: a `G`-space is called locally trivial if its
 projection to is orbit space locally admits equivariant trivialisations. In this sense locally
 trivial `G`-spaces are just `G`-principal bundles, represented by the `G`-action on their orbit
-space. -/
+space.
 
-open Bundle
+## Main definitions & results
+* `LocallyTrivialSMul G X`: typeclass stating that a `G`-space `X` is locally trivial in the sense
+  that `Quotient.mk _ : X → Quotient (MulAction.orbitRel G X)` admits `G`-equivariant
+  trivializations around each point
+* Every locally trivial action is continuous and free
+* Any free and proper action is locally trivial if and only if the projection to its orbit space
+  admits sections around each point.
 
-open scoped Topology
+## TODO
+* Prove that locally trivial `G`-spaces are proper if and only if their orbit spaces are Hausdorff
+-/
+
+open Bundle Topology
 
 /-- A `G`-space `X` is called locally trivial if its projection to its orbit space
 locally admits `G`-equivariant trivialisations. -/
@@ -68,3 +79,77 @@ instance [LocallyTrivialSMul G X] : ContinuousSMul G X where
       rw [← (e b).source_eq]
       exact (e b).toOpenPartialHomeomorph.continuousOn
     · exact fun ⟨g, x⟩ ⟨_, hx⟩ ↦ by simpa [(e b).target_eq] using hx
+
+/-- TODO: remove next time mathlib is bumped -/
+@[to_additive (attr := simp)]
+lemma MulAction.orbitRel.Quotient.quotient_smul_eq {G α : Type*} [Group G] [MulAction G α]
+    {g : G} {a : α} : ⟦g • a⟧ = (⟦a⟧ : orbitRel.Quotient G α) :=
+  Quotient.eq.mpr ⟨g, rfl⟩
+
+lemma IsCancelSMul.smul_pair_injective {G X : Type*} [Group G] [MulAction G X] [IsCancelSMul G X] :
+    Function.Injective (fun gx : G × X ↦ (gx.1 • gx.2, gx.2)) := by
+  simp_rw [Function.Injective, Prod.ext_iff]
+  rintro ⟨g, x⟩ ⟨g', x'⟩ ⟨h, rfl⟩
+  simpa using IsCancelSMul.right_cancel _ _ _ h
+
+/-- For any free and proper group action, the shear map `G × X → X × X` is a closed embedding.
+
+TODO: move -/
+lemma ProperSMul.isClosedEmbedding_smul_pair {G X : Type*} [TopologicalSpace G] [TopologicalSpace X]
+    [Group G] [MulAction G X] [IsCancelSMul G X] [ProperSMul G X] :
+    IsClosedEmbedding (fun gx : G × X ↦ (gx.1 • gx.2, gx.2)) :=
+  .of_continuous_injective_isClosedMap (by fun_prop) IsCancelSMul.smul_pair_injective
+    ProperSMul.isProperMap_smul_pair.isClosedMap
+
+/-- TODO: move -/
+lemma continuousOn_prodMk {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [TopologicalSpace Z] {f : X → Y} {g : X → Z} {s : Set X} :
+    ContinuousOn (fun x ↦ (f x, g x)) s ↔ ContinuousOn f s ∧ ContinuousOn g s :=
+  ⟨fun h ↦ ⟨continuous_fst.comp_continuousOn h, continuous_snd.comp_continuousOn h⟩,
+    fun h ↦ h.1.prodMk h.2⟩
+
+/-- A free and proper `G`-space is locally trivial if and only if the projection to its orbit space
+locally admits sections. -/
+lemma locallyTrivialSMul_iff_exists_section [IsCancelSMul G X] [ProperSMul G X] :
+    LocallyTrivialSMul G X ↔ ∀ b : Quotient (MulAction.orbitRel G X), ∃ u, IsOpen u ∧ b ∈ u ∧
+      ∃ s : _ → X, u.EqOn (Quotient.mk'' ∘ s) id ∧ ContinuousOn s u := by
+  refine ⟨fun h b ↦ ?_, fun h ↦ ⟨fun b ↦ ?_⟩⟩
+  · have ⟨e, he⟩ := h.isFiberBundleMap_quotientMk.exists_trivialization b
+    refine ⟨e.baseSet, e.open_baseSet, he, fun x' ↦ e.toOpenPartialHomeomorph.symm (x', 1),
+      fun x' hx' ↦ ?_, e.continuousOn_symm_prodMk_left⟩
+    simp [Quotient.mk'', e.proj_symm_apply' hx']
+  · have ⟨u, hu, hbu, s, hs, hs'⟩ := h b
+    classical
+    refine ⟨{
+      toFun x := ⟨⟦x⟧, if hx : ⟦x⟧ ∈ u then
+          (MulAction.mem_orbit_iff.1 (MulAction.orbitRel.Quotient.mem_orbit.2 (hs hx).symm)).choose
+        else 1⟩
+      invFun x := x.2 • s x.1
+      source := Quotient.mk _ ⁻¹' u
+      target := u ×ˢ Set.univ
+      map_source' x hx := by simpa using hx
+      map_target' x hx := by simp [show ⟦s x.1⟧ = x.1 by simpa using hs hx.1, hx.1]
+      left_inv' x hx := by
+        simpa [Set.mem_preimage.1 hx] using Exists.choose_spec (p := fun g ↦ g • s ⟦x⟧ = x) _
+      right_inv' x hx := by
+        simp only [show ⟦s x.1⟧ = x.1 by simpa using hs hx.1, hx.1,
+          MulAction.orbitRel.Quotient.quotient_smul_eq, ↓reduceDIte]
+        exact Prod.ext rfl <| IsCancelSMul.right_cancel _ _ (s x.1) <|
+          Exists.choose_spec (p := fun g : G ↦ g • s x.1 = x.2 • s x.1) _
+      open_source := hu.preimage <| by fun_prop
+      open_target := hu.prod isOpen_univ
+      continuousOn_toFun := by
+        refine .prodMk (by fun_prop) ?_
+        rw [← continuousOn_prodMk.trans <| and_iff_left <|
+            hs'.comp continuous_quotientMk.continuousOn <| Set.mapsTo_preimage _ _,
+          ProperSMul.isClosedEmbedding_smul_pair.continuousOn_iff]
+        refine (continuousOn_id.congr fun x hx ↦ ?_).prodMk <| hs'.comp (by fun_prop) fun _ hx ↦ hx
+        simpa [Set.mem_preimage.1 hx] using Exists.choose_spec (p := fun g : G ↦ g • s ⟦x⟧ = x) _
+      continuousOn_invFun := continuousOn_snd.smul <| hs'.comp continuousOn_fst fun x hx ↦ hx.1
+      baseSet := u
+      open_baseSet := hu
+      source_eq := rfl
+      target_eq := rfl
+      proj_toFun := by simp }, ?_, ?_⟩
+    · simp [hbu]
+    · simp [Trivialization.isEquivariant_iff_symm, smul_smul]
