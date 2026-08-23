@@ -3,6 +3,7 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
+import Mathlib.Algebra.Group.Action.Defs
 import Mathlib.Topology.FiberBundle.Constructions
 
 /-! # An `IsFiberBundle`-predicate for bundles
@@ -129,6 +130,13 @@ class Bundle.Trivialization.IsEquivariant {Z : Type*} [TopologicalSpace Z] {proj
 
 variable {Z : Type*} [TopologicalSpace Z] {proj : Z → B} {G : Type*} [SMul G F] [SMul G Z]
 
+@[simp]
+lemma Bundle.Trivialization.smul_mem_source {G : Type*} [Group G] [SMul G F] [MulAction G Z]
+    (e : Trivialization F proj) [e.IsEquivariant G] {g : G} {x : Z} :
+    g • x ∈ e.source ↔ x ∈ e.source := by
+  refine ⟨fun h ↦ ?_, IsEquivariant.smul_mem_source⟩
+  simpa using IsEquivariant.smul_mem_source (e := e) (g := g⁻¹) h
+
 /-- Since `e.target` is always `G`-invariant, to prove that `e` is equivariant in the sense of
 `e.IsEquivariant G` it suffices to prove that the inverse map of `e` is equivariant. -/
 lemma Bundle.Trivialization.isEquivariant_iff_symm (e : Trivialization F proj) :
@@ -147,5 +155,18 @@ lemma Bundle.Trivialization.isEquivariant_iff_symm (e : Trivialization F proj) :
     rw [← h]
     refine ⟨e.map_target <| by simpa [e.source_eq, e.target_eq] using hx, ?_⟩
     rw [e.apply_symm_apply (by simpa [e.source_eq, e.target_eq] using hx), e.coe_fst hx]
+
+lemma Bundle.Trivialization.IsEquivariant.transFiberHomeomorph {e : Trivialization F proj}
+    (he : e.IsEquivariant G) {F' : Type*} [TopologicalSpace F'] [SMul G F'] {e' : F ≃ₜ F'}
+    (h : ∀ (g : G) x, e' (g • x) = g • e' x) :
+    (e.transFiberHomeomorph e').IsEquivariant G where
+  smul_mem_source := IsEquivariant.smul_mem_source (e := e)
+  map_smul hx := by simp [IsEquivariant.map_smul (e := e) hx, h]
+
+lemma Bundle.Trivialization.IsEquivariant.homeomorphComp {e : Trivialization F proj}
+    (he : e.IsEquivariant G) {B' : Type*} [TopologicalSpace B'] {e' : B ≃ₜ B'} :
+    (e.homeomorphComp e').IsEquivariant G where
+  smul_mem_source := IsEquivariant.smul_mem_source (e := e)
+  map_smul hx := by simp [Trivialization.homeomorphComp, IsEquivariant.map_smul (e := e) hx]
 
 end SMul

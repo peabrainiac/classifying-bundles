@@ -7,6 +7,7 @@ import ClassifyingBundles.ContinuousBundleIso
 import ClassifyingBundles.ContinuousMulActionHom
 import ClassifyingBundles.MulActionEquiv
 import Mathlib.Logic.Lemmas
+import Mathlib.Topology.Homeomorph.Quotient
 
 /-! # Bundled continuous fibrewise equivariant maps between fibre bundles-/
 
@@ -50,6 +51,46 @@ omit [TopologicalSpace (TotalSpace F E)] in
 @[simp]
 lemma Bundle.TotalSpace.smul_mk {g : G} {b : B} {x : E b} :
     g • (⟨b, x⟩ : TotalSpace F E) = ⟨b, g • x⟩ := by rfl
+
+instance {G : Type*} [Monoid G] {F : Type*} {B : Type*} {E : B → Type*} [∀ b, MulAction G (E b)] :
+    MulAction G (TotalSpace F E) where
+  mul_smul g g' x := by cases x; simp [mul_smul]
+  one_smul x := by cases x; simp
+
+lemma Bundle.TotalSpace.ker_proj_eq_orbitRel {G : Type*} [Group G] {F : Type*} {B : Type*}
+    {E : B → Type*} [∀ b, MulAction G (E b)] [∀ b, MulAction.IsPretransitive G (E b)] :
+    Setoid.ker (π F E) = MulAction.orbitRel G (TotalSpace F E) := by
+  ext ⟨b, x⟩ ⟨b', x'⟩
+  rw [Setoid.ker_def, MulAction.orbitRel_apply, MulAction.mem_orbit_iff]
+  refine ⟨?_, fun ⟨g, h⟩ ↦ by rw [← h]; simp⟩
+  rintro (rfl : b = b')
+  obtain ⟨g, rfl⟩ := MulAction.exists_smul_eq G x' x
+  refine ⟨g, rfl⟩
+
+/-- For any fibre bundle with transitive actions on the fibres, the orbit space of the action on
+the total space is homeomorphic to the base space. -/
+noncomputable def Bundle.TotalSpace.quotientOrbitRelHomeomorph (G : Type*) [Group G]
+    (F : Type*) [Nonempty F] [TopologicalSpace F] {B : Type*} [TopologicalSpace B] (E : B → Type*)
+    [∀ b, TopologicalSpace (E b)] [TopologicalSpace (TotalSpace F E)] [FiberBundle F E]
+    [∀ b, MulAction G (E b)] [∀ b, MulAction.IsPretransitive G (E b)] :
+    Quotient (MulAction.orbitRel G (TotalSpace F E)) ≃ₜ B :=
+  (Homeomorph.Quotient.congrRight <| Setoid.ext_iff.1 <| ker_proj_eq_orbitRel.symm).trans <|
+    (FiberBundle.isQuotientMap_proj F E).homeomorph (f := ⟨_, by fun_prop⟩)
+
+@[simp]
+lemma Bundle.TotalSpace.quotientOrbitRelHomeomorph_apply (G : Type*) [Group G]
+    (F : Type*) [Nonempty F] [TopologicalSpace F] {B : Type*} [TopologicalSpace B] (E : B → Type*)
+    [∀ b, TopologicalSpace (E b)] [TopologicalSpace (TotalSpace F E)] [FiberBundle F E]
+    [∀ b, MulAction G (E b)] [∀ b, MulAction.IsPretransitive G (E b)] {x : TotalSpace F E} :
+    quotientOrbitRelHomeomorph G F E ⟦x⟧ = x.proj := rfl
+
+@[simp]
+lemma Bundle.TotalSpace.quotientOrbitRelHomeomorph_symm_apply (G : Type*) [Group G]
+    (F : Type*) [Nonempty F] [TopologicalSpace F] {B : Type*} [TopologicalSpace B] (E : B → Type*)
+    [∀ b, TopologicalSpace (E b)] [TopologicalSpace (TotalSpace F E)] [FiberBundle F E]
+    [∀ b, MulAction G (E b)] [∀ b, MulAction.IsPretransitive G (E b)] {x : TotalSpace F E} :
+    (quotientOrbitRelHomeomorph G F E).symm x.proj = ⟦x⟧ := by
+  simp [Homeomorph.symm_apply_eq]
 
 namespace ContinuousBundleActionHom
 

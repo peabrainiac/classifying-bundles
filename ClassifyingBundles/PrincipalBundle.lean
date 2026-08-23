@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.ContinuousBundleActionHom
+import ClassifyingBundles.LocallyTrivialSMul
 import ClassifyingBundles.NumerableBundle
 
 /-! # `G`-principal bundles
@@ -119,29 +120,15 @@ lemma Bundle.Trivialization.continuousOn_coordChangeₑ [IsPrincipalBundle G F E
   exact e.continuousOn_symm.comp (f := fun x ↦ (x, z)) (by fun_prop) (by intro; simp)
 
 /-- The action of `G` on the total space on any `G`-principal bundle is continuous. -/
-instance [IsPrincipalBundle G F E] : ContinuousSMul G (TotalSpace F E) where
-  continuous_smul := by
-    suffices h : ∀ b, ContinuousOn (fun x : G × TotalSpace F E ↦ x.1 • x.2)
-        (.univ ×ˢ (π F E ⁻¹' (trivializationAt F E b).baseSet)) from
-      continuous_iff_continuousAt.2 fun ⟨g, x⟩ ↦ (h x.1).continuousAt <|
-        prod_mem_nhds Filter.univ_mem <| ((trivializationAt F E x.1).open_baseSet.preimage <|
-          continuous_proj F E).mem_nhds <| mem_baseSet_trivializationAt F E _
-    refine fun b ↦ .congr (f := fun x ↦ ⟨_, (trivializationAt F E b).symm x.2.1
-        (x.1 • (trivializationAt F E b x.2).2)⟩) ?_ fun ⟨g, x⟩ ⟨_, hx⟩ ↦ by
-      ext
-      · rfl
-      · simp only [heq_eq_eq, ← Trivialization.map_smul _ hx]
-        exact ((trivializationAt F E b).symm_proj_apply ⟨x.1, g • x.2⟩ hx).symm
-    refine (trivializationAt F E b).continuousOn_symm.comp
-      (f := (fun x : G × TotalSpace F E ↦ ⟨x.2.1, x.1 • (trivializationAt F E b x.2).2⟩)) ?_ ?_
-    · refine ((continuous_proj F E).comp continuous_snd).continuousOn.prodMk ?_
-      refine continuous_smul.comp_continuousOn ?_
-        (f := fun x : G × TotalSpace F E ↦ (x.1, (trivializationAt F E b x.2).2))
-      refine continuousOn_id.prodMap (g := fun x ↦ (trivializationAt F E b x).2) ?_
-      refine continuous_snd.comp_continuousOn ?_
-      rw [← (trivializationAt F E b).source_eq]
-      exact (trivializationAt F E b).continuousOn
-    · exact fun ⟨g, x⟩ ⟨_, hx⟩ ↦ ⟨hx, trivial⟩
+instance [IsPrincipalBundle G F E] : LocallyTrivialSMul G (TotalSpace F E) where
+  exists_equivariant_trivialization b := by
+    let e := (TotalSpace.quotientOrbitRelHomeomorph G F E)
+    rw [show Quotient.mk _ = e.symm ∘ π F E by ext; simp [e]]
+    refine ⟨((trivializationAt F E (e b)).homeomorphComp e.symm).transFiberHomeomorph
+      (Homeomorph.smulConst (Classical.arbitrary F)).symm, ?_, ?_⟩
+    · simp [Trivialization.transFiberHomeomorph, Trivialization.homeomorphComp,
+        mem_baseSet_trivializationAt]
+    · exact .transFiberHomeomorph _ (.homeomorphComp _ inferInstance) (by simp [smul_sdiv_assoc])
 
 namespace Bundle.ContinuousSection
 
@@ -157,7 +144,7 @@ TODO: show this more generally for fibre bundles with a continuous fiberwise `G`
 instance [IsPrincipalBundle G F E] : SMul C(B, G) Cₛ⟮F, E⟯ where
   smul f s := ⟨fun b ↦ f b • s b, f.continuous.smul s.continuous⟩
 
-omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+omit [∀ b, Zero (E b)] [∀ b, IsTopologicalTorsor (E b)] in
 /-- Note: this should be an `@[simps]`-lemma, but couldn't because the auto-generated name
 `smul_toFun` was already taken. -/
 @[simp]
@@ -251,15 +238,15 @@ TODO: show this more generally for fibre bundles with a continuous fiberwise `G`
 instance [IsPrincipalBundle G F E] : SMul C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
   smul f' f'' := ⟨fun b x ↦ f' ⟨b, x⟩ • f'' b x, f'.continuous.smul f''.continuous_toFun⟩
 
-omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+omit [∀ b, Zero (E b)] [∀ b, IsTopologicalTorsor (E b)] in
 /-- Note: this should be an `@[simps]`-lemma, but couldn't because the auto-generated name
 `smul_toFun` was already taken. -/
 @[simp]
 lemma smul_toFun' [IsPrincipalBundle G F E] (f' : C(B', G)) (f'' : Cᶠ[f]⟮F', E'; F, E⟯) (b : B') :
     (f' • f'') b = f' b • f'' b := rfl
 
-omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] [TopologicalSpace F']
-  [(b : B') → TopologicalSpace (E' b)] [FiberBundle F' E'] in
+omit [∀ b, Zero (E b)] [∀ b, IsTopologicalTorsor (E b)] [TopologicalSpace F']
+  [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E'] in
 /-- Note: this should be an `@[simps]`-lemma, but couldn't because the auto-generated name
 `smul_toFun` was already taken. -/
 @[simp]
@@ -400,7 +387,7 @@ noncomputable def _root_.ContinuousBundleActionHom.equivContinuousBundleActionEq
 
 end ContinuousBundleHom
 
-omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+omit [∀ (b : B), IsTopologicalTorsor (E b)] in
 /-- For a principal bundle `E`, the following are equivalent:
 * `E` is trivial as a fibre bundle, i.e. it admits a global not necessarily equivariant
   trivialisation
@@ -450,13 +437,13 @@ lemma IsPrincipalBundle.isTrivial_tfae [IsPrincipalBundle G F E] :
   tfae_have 3 → 1 := fun ⟨e, he⟩ ↦ (isTrivial_iff_exists_trivialization _ _).2 ⟨e, he.2⟩
   tfae_finish
 
-omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+omit [∀ (b : B), IsTopologicalTorsor (E b)] in
 /-- A principal bundle is trivial if and only if it admits a continuous global section. -/
 lemma Bundle.isTrivial_iff_nonempty_continuousSection [IsPrincipalBundle G F E] :
     IsTrivial F E ↔ Nonempty Cₛ⟮F, E⟯ :=
   IsPrincipalBundle.isTrivial_tfae.out 0 3
 
-omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+omit [∀ (b : B), IsTopologicalTorsor (E b)] in
 attribute [local fun_prop] FiberBundle.continuous_proj in
 /-- A `G`-principal bundle is trivial on an open set `u` if and only if it admits a `G`-equivariant
 trivialisation on `u`. -/
@@ -531,7 +518,6 @@ instance IsPrincipalBundle.pullback [IsPrincipalBundle G F E] {B' : Type*} [Topo
     obtain ⟨⟨e, he, rfl⟩⟩ := he
     exact (trivialization_equivariant e).pullback
 
-omit [IsTopologicalGroup G] in
 /-- The covering homotopy theorem for principal bundles: every numerable principal bundle over
 `B × I` is isomorphic to the pullback of itself along the map `B × I → B × I` sending `(b, t)` to
 `(b, 1)`.
@@ -549,7 +535,7 @@ lemma IsPrincipalBundle.coveringHomotopyLemma (E : B × I → Type*)
       simp [(e n).map_smul hx, (e m).symm_map_smul hx']
   exact ⟨⟨e, fun g x ↦ he x g⟩⟩
 
-omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
+omit [∀ (b : B), IsTopologicalTorsor (E b)] in
 /-- Pullbacks of a numerable principal bundle along homotopic maps are isomorphic.
 
 TODO: get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
