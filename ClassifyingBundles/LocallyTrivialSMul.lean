@@ -56,6 +56,12 @@ lemma continuous_quotientMk {X : Type*} [TopologicalSpace X] {s : Setoid X} :
     Continuous (Quotient.mk s) :=
   continuous_quotient_mk'
 
+/-- TODO: move -/
+@[fun_prop]
+lemma isQuotientMap_quotientMk {X : Type*} [TopologicalSpace X] {s : Setoid X} :
+    IsQuotientMap (Quotient.mk s) :=
+  isQuotientMap_quotient_mk'
+
 /-- Every locally trivial `G`-action is in particular continuous. -/
 instance [LocallyTrivialSMul G X] : ContinuousSMul G X where
   continuous_smul := by

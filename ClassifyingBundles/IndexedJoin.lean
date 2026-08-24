@@ -5,6 +5,7 @@ Authors: Ben Eltschig
 -/
 import ClassifyingBundles.Equiv
 import ClassifyingBundles.Join
+import ClassifyingBundles.LocallyTrivialSMul
 import Mathlib.Geometry.Convex.ConvexSpace.Defs
 
 /-! # Joins of topological spaces
@@ -24,6 +25,7 @@ In this file we define joins of families of topological spaces.
   family of maps `g i : X i → X' (f i)`. This is always continuous.
 * When `G` acts on each `X i`, it also acts on `IJoin X`. This action is effective / free /
   continuous whenever the actions on the `X i` are.
+* Arbitrary joins `IJoin fun _ ↦ G` of copies of a single topological group `G` are locally trivial
 
 ## TODO
 * Prove that `IJoin.of` and `IJoin.ofJoin` are closed embeddings
@@ -59,6 +61,10 @@ lemma ext {p p' : IJoin X} (h : p.weights = p'.weights)
   · exact h' i hi
   · rw [(p.weights_nonneg i).lt_iff_ne', not_not] at hi
     rw [p.points_eq_none_iff.2 hi, p'.points_eq_none_iff.2 <| h ▸ hi]
+
+@[simp]
+lemma points_isSome_iff {x : IJoin X} {i : ι} : (x.points i).isSome ↔ 0 < x.weights i := by
+  simp [(x.weights_nonneg i).lt_iff_ne', ← x.points_eq_none_iff, Option.isSome_iff_ne_none]
 
 /-- The canonical inclusion `X i → IJoin X`. -/
 @[simps! points weights]
@@ -191,9 +197,17 @@ lemma continuous_iff {Y : Type*} [TopologicalSpace Y] {f : Y → IJoin X} :
   refine (continuous_inf_rng (f := f) (t₂ := ⨅ i, _) (t₃ := ⨅ i, _)).trans <| and_congr ?_ ?_
     <;> simp_rw [continuous_iInf_rng, continuous_induced_rng] <;> rfl
 
+lemma continuousOn_iff {Y : Type*} [TopologicalSpace Y] {f : Y → IJoin X} {s : Set Y} :
+    ContinuousOn f s ↔ (∀ i, ContinuousOn (fun y ↦ (f y).weights i) s) ∧
+      ∀ i, ContinuousOn (fun y ↦ (f y).points i) s := by
+  simp only [continuousOn_iff_continuous_restrict]
+  exact continuous_iff
+
+@[fun_prop]
 lemma continuous_weights {i : ι} : Continuous fun x : IJoin X ↦ x.weights i :=
   (continuous_iff.1 continuous_id).1 i
 
+@[fun_prop]
 lemma continuous_points {i : ι} : Continuous fun x : IJoin X ↦ x.points i :=
   (continuous_iff.1 continuous_id).2 i
 
@@ -295,6 +309,16 @@ lemma _root_.Option.smul_eq_none {G X : Type*} [SMul G X] {g : G} {x : Option X}
     g • x = none ↔ x = none := by
   cases x <;> simp
 
+@[simp]
+lemma _root_.Option.smul_getD {G X : Type*} [SMul G X] {g : G} {x : Option X} {x' : X}
+    (hx : x.isSome) : (g • x).getD x' = g • x.getD x' := by
+  cases x <;> simp at hx ⊢
+
+instance _root_.Option.mulAction {G X : Type*} [Monoid G] [MulAction G X] :
+    MulAction G (Option X) where
+  mul_smul g g' x := by cases x <;> simp [mul_smul]
+  one_smul x := by cases x <;> simp
+
 /-- TODO: generalise `smul_left_cancel_iff` to this -/
 @[simp]
 lemma _root_.IsLeftCancelSMul.left_cancel_iff {G X : Type*} [SMul G X] [IsLeftCancelSMul G X]
@@ -338,8 +362,8 @@ lemma smul_eq_map [∀ i : ι, Decidable (∃ i', id i' = i)] {G : Type*} [∀ i
   refine ext (by simp) fun i _ ↦ (map_points_apply Function.injective_id (fun i x ↦ g • x)).symm
 
 instance {G : Type*} [Monoid G] [∀ i, MulAction G (X i)] : MulAction G (IJoin X) where
-  mul_smul _ _ _ := by ext <;> simp [Option.smul_eq_map, mul_smul, Function.comp_def]
-  one_smul _ := by ext <;> simp [Option.smul_eq_map]
+  mul_smul _ _ _ := by ext <;> simp [mul_smul]
+  one_smul _ := by ext <;> simp
 
 instance [Nonempty ι] {G : Type*} [∀ i, SMul G (X i)] [∀ i, FaithfulSMul G (X i)] :
     FaithfulSMul G (IJoin X) := by
@@ -389,6 +413,79 @@ instance {G : Type*} [TopologicalSpace G] [∀ i, SMul G (X i)] [∀ i, Continuo
     · simp only [smul_weights]
       exact continuous_weights.comp continuous_snd
     · exact continuous_smul.comp <| continuous_id.prodMap continuous_points
+
+/-- TODO: move -/
+lemma _root_.Topology.IsInducing.continuousOn_range_iff {X Y Z : Type*} [TopologicalSpace X]
+    [TopologicalSpace Y] [TopologicalSpace Z] {f : X → Y} (hf : IsInducing f) {g : Y → Z} :
+    ContinuousOn g (Set.range f) ↔ Continuous (g ∘ f) := by
+  simpa using hf.continuousOn_image_iff (g := g) (s := Set.univ)
+
+/-- TODO: move -/
+lemma _root_.Option.isContinuousOn_getD_excludedPointTopology' {X : Type*} [TopologicalSpace X]
+    {x : X} : ContinuousOn (Option.getD · x) (Set.range Option.some) := by
+  simp [Option.isOpenEmbedding_some_excludedPointTopology'.continuousOn_range_iff, continuous_id]
+
+instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G] {ι : Type*} :
+    LocallyTrivialSMul G (IJoin (fun _ : ι ↦ G)) where
+  exists_equivariant_trivialization b := by
+    obtain ⟨x, rfl⟩ := Quotient.mk_surjective b
+    have ⟨i, hi⟩ := x.exists_pos
+    have h :
+        IsOpen {x : Quotient (MulAction.orbitRel G (IJoin fun i ↦ G)) | 0 < x.out.weights i} := by
+      refine isOpen_lt continuous_const <| isQuotientMap_quotient_mk'.continuous_iff.2 <|
+        (continuous_weights (i := i)).congr fun x ↦ ?_
+      have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
+      simp [Quotient.mk', ← hg]
+    refine ⟨{
+      toFun x := (⟦x⟧, (x.points i).getD 1)
+      invFun x := (x.2 / (x.1.out.points i).getD 1) • x.1.out
+      source := {x | 0 < x.weights i}
+      target := {x | 0 < x.out.weights i} ×ˢ Set.univ
+      map_source' x := by
+        have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
+        simp [← hg]
+      map_target' x := by simp
+      left_inv' x hx := by
+        have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
+        simp [← hg, x.points_isSome_iff.2 hx]
+      right_inv' x hx := Prod.ext (by simp) <| by
+        simp [x.1.out.points_isSome_iff.2 hx.1]
+      open_source := isOpen_lt continuous_const continuous_weights
+      open_target := h.prod isOpen_univ
+      continuousOn_toFun := .prodMk (by fun_prop) <|
+        Option.isContinuousOn_getD_excludedPointTopology'.comp (by fun_prop) fun x hx ↦
+          Option.ne_none_iff_exists.1 <| x.points_eq_none_iff.not.2 (Set.mem_setOf.1 hx).ne'
+      continuousOn_invFun := by
+        rw [MulAction.isOpenQuotientMap_quotientMk.prodMap .id
+          |>.isQuotientMap.continuousOn_isOpen_iff (h.prod isOpen_univ)]
+        refine continuousOn_iff.2 ⟨fun i' ↦ ?_, fun i' ↦ ?_⟩
+        · refine (continuous_weights (i := i').comp continuous_fst).continuousOn.congr fun x hx ↦ ?_
+          have ⟨g, (hg : g • x.1 = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x.1
+          simp [← hg]
+        · refine .congr (f := fun y ↦ (y.2 / (y.1.points i).getD 1) • y.1.points i') ?_
+            fun x hx ↦ ?_
+          · refine .smul (.div' (by fun_prop) ?_) (by fun_prop)
+            refine Option.isContinuousOn_getD_excludedPointTopology'.comp (by fun_prop)
+              fun x hx ↦ ?_
+            have ⟨g, (hg : g • x.1 = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x.1
+            exact Option.ne_none_iff_exists.1 <| x.1.points_eq_none_iff.not.2
+              (show 0 < x.1.weights i by simpa [← hg] using hx).ne'
+          · have ⟨g, (hg : g • x.1 = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x.1
+            simp [← hg, show (x.1.points i).isSome by simpa [← hg] using hx,
+              div_eq_mul_inv, mul_smul]
+      baseSet := {x | 0 < x.out.weights i}
+      open_baseSet := h
+      source_eq := by
+        ext x
+        have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
+        simp [← hg]
+      target_eq := by ext; simp
+      proj_toFun := by simp }, ?_, ?_, fun hx ↦ ?_⟩
+    · have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
+      simp [← hg, hi]
+    · simp
+    · simp only [Set.mem_setOf_eq] at hx
+      simp [hx]
 
 end SMul
 
