@@ -19,6 +19,7 @@ import ClassifyingBundles.LocallyTrivialSMul
 import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.NumerableBundle
 import ClassifyingBundles.NumerableCover
+import ClassifyingBundles.OfMap
 import ClassifyingBundles.OpenPartialHomeomorph
 import ClassifyingBundles.PartitionOfUnity
 import ClassifyingBundles.PositivePartition
