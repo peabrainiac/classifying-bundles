@@ -78,6 +78,20 @@ theorem continuous_proj : Continuous (π F E) :=
 theorem isOpenMap_proj : IsOpenMap (π F E) :=
   IsOpenMap.of_nhds_le fun x => (map_proj_nhds F x).ge
 
+/-- The projection from a fiber bundle with a nonempty fiber to its base is a surjective
+map. -/
+theorem surjective_proj [Nonempty F] : Function.Surjective (π F E) := by
+  intro b
+  have ⟨e, he⟩ := exists_trivialization F E b
+  have ⟨p, _, hpb⟩ := e.proj_surjOn_baseSet he
+  exact ⟨p, hpb⟩
+
+/-- The projection from a fiber bundle with a nonempty fiber to its base is a quotient
+map. -/
+@[fun_prop]
+theorem isQuotientMap_proj [Nonempty F] : IsQuotientMap (π F E) :=
+  (isOpenMap_proj F E).isQuotientMap (continuous_proj F E) (surjective_proj F E)
+
 /-- An arbitrary homeomorphism between any fiber and the model fiber.
 This is useful to transfer topological properties of the model fiber. -/
 noncomputable def homeomorphAt (b : B) : E b ≃ₜ F :=

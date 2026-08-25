@@ -89,12 +89,19 @@ instance _root_.Group.toOppositeTorsor (G : Type*) [Group G] : Torsor Gᵐᵒᵖ
   sdiv_smul' := by simp
   smul_sdiv' := by simp
 
+instance _root_.IsTopologicalGroup.toOppositeTorsor (G : Type*) [Group G] [TopologicalSpace G]
+    [IsTopologicalGroup G] : IsTopologicalTorsor (V := Gᵐᵒᵖ) G where
+  continuous_sdiv := by
+    change Continuous fun g : G × G ↦ MulOpposite.op (g.2⁻¹ * g.1)
+    fun_prop
+
 /-- TODO: figure out how to best connect the APIs for `G`-bundles and `G`-principal bundles.
 In textbooks this would be "a `G`-principal bundle is the same thing as a `G`-bundle with standard
 fibre `G`", but here the two carry technically different data. -/
 @[implicit_reducible]
 noncomputable def _root_.PrincipalBundle.toGStructure [TopologicalSpace (Bundle.TotalSpace G E)]
-    [FiberBundle G E] [∀ b, Torsor Gᵐᵒᵖ (E b)] [IsPrincipalBundle Gᵐᵒᵖ G E] :
+    [FiberBundle G E] [∀ b, Torsor Gᵐᵒᵖ (E b)] [∀ b, IsTopologicalTorsor (E b)]
+    [IsTopologicalGroup G] [IsPrincipalBundle Gᵐᵒᵖ G E] :
     GStructure G G E where
   g e e' _ _ b := (e (Torsor.nonempty.some : E b)).2 / (e' (Torsor.nonempty.some : E b)).2
   g_mul_g e e' e'' _ _ _ b hb := by simp

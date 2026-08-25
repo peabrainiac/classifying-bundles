@@ -23,7 +23,7 @@ we instead start with a bundle `E : B → Type*` whose fibers `E b` are `G`-tors
 bundle of `G`-torsors equipped with a bundle atlas with `G`-equivariant changes of charts.
 -/
 
-open Bundle FiberBundle unitInterval
+open Bundle IsFiberBundle unitInterval
 
 variable (G : Type*) [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
   (F : Type*) [TopologicalSpace F] {B : Type*} [TopologicalSpace B]
@@ -89,26 +89,10 @@ noncomputable def Bundle.Trivialization.coordChangeₑ (e e' : Trivialization F 
   if hb : b ∈ e.baseSet ∩ e'.baseSet then
     (e.mulActionEquivAt hb.1).symm.trans (e'.mulActionEquivAt hb.2) else .refl G F
 
-variable [FiberBundle F E] [Torsor G F] [IsTopologicalTorsor F]
-    [∀ b, Torsor G (E b)] [∀ b, IsTopologicalTorsor (E b)]
-
-variable (G F E) in
-/-- A (left) `G`-principal bundle is a fiber bundle whose standard fiber `F` and fibers `E b` are
-`G`-torsors, and whose bundle atlas has the property that changes of charts are `G`-equivariant.
-
-Note that in this definition we have `G` acting on the left; under the usual convention that
-`G`-principal bundles are acted on from the right, this is really a `Gᵐᵒᵖ`-principal bundle.
-`G`-principal bundles are instead captured by `IsPrincipalBundle Gᵐᵒᵖ F E`. -/
-class IsPrincipalBundle : Prop where
-  trivialization_equivariant (e : Trivialization F (π F E)) [MemTrivializationAtlas e] :
-    e.IsEquivariant G
-
-attribute [instance] IsPrincipalBundle.trivialization_equivariant
-
-omit [IsTopologicalGroup G] [∀ (b : B), IsTopologicalTorsor (E b)] in
-lemma Bundle.Trivialization.continuousOn_coordChangeₑ [IsPrincipalBundle G F E]
-    (e : Trivialization F (π F E)) (e' : Trivialization F (π F E))
-    [MemTrivializationAtlas e] [MemTrivializationAtlas e'] :
+omit [IsTopologicalGroup G] [∀ b, TopologicalSpace (E b)] in
+lemma Bundle.Trivialization.continuousOn_coordChangeₑ [Torsor G F] [IsTopologicalTorsor F]
+    [∀ b, Torsor G (E b)] (e : Trivialization F (π F E)) (e' : Trivialization F (π F E))
+    [e.IsEquivariant G] [e'.IsEquivariant G] :
       ContinuousOn (coordChangeₑ (G := G) e e') (e.baseSet ∩ e'.baseSet) := by
   have z : F := Torsor.nonempty.some
   refine ((MulActionEquiv.evalHomeo z).comp_continuousOn_iff _ _).1 ?_
@@ -119,16 +103,52 @@ lemma Bundle.Trivialization.continuousOn_coordChangeₑ [IsPrincipalBundle G F E
   refine .mono ?_ Set.inter_subset_left
   exact e.continuousOn_symm.comp (f := fun x ↦ (x, z)) (by fun_prop) (by intro; simp)
 
-/-- The action of `G` on the total space on any `G`-principal bundle is continuous. -/
+variable (G F E) in
+/-- A (left) `G`-principal bundle is a fiber bundle whose standard fiber `F` and fibers `E b` are
+`G`-torsors, and which locally admits `G`-equivariant trivializations.
+
+Note that in this definition we have `G` acting on the left; under the usual convention that
+`G`-principal bundles are acted on from the right, this is really a `Gᵐᵒᵖ`-principal bundle.
+`G`-principal bundles are instead captured by `IsPrincipalBundle Gᵐᵒᵖ F E`. -/
+class IsPrincipalBundle [Torsor G F] [IsTopologicalTorsor F]
+    [∀ b, Torsor G (E b)] [∀ b, IsTopologicalTorsor (E b)] : Prop extends IsFiberBundle F E where
+  exists_equivariant_trivialization' b :
+    ∃ e : Trivialization F (π F E), b ∈ e.baseSet ∧ e.IsEquivariant G
+
+variable (G F E) in
+/-- A variant of `IsPrincipalBundle G F E` that asserts not just that equivariant trivializations
+exist but that all trivializations in the bundle atlas given by the `FiberBundle F E` instance
+are equivariant. -/
+class PrincipalBundle [FiberBundle F E] [Torsor G F] [IsTopologicalTorsor F]
+    [∀ b, Torsor G (E b)] [∀ b, IsTopologicalTorsor (E b)] : Prop where
+  trivialization_equivariant (e : Trivialization F (π F E)) [MemTrivializationAtlas e] :
+    e.IsEquivariant G
+
+attribute [instance] PrincipalBundle.trivialization_equivariant
+
+variable [Torsor G F] [IsTopologicalTorsor F] [∀ b, Torsor G (E b)] [∀ b, IsTopologicalTorsor (E b)]
+
+instance PrincipalBundle.isPrincipalBundle [FiberBundle F E] [PrincipalBundle G F E] :
+    IsPrincipalBundle G F E where
+  exists_equivariant_trivialization' b := ⟨_, mem_baseSet_trivializationAt F E b, inferInstance⟩
+
+variable (G F E) in
+omit [IsTopologicalGroup G] [∀ b, Zero (E b)] in
+lemma IsPrincipalBundle.exists_equivariant_trivialization [IsPrincipalBundle G F E] (b : B) :
+    ∃ e : Trivialization F (π F E), b ∈ e.baseSet ∧ e.IsEquivariant G :=
+  IsPrincipalBundle.exists_equivariant_trivialization' b
+
+/-- The action of `G` on the total space on any `G`-principal bundle is locally trivial.
+In particular, it is free and continuous. -/
 instance [IsPrincipalBundle G F E] : LocallyTrivialSMul G (TotalSpace F E) where
   exists_equivariant_trivialization b := by
     let e := (TotalSpace.quotientOrbitRelHomeomorph G F E)
     rw [show Quotient.mk _ = e.symm ∘ π F E by ext; simp [e]]
-    refine ⟨((trivializationAt F E (e b)).homeomorphComp e.symm).transFiberHomeomorph
+    have ⟨e', he', he''⟩ := IsPrincipalBundle.exists_equivariant_trivialization G F E (e b)
+    refine ⟨(e'.homeomorphComp e.symm).transFiberHomeomorph
       (Homeomorph.smulConst (Classical.arbitrary F)).symm, ?_, ?_⟩
-    · simp [Trivialization.transFiberHomeomorph, Trivialization.homeomorphComp,
-        mem_baseSet_trivializationAt]
-    · exact .transFiberHomeomorph _ (.homeomorphComp _ inferInstance) (by simp [smul_sdiv_assoc])
+    · simp [Trivialization.transFiberHomeomorph, Trivialization.homeomorphComp, he']
+    · exact .transFiberHomeomorph _ (he''.homeomorphComp _) (by simp [smul_sdiv_assoc])
 
 namespace Bundle.ContinuousSection
 
@@ -144,7 +164,7 @@ TODO: show this more generally for fibre bundles with a continuous fiberwise `G`
 instance [IsPrincipalBundle G F E] : SMul C(B, G) Cₛ⟮F, E⟯ where
   smul f s := ⟨fun b ↦ f b • s b, f.continuous.smul s.continuous⟩
 
-omit [∀ b, Zero (E b)] [∀ b, IsTopologicalTorsor (E b)] in
+omit [∀ b, Zero (E b)] in
 /-- Note: this should be an `@[simps]`-lemma, but couldn't because the auto-generated name
 `smul_toFun` was already taken. -/
 @[simp]
@@ -154,26 +174,26 @@ lemma smul_toFun' [IsPrincipalBundle G F E] (f : C(B, G)) (s : Cₛ⟮F, E⟯) (
 instance [IsPrincipalBundle G F E] : IsScalarTower G C(B, G) Cₛ⟮F, E⟯ where
   smul_assoc g f s := by ext; simp [smul_smul]
 
-omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
-attribute [local simp] Trivialization.source_eq mem_baseSet_trivializationAt in
+omit [IsTopologicalGroup G] in
+attribute [local simp] Trivialization.source_eq in
 lemma _root_.ContinuousWithinAt.section_sdiv [IsPrincipalBundle G F E] {s t : ∀ b, E b} {u : Set B}
     {b : B} (hs : ContinuousWithinAt (fun b ↦ (⟨b, s b⟩ : TotalSpace F E)) u b)
     (ht : ContinuousWithinAt (fun b ↦ (⟨b, t b⟩ : TotalSpace F E)) u b) :
     ContinuousWithinAt (fun b ↦ s b /ₛ t b) u b := by
-  refine .mono_of_mem_nhdsWithin ?_ <| inter_mem_nhdsWithin _ <|
-    (trivializationAt F E b).open_baseSet.mem_nhds <| mem_baseSet_trivializationAt F E b
-  refine .congr (f := fun b' ↦ (trivializationAt F E b ⟨_, s b'⟩).2 /ₛ
-    (trivializationAt F E b ⟨_, t b'⟩).2) ?_ (fun b' hb' ↦ ?_) ?_
+  have ⟨e, he, he'⟩ := IsPrincipalBundle.exists_equivariant_trivialization G F E b
+  refine .mono_of_mem_nhdsWithin ?_ <| inter_mem_nhdsWithin _ <| e.open_baseSet.mem_nhds he
+  refine .congr (f := fun b' ↦ (e ⟨_, s b'⟩).2 /ₛ
+    (e ⟨_, t b'⟩).2) ?_ (fun b' hb' ↦ ?_) ?_
   · refine .sdiv (continuous_snd.continuousAt.comp_continuousWithinAt ?_)
       (continuous_snd.continuousAt.comp_continuousWithinAt ?_)
-    · exact (trivializationAt F E b).continuousOn _ (by simp)
+    · exact e.continuousOn _ (by simp [he])
         |>.comp (hs.mono Set.inter_subset_left) fun x hx ↦ by simp [hx.2]
-    · exact (trivializationAt F E b).continuousOn _ (by simp)
+    · exact e.continuousOn _ (by simp [he])
         |>.comp (ht.mono Set.inter_subset_left) fun x hx ↦ by simp [hx.2]
-  · exact trivializationAt F E b |>.mulActionEquivAt hb'.2 |>.map_sdiv_map (s _) (t _) |>.symm
-  · exact trivializationAt F E b |>.mulActionEquivAt (by simp) |>.map_sdiv_map (s b) (t b) |>.symm
+  · exact e.mulActionEquivAt hb'.2 |>.map_sdiv_map (s _) (t _) |>.symm
+  · exact e.mulActionEquivAt (by simp [he]) |>.map_sdiv_map (s b) (t b) |>.symm
 
-omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+omit [IsTopologicalGroup G] in
 lemma _root_.ContinuousAt.section_sdiv [IsPrincipalBundle G F E] {s t : ∀ b, E b} {b : B}
     (hs : ContinuousAt (fun b ↦ (⟨b, s b⟩ : TotalSpace F E)) b)
     (ht : ContinuousAt (fun b ↦ (⟨b, t b⟩ : TotalSpace F E)) b) :
@@ -181,14 +201,14 @@ lemma _root_.ContinuousAt.section_sdiv [IsPrincipalBundle G F E] {s t : ∀ b, E
   rw [← continuousWithinAt_univ] at hs ht ⊢
   exact hs.section_sdiv ht
 
-omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+omit [IsTopologicalGroup G] in
 lemma _root_.ContinuousOn.section_sdiv [IsPrincipalBundle G F E] {s t : ∀ b, E b} {u : Set B}
     (hs : ContinuousOn (fun b ↦ (⟨b, s b⟩ : TotalSpace F E)) u)
     (ht : ContinuousOn (fun b ↦ (⟨b, t b⟩ : TotalSpace F E)) u) :
     ContinuousOn (fun b ↦ s b /ₛ t b) u :=
   fun b hb ↦ (hs b hb).section_sdiv (ht b hb)
 
-omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+omit [IsTopologicalGroup G] in
 lemma _root_.Continuous.section_sdiv [IsPrincipalBundle G F E] {s t : ∀ b, E b}
     (hs : Continuous (fun b ↦ (⟨b, s b⟩ : TotalSpace F E)))
     (ht : Continuous (fun b ↦ (⟨b, t b⟩ : TotalSpace F E))) :
@@ -215,7 +235,7 @@ namespace ContinuousBundleHom
 
 variable (F' : Type*) [TopologicalSpace F'] {B' : Type*} [TopologicalSpace B']
   (E' : B' → Type*) [∀ b, TopologicalSpace (E' b)] [TopologicalSpace (Bundle.TotalSpace F' E')]
-  [FiberBundle F' E'] (f : C(B', B))
+  (f : C(B', B))
 
 /-- For any `G`-principal bundle `E` and any other fibre bundle `E'`, `G` acts on the type
 `Cᶠ⟮F', E'; F, E⟯` of continuous fibrewise maps from `E'` to `E`.
@@ -227,7 +247,7 @@ instance [IsPrincipalBundle G F E] : SMul G Cᶠ[f]⟮F', E'; F, E⟯ where
 /-- For any `G`-principal bundle `E` over `B` and any other fibre bundle `E'`,
 `C(B', G)` acts on the type `Cᶠ[f]⟮F', E'; F, E⟯` of continuous fibrewise maps from `E'` to `E`.
 TODO: show this more generally for fibre bundles with a continuous fiberwise `G`-action. -/
-instance [IsPrincipalBundle G F E] : SMul C(B', G) Cᶠ[f]⟮F', E'; F, E⟯ where
+instance [IsFiberBundle F' E'] [IsPrincipalBundle G F E] : SMul C(B', G) Cᶠ[f]⟮F', E'; F, E⟯ where
   smul f' f'' := ⟨fun b x ↦ f' b • f'' b x,
     f'.continuous.comp (continuous_proj F' E') |>.smul f''.continuous_toFun⟩
 
@@ -238,15 +258,15 @@ TODO: show this more generally for fibre bundles with a continuous fiberwise `G`
 instance [IsPrincipalBundle G F E] : SMul C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
   smul f' f'' := ⟨fun b x ↦ f' ⟨b, x⟩ • f'' b x, f'.continuous.smul f''.continuous_toFun⟩
 
-omit [∀ b, Zero (E b)] [∀ b, IsTopologicalTorsor (E b)] in
+omit [∀ b, Zero (E b)] in
 /-- Note: this should be an `@[simps]`-lemma, but couldn't because the auto-generated name
 `smul_toFun` was already taken. -/
 @[simp]
-lemma smul_toFun' [IsPrincipalBundle G F E] (f' : C(B', G)) (f'' : Cᶠ[f]⟮F', E'; F, E⟯) (b : B') :
+lemma smul_toFun' [IsFiberBundle F' E'] [IsPrincipalBundle G F E]
+    (f' : C(B', G)) (f'' : Cᶠ[f]⟮F', E'; F, E⟯) (b : B') :
     (f' • f'') b = f' b • f'' b := rfl
 
-omit [∀ b, Zero (E b)] [∀ b, IsTopologicalTorsor (E b)] [TopologicalSpace F']
-  [∀ b, TopologicalSpace (E' b)] [FiberBundle F' E'] in
+omit [∀ b, Zero (E b)] [TopologicalSpace F'] [∀ b, TopologicalSpace (E' b)] in
 /-- Note: this should be an `@[simps]`-lemma, but couldn't because the auto-generated name
 `smul_toFun` was already taken. -/
 @[simp]
@@ -254,39 +274,39 @@ lemma smul_toFun'' [IsPrincipalBundle G F E] (f' : C(TotalSpace F' E', G))
     (f'' : Cᶠ[f]⟮F', E'; F, E⟯) (b : B') (x : E' b) :
     (f' • f'') b x = f' ⟨b, x⟩ • f'' b x := rfl
 
-instance [IsPrincipalBundle G F E] : IsScalarTower G C(B', G) Cᶠ[f]⟮F', E'; F, E⟯ where
+instance [IsFiberBundle F' E'] [IsPrincipalBundle G F E] :
+    IsScalarTower G C(B', G) Cᶠ[f]⟮F', E'; F, E⟯ where
   smul_assoc g f' f'' := by ext; simp [smul_smul]
 
 instance [IsPrincipalBundle G F E] :
     IsScalarTower G C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
   smul_assoc g f' f'' := by ext; simp [smul_smul]
 
-omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
-attribute [local fun_prop] FiberBundle.continuous_proj in
+omit [IsTopologicalGroup G] in
 attribute [local simp] Trivialization.source_eq mem_baseSet_trivializationAt in
-lemma _root_.ContinuousWithinAt.bundleHom_sdiv [IsPrincipalBundle G F E]
+lemma _root_.ContinuousWithinAt.bundleHom_sdiv [IsFiberBundle F' E'] [IsPrincipalBundle G F E]
     {g g' : ∀ b, E' b → E (f b)} {u : Set (TotalSpace F' E')} {x : TotalSpace F' E'}
     (hg : ContinuousWithinAt (TotalSpace.map F' F g) u x)
     (hg' : ContinuousWithinAt (TotalSpace.map F' F g') u x) :
     ContinuousWithinAt (fun x : TotalSpace F' E' ↦ g x.1 x.2 /ₛ g' x.1 x.2) u x := by
-  refine .mono_of_mem_nhdsWithin ?_ <| inter_mem_nhdsWithin _ <|
-    ((trivializationAt F E (f x.1)).open_baseSet.preimage (map_continuous f)
-    |>.preimage (f := π F' E') (by fun_prop)).mem_nhds <| mem_baseSet_trivializationAt F E _
-  refine .congr (f := fun x' ↦ (trivializationAt F E (f x.1) ⟨_, g x'.1 x'.2⟩).2 /ₛ
-    (trivializationAt F E (f x.1) ⟨_, g' x'.1 x'.2⟩).2) ?_ (fun x' hx' ↦ ?_) ?_
+  have ⟨e, he, he'⟩ := IsPrincipalBundle.exists_equivariant_trivialization G F E (f x.1)
+  refine .mono_of_mem_nhdsWithin ?_ <| inter_mem_nhdsWithin _ <| (e.open_baseSet.preimage
+    (map_continuous f) |>.preimage (f := π F' E') (by fun_prop)).mem_nhds he
+  refine .congr (f := fun x' ↦ (e ⟨_, g x'.1 x'.2⟩).2 /ₛ (e ⟨_, g' x'.1 x'.2⟩).2) ?_
+    (fun x' hx' ↦ ?_) ?_
   · refine .sdiv (continuous_snd.continuousAt.comp_continuousWithinAt ?_)
       (continuous_snd.continuousAt.comp_continuousWithinAt ?_)
-    · exact (trivializationAt F E (f x.1)).continuousOn _ (by simp)
+    · exact e.continuousOn _ (by simp [he])
         |>.comp (hg.mono Set.inter_subset_left) fun x hx ↦ by simpa using hx.2
-    · exact (trivializationAt F E (f x.1)).continuousOn _ (by simp)
+    · exact e.continuousOn _ (by simp [he])
         |>.comp (hg'.mono Set.inter_subset_left) fun x hx ↦ by simpa using hx.2
-  · exact trivializationAt F E (f x.1) |>.mulActionEquivAt hx'.2
+  · exact e.mulActionEquivAt hx'.2
       |>.map_sdiv_map (g x'.1 x'.2) (g' x'.1 x'.2) |>.symm
-  · exact trivializationAt F E (f x.1) |>.mulActionEquivAt (by simp)
+  · exact e.mulActionEquivAt (by simp [he])
       |>.map_sdiv_map (g x.1 x.2) (g' x.1 x.2) |>.symm
 
-omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
-lemma _root_.ContinuousAt.bundleHom_sdiv [IsPrincipalBundle G F E]
+omit [IsTopologicalGroup G] in
+lemma _root_.ContinuousAt.bundleHom_sdiv [IsFiberBundle F' E'] [IsPrincipalBundle G F E]
     {g g' : ∀ b, E' b → E (f b)} {x : TotalSpace F' E'}
     (hg : ContinuousAt (TotalSpace.map F' F g) x)
     (hg' : ContinuousAt (TotalSpace.map F' F g') x) :
@@ -294,24 +314,25 @@ lemma _root_.ContinuousAt.bundleHom_sdiv [IsPrincipalBundle G F E]
   rw [← continuousWithinAt_univ] at hg hg' ⊢
   exact hg.bundleHom_sdiv _ _ _ hg'
 
-omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
-lemma _root_.ContinuousOn.bundleHom_sdiv [IsPrincipalBundle G F E]
+omit [IsTopologicalGroup G] in
+lemma _root_.ContinuousOn.bundleHom_sdiv [IsFiberBundle F' E'] [IsPrincipalBundle G F E]
     {g g' : ∀ b, E' b → E (f b)} {u : Set (TotalSpace F' E')}
     (hg : ContinuousOn (TotalSpace.map F' F g) u)
     (hg' : ContinuousOn (TotalSpace.map F' F g') u) :
     ContinuousOn (fun x : TotalSpace F' E' ↦ g x.1 x.2 /ₛ g' x.1 x.2) u :=
   fun b hb ↦ (hg b hb).bundleHom_sdiv _ _ _ (hg' b hb)
 
-omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
-lemma _root_.Continuous.bundleHom_sdiv [IsPrincipalBundle G F E] {g g' : ∀ b, E' b → E (f b)}
-    (hg : Continuous (TotalSpace.map F' F g))
+omit [IsTopologicalGroup G] in
+lemma _root_.Continuous.bundleHom_sdiv [IsFiberBundle F' E'] [IsPrincipalBundle G F E]
+    {g g' : ∀ b, E' b → E (f b)} (hg : Continuous (TotalSpace.map F' F g))
     (hg' : Continuous (TotalSpace.map F' F g')) :
     Continuous (fun x : TotalSpace F' E' ↦ g x.1 x.2 /ₛ g' x.1 x.2) := by
   rw [← continuousOn_univ] at hg hg' ⊢
   exact hg.bundleHom_sdiv _ _ _ hg'
 
 @[simps]
-instance [IsPrincipalBundle G F E] : SDiv C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
+instance [IsFiberBundle F' E'] [IsPrincipalBundle G F E] :
+    SDiv C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
   sdiv f' f'' := ⟨fun x ↦ f' x.1 x.2 /ₛ f'' x.1 x.2,
     f'.continuous_toFun.bundleHom_sdiv _ _ _ f''.continuous_toFun⟩
 
@@ -319,19 +340,19 @@ instance [IsPrincipalBundle G F E] : SDiv C(TotalSpace F' E', G) Cᶠ[f]⟮F', E
 `Cᶠ[f]⟮F', E'; F, E⟯` of continuous fibrewise maps from `E'` to `E` is
 a `C(TotalSpace F' E', G)`-torsor if it isn't empty.
 TODO: define a class `Pretorsor` for not necessarily empty torsors, and show that this is one? -/
-instance [IsPrincipalBundle G F E] [Nonempty Cᶠ[f]⟮F', E'; F, E⟯] :
+instance [IsFiberBundle F' E'] [IsPrincipalBundle G F E] [Nonempty Cᶠ[f]⟮F', E'; F, E⟯] :
     Torsor C(TotalSpace F' E', G) Cᶠ[f]⟮F', E'; F, E⟯ where
   mul_smul f f' s := by ext; simp [smul_smul]
   one_smul s := by ext; simp
   sdiv_smul' s t := by ext; simp
   smul_sdiv' f s := by ext; simp
 
-attribute [local simp] FiberBundle.mem_baseSet_trivializationAt in
 /-- Every morphism of `G`-principal bundles whose underlying map is a homeomorphism is an
 isomorphism. -/
 noncomputable def _root_.ContinuousBundleActionHom.toContinuousBundleActionEquiv
-    [IsPrincipalBundle G F E] [Torsor G F'] [∀ b, Torsor G (E' b)] [IsTopologicalTorsor F']
-    [IsPrincipalBundle G F' E'] (e : B ≃ₜ B') (f : Cᶠₑ[Equiv.refl G, e]⟮F, E; F', E'⟯) :
+    [IsPrincipalBundle G F E] [Torsor G F'] [IsTopologicalTorsor F'] [∀ b, Torsor G (E' b)]
+    [∀ b, IsTopologicalTorsor (E' b)] [IsPrincipalBundle G F' E']
+    (e : B ≃ₜ B') (f : Cᶠₑ[Equiv.refl G, e]⟮F, E; F', E'⟯) :
     E ≃ₜᶠₑ[Equiv.refl G, e; F, F'] E' where
   toContinuousBundleActionHom := f
   invFun b x := (f.continuousMulActionHomAt (e.symm b)).toMulActionHom.toEquiv.symm <|
@@ -341,16 +362,17 @@ noncomputable def _root_.ContinuousBundleActionHom.toContinuousBundleActionEquiv
     erw [← Equiv.apply_congrArg (by simp)]
     exact (f.continuousMulActionHomAt _).toMulActionHom.toEquiv.symm_apply_apply _
   continuous_invFun := by
+    choose e' he' he'' using IsPrincipalBundle.exists_equivariant_trivialization G F E
     suffices h : ∀ b, ContinuousOn (TotalSpace.map F' F fun b x ↦
         (f.continuousMulActionHomAt (e.symm b)).toEquiv.symm <| (Equiv.congrArg E' (by simp)) x)
-          (π F' E' ⁻¹' e.symm ⁻¹' (trivializationAt F E b).baseSet) from
+          (π F' E' ⁻¹' e.symm ⁻¹' (e' b).baseSet) from
       continuous_iff_continuousAt.2 fun x ↦ (h (e.symm x.proj)).continuousAt <| IsOpen.mem_nhds
         (.preimage (by fun_prop) <| .preimage (by fun_prop) <| Trivialization.open_baseSet _)
-          (by simp)
+          (by simp [he'])
     intro b
-    let s (b' : B) : E b' := (trivializationAt F E b).symm b' (Classical.arbitrary _)
-    have hs : ContinuousOn (fun b ↦ (s b : TotalSpace F E)) (trivializationAt F E b).baseSet :=
-      (trivializationAt F E b).continuousOn_symm.comp (f := fun b ↦ (b, Classical.arbitrary _))
+    let s (b' : B) : E b' := (e' b).symm b' (Classical.arbitrary _)
+    have hs : ContinuousOn (fun b ↦ (s b : TotalSpace F E)) (e' b).baseSet :=
+      (e' b).continuousOn_symm.comp (f := fun b ↦ (b, Classical.arbitrary _))
         (by fun_prop) fun b hb ↦ by simp [hb]
     refine .congr (f := fun x ↦ (x.snd /ₛ Equiv.congrArg _ (by simp) (f _ <| s (e.symm x.1)))
       • s (e.symm x.1)) ?_ fun x hx ↦ ?_
@@ -380,14 +402,13 @@ isomorphism. -/
 @[simps apply symm_apply]
 noncomputable def _root_.ContinuousBundleActionHom.equivContinuousBundleActionEquiv
     [IsPrincipalBundle G F E] [Torsor G F'] [∀ b, Torsor G (E' b)] [IsTopologicalTorsor F']
-    [IsPrincipalBundle G F' E'] (e : B ≃ₜ B') :
+    [∀ b, IsTopologicalTorsor (E' b)] [IsPrincipalBundle G F' E'] (e : B ≃ₜ B') :
     Cᶠₑ[Equiv.refl G, e]⟮F, E; F', E'⟯ ≃ (E ≃ₜᶠₑ[Equiv.refl G, e; F, F'] E') where
   toFun f := f.toContinuousBundleActionEquiv
   invFun e := e.toContinuousBundleActionHom
 
 end ContinuousBundleHom
 
-omit [∀ (b : B), IsTopologicalTorsor (E b)] in
 /-- For a principal bundle `E`, the following are equivalent:
 * `E` is trivial as a fibre bundle, i.e. it admits a global not necessarily equivariant
   trivialisation
@@ -437,14 +458,11 @@ lemma IsPrincipalBundle.isTrivial_tfae [IsPrincipalBundle G F E] :
   tfae_have 3 → 1 := fun ⟨e, he⟩ ↦ (isTrivial_iff_exists_trivialization _ _).2 ⟨e, he.2⟩
   tfae_finish
 
-omit [∀ (b : B), IsTopologicalTorsor (E b)] in
 /-- A principal bundle is trivial if and only if it admits a continuous global section. -/
 lemma Bundle.isTrivial_iff_nonempty_continuousSection [IsPrincipalBundle G F E] :
     IsTrivial F E ↔ Nonempty Cₛ⟮F, E⟯ :=
   IsPrincipalBundle.isTrivial_tfae.out 0 3
 
-omit [∀ (b : B), IsTopologicalTorsor (E b)] in
-attribute [local fun_prop] FiberBundle.continuous_proj in
 /-- A `G`-principal bundle is trivial on an open set `u` if and only if it admits a `G`-equivariant
 trivialisation on `u`. -/
 lemma isTrivialOn_iff_exists_equivariant_trivialization [IsPrincipalBundle G F E]
@@ -488,7 +506,7 @@ instance Bundle.Trivialization.IsEquivariant.trivial :
     (Trivial.trivialization B F).IsEquivariant G :=
   (Trivialization.isEquivariant_iff' _).2 (by simp)
 
-instance IsPrincipalBundle.trivial : IsPrincipalBundle G F (Trivial B F) where
+instance PrincipalBundle.trivial : PrincipalBundle G F (Trivial B F) where
   trivialization_equivariant e _ := by
     rw [Trivial.eq_trivialization B F e]
     infer_instance
@@ -512,8 +530,16 @@ instance {B' : Type*} {f : B' → B} {b' : B'} [IsTopologicalTorsor (E (f b'))] 
 
 /-- Pullbacks of `G`-principal bundles along continuous maps are `G`-principal bundles. -/
 instance IsPrincipalBundle.pullback [IsPrincipalBundle G F E] {B' : Type*} [TopologicalSpace B']
+    {f : C(B', B)} : IsPrincipalBundle G F (f *ᵖ E) where
+  exists_equivariant_trivialization' b := by
+    have ⟨e, he, he'⟩ := exists_equivariant_trivialization G F E (f b)
+    refine ⟨_, he, he'.pullback⟩
+
+/-- Pullbacks of `G`-principal bundles along continuous maps are `G`-principal bundles. -/
+instance PrincipalBundle.pullback [FiberBundle F E] [PrincipalBundle G F E]
+    {B' : Type*} [TopologicalSpace B']
     {K : Type*} [FunLike K B' B] [ContinuousMapClass K B' B] {f : K} :
-    IsPrincipalBundle G F (f *ᵖ E) where
+    PrincipalBundle G F (f *ᵖ E) where
   trivialization_equivariant e he := by
     obtain ⟨⟨e, he, rfl⟩⟩ := he
     exact (trivialization_equivariant e).pullback
@@ -524,8 +550,9 @@ instance IsPrincipalBundle.pullback [IsPrincipalBundle G F E] {B' : Type*} [Topo
 
 TODO: rename, get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
 lemma IsPrincipalBundle.coveringHomotopyLemma (E : B × I → Type*)
-    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [FiberBundle F E]
-    [∀ b, Zero (E b)] [NumerableBundle F E] [∀ b, Torsor G (E b)] [IsPrincipalBundle G F E] :
+    [TopologicalSpace (TotalSpace F E)] [∀ b, TopologicalSpace (E b)] [∀ b, Zero (E b)]
+    [NumerableBundle F E] [∀ b, Torsor G (E b)] [∀ b, IsTopologicalTorsor (E b)]
+    [IsPrincipalBundle G F E] :
     Nonempty (E ≃ₜᶠₑ[G; F, F] (ContinuousMap.prodMap (.id B) (.const I 1)) *ᵖ E) := by
   have ⟨u, hu⟩ := NumerableBundle.exists_countable_isTrivialOn_cover_prod_unitInterval F E
   choose e he he' using fun n ↦ (isTrivialOn_iff_exists_equivariant_trivialization
@@ -535,12 +562,11 @@ lemma IsPrincipalBundle.coveringHomotopyLemma (E : B × I → Type*)
       simp [(e n).map_smul hx, (e m).symm_map_smul hx']
   exact ⟨⟨e, fun g x ↦ he x g⟩⟩
 
-omit [∀ (b : B), IsTopologicalTorsor (E b)] in
 /-- Pullbacks of a numerable principal bundle along homotopic maps are isomorphic.
 
 TODO: get rid of unnecessary `[(b : B) → Zero (E b)]`-assumption -/
 lemma IsPrincipalBundle.pullbackIsoPullback {B' : Type*} [TopologicalSpace B']
-    [NumerableBundle F E] [IsPrincipalBundle G F E] {f₁ f₂ : C(B', B)}
+    [IsPrincipalBundle G F E] [NumerableBundle F E] {f₁ f₂ : C(B', B)}
     (h : f₁.Homotopic f₂) : Nonempty (f₁ *ᵖ E ≃ₜᶠₑ[G; F, F] f₂ *ᵖ E) := by
   obtain ⟨H⟩ := h
   replace ⟨H, hH₁, hH₂⟩ :
@@ -558,13 +584,14 @@ lemma IsPrincipalBundle.pullbackIsoPullback {B' : Type*} [TopologicalSpace B']
 
 variable {F' : Type*} [TopologicalSpace F'] {B' : Type*} [TopologicalSpace B']
   {E' : B' → Type*} [∀ b, TopologicalSpace (E' b)] [TopologicalSpace (Bundle.TotalSpace F' E')]
-  [FiberBundle F' E'] (f : C(B', B)) in
+  (f : C(B', B)) in
 /-- Morphisms of principal bundles correspond to isomorphisms into pullbacks along the underlying
 map. -/
 @[simps! apply symm_apply]
 noncomputable def ContinuousBundleActionHom.pullbackEquivIso [IsPrincipalBundle G F E]
-    [Torsor G F'] [∀ b, Torsor G (E' b)] [IsTopologicalTorsor F'] [IsPrincipalBundle G F' E']
-    (f : C(B, B')) : Cᶠₑ[Equiv.refl G, f]⟮F, E; F', E'⟯ ≃ (E ≃ₜᶠₑ[G; F, F'] f *ᵖ E') :=
+    [Torsor G F'] [∀ b, Torsor G (E' b)] [IsTopologicalTorsor F'] [∀ b, IsTopologicalTorsor (E' b)]
+    [IsPrincipalBundle G F' E'] (f : C(B, B')) :
+    Cᶠₑ[Equiv.refl G, f]⟮F, E; F', E'⟯ ≃ (E ≃ₜᶠₑ[G; F, F'] f *ᵖ E') :=
   ContinuousBundleActionHom.pullbackEquiv.trans <| by
     haveI _ b : Zero (E' b) := ⟨Classical.arbitrary _⟩
     exact ContinuousBundleActionHom.equivContinuousBundleActionEquiv

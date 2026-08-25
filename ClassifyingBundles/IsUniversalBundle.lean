@@ -24,11 +24,11 @@ universe u
 variable (G : Type u) [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
   (F : Type u) [TopologicalSpace F] {B : Type u} [TopologicalSpace B]
   (E : B → Type u) [∀ b, TopologicalSpace (E b)] [TopologicalSpace (Bundle.TotalSpace F E)]
-  [FiberBundle F E] [Torsor G F] [IsTopologicalTorsor F]
+  [Torsor G F] [IsTopologicalTorsor F]
   [∀ b, Torsor G (E b)] [∀ b, IsTopologicalTorsor (E b)]
   {B' : Type u} [TopologicalSpace B']
   (E' : B' → Type u) [∀ b, TopologicalSpace (E' b)] [TopologicalSpace (Bundle.TotalSpace F E')]
-  [FiberBundle F E'] [∀ b, Torsor G (E' b)] [∀ b, IsTopologicalTorsor (E' b)]
+  [∀ b, Torsor G (E' b)] [∀ b, IsTopologicalTorsor (E' b)]
 
 /-- We say that a `G`-principal bundle `E` is universal if every other numerable
 `G`-principal bundle is isomorphic to a pullback of `E`, and any two maps into the base space `B`
@@ -47,7 +47,7 @@ class IsUniversalBundle : Prop extends IsPrincipalBundle G F E, NumerableBundle 
   `E'` in the sense that `E'` is isomorphic to `f *ᵖ E`. -/
   exists_classifyingMap : ∀ (B' : Type u) [TopologicalSpace B'] (E' : B' → Type u)
     [∀ b, TopologicalSpace (E' b)] [TopologicalSpace (Bundle.TotalSpace F E')]
-    [FiberBundle F E'] [NumerableBundle F E'] [∀ b, Torsor G (E' b)]
+    [IsFiberBundle F E'] [NumerableBundle F E'] [∀ b, Torsor G (E' b)]
     [∀ b, IsTopologicalTorsor (E' b)] [IsPrincipalBundle G F E'],
     ∃ f : C(B', B), Nonempty (E' ≃ₜᶠₑ[G; F, F] f *ᵖ E)
   /-- Any two maps into `B` are homotopic if the pullbacks of `E` along them are isomorphic. -/
@@ -72,7 +72,7 @@ noncomputable def isoPullbackClassifyingMap [IsUniversalBundle G F E]
     E' ≃ₜᶠₑ[G; F, F] (classifyingMap G F E E') *ᵖ E :=
   (IsUniversalBundle.exists_classifyingMap (G := G) (F := F) (E := E) B' E').choose_spec.some
 
-omit [IsTopologicalGroup G] [IsTopologicalTorsor F] [∀ b, IsTopologicalTorsor (E b)] in
+omit [IsTopologicalGroup G] in
 /-- TODO: get rid of unnecessary `[∀ b, Zero (E b)]` assumptions -/
 lemma classifyingMap_pullback_homotopic_comp [IsUniversalBundle G F E] [∀ b, Zero (E b)]
     [IsPrincipalBundle G F E'] [NumerableBundle F E'] [∀ b, Zero (E' b)]
@@ -104,6 +104,8 @@ noncomputable def homotopyEquiv [IsUniversalBundle G F E] [IsUniversalBundle G F
         (classifyingMap G F E' E) _ (by simp)) ?_
     have _ b : Zero (E' b) := ⟨Classical.arbitrary _⟩
     refine (isoPullbackClassifyingMap G F E' E).symm.trans (φ₂ := .refl _) (e₂ := .refl _) ?_
+    have : IsFiberBundle F (⇑(Homeomorph.refl B) *ᵖ E) :=
+      IsFiberBundle.instPullbackCoeContinuousMap F E (f := toContinuousMap (Homeomorph.refl B))
     exact .symm <| .pullbackHomeomorph (.refl _)
   right_inv := by
     apply homotopic_of_iso (G := G) (F := F) (E := E')
@@ -117,19 +119,21 @@ noncomputable def homotopyEquiv [IsUniversalBundle G F E] [IsUniversalBundle G F
         (classifyingMap G F E E') _ (by simp)) ?_
     have _ b : Zero (E b) := ⟨Classical.arbitrary _⟩
     refine (isoPullbackClassifyingMap G F E E').symm.trans (φ₂ := .refl _) (e₂ := .refl _) ?_
+    have : IsFiberBundle F (⇑(Homeomorph.refl B') *ᵖ E') :=
+      IsFiberBundle.instPullbackCoeContinuousMap F E' (f := toContinuousMap (Homeomorph.refl B'))
     exact .symm <| .pullbackHomeomorph (.refl _)
 
-omit [IsTopologicalGroup G] [IsTopologicalTorsor F] in
+omit [IsTopologicalGroup G] in
 @[simp]
 lemma coe_homotopyEquiv [IsUniversalBundle G F E] [IsUniversalBundle G F E'] :
     ⇑(homotopyEquiv G F E E') = classifyingMap G F E' E := rfl
 
-omit [IsTopologicalGroup G] [IsTopologicalTorsor F] in
+omit [IsTopologicalGroup G] in
 @[simp]
 lemma coe_homotopyEquiv_symm [IsUniversalBundle G F E] [IsUniversalBundle G F E'] :
     ⇑(homotopyEquiv G F E E').symm = classifyingMap G F E E' := rfl
 
-omit [IsTopologicalGroup G] [∀ b, IsTopologicalTorsor (E b)] in
+omit [IsTopologicalGroup G] in
 /-- The base space of any universal bundle is nonempty.
 
 This is can not be made into an instance because `Nonempty B` does not
