@@ -64,6 +64,13 @@ lemma isFiberBundle_iff {F : Type*} [TopologicalSpace F] {f : E → B} :
   have ⟨e, he⟩ := hf.exists_trivialization _ _ b
   exact ⟨e.compHomeomorph (totalSpaceHomeomorph F f).symm, he⟩
 
+omit [TopologicalSpace B] [TopologicalSpace E] in
+lemma nonempty {f : E → B} {b : B} (hb : b ∈ range f) : Nonempty (OfMap f b) :=
+  ⟨hb.choose, hb.choose_spec⟩
+
+instance {X : Type*} {s : Setoid X} {b} : Nonempty (OfMap (Quotient.mk s) b) :=
+  nonempty (by simp)
+
 end OfMap
 
 end Bundle

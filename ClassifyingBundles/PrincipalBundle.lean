@@ -6,6 +6,7 @@ Authors: Ben Eltschig
 import ClassifyingBundles.ContinuousBundleActionHom
 import ClassifyingBundles.LocallyTrivialSMul
 import ClassifyingBundles.NumerableBundle
+import ClassifyingBundles.OfMap
 
 /-! # `G`-principal bundles
 
@@ -21,6 +22,19 @@ type-theoretical difficulties that come from restricting a global `G`-action to 
 we instead start with a bundle `E : B → Type*` whose fibers `E b` are `G`-torsors and assemble a
 `G`-action on the total space from that. Hence, for our purposes a `G`-principal bundle is a
 bundle of `G`-torsors equipped with a bundle atlas with `G`-equivariant changes of charts.
+
+## Main definitions & results
+* `IsPrincipalBundle G F E`: typeclass stating that `E` is a principal bundle in the sense that
+  it fulfills `IsFiberBundle F E` and admits equivariant
+* `PrincipalBundle G F E`: typeclass stating that a given bundle atlas `FiberBundle F E` makes
+  `E` into a principal bundle in the sense that all trivializations in it are equivariant
+* for every `G`-principal bundle `E`, the action of `G` on `TotalSpace F E` is locally trivial
+  (hence in particular free and continuous)
+* for every `G`-principal bundle `E`, the space `Cₛ⟮F, E⟯` of continuous sections is a
+  `C(B, G)`-torsor or empty
+* trivial bundles and pullbacks of `G`-principal bundles are `G`-principal bundles
+* for every locally trivial `G`-space `X`, `OfMap (Quotient.mk (MulAction.orbitRel G X))` is a
+  `G`-principal bundle
 -/
 
 open Bundle IsFiberBundle unitInterval
@@ -80,6 +94,12 @@ lemma Bundle.Trivialization.symm_map_smul (e : Trivialization F (π F E))
     {g : G} {x : F} : e.symm b (g • x) = g • e.symm b x :=
   (e.mulActionEquivAt hb).symm.map_smul g x
 
+omit [TopologicalSpace G] [IsTopologicalGroup G] [(b : B) → TopologicalSpace (E b)] in
+lemma Bundle.Trivialization.map_sdiv_map (e : Trivialization F (π F E))
+    [Torsor G F] [∀ b, Torsor G (E b)] [e.IsEquivariant G] {b : B} (hb : b ∈ e.baseSet)
+    {x x' : E b} : (e x).2 /ₛ (e x').2 = x /ₛ x' :=
+  (e.mulActionEquivAt hb).map_sdiv_map x x'
+
 open Classical in
 /-- The coordinate change function between two trivialisations, as an equivariant automorphism of
 the model fiber `F`. Defined to be the identity when `b` does not lie in both trivializations. -/
@@ -131,6 +151,14 @@ variable [Torsor G F] [IsTopologicalTorsor F] [∀ b, Torsor G (E b)] [∀ b, Is
 instance PrincipalBundle.isPrincipalBundle [FiberBundle F E] [PrincipalBundle G F E] :
     IsPrincipalBundle G F E where
   exists_equivariant_trivialization' b := ⟨_, mem_baseSet_trivializationAt F E b, inferInstance⟩
+
+omit [IsTopologicalGroup G] [∀ b, Zero (E b)] in
+lemma IsPrincipalBundle.mk' (h : ∀ b, Topology.IsInducing (@TotalSpace.mk B F E b))
+    (h' : ∀ b, ∃ e : Trivialization F (π F E), b ∈ e.baseSet ∧ e.IsEquivariant G) :
+    IsPrincipalBundle G F E where
+  totalSpaceMk_isInducing' := h
+  exists_trivialization' b := by grind [h' b]
+  exists_equivariant_trivialization' := h'
 
 variable (G F E) in
 omit [IsTopologicalGroup G] [∀ b, Zero (E b)] in
@@ -598,3 +626,71 @@ noncomputable def ContinuousBundleActionHom.pullbackEquivIso [IsPrincipalBundle 
       F' (f *ᵖ E') (Homeomorph.refl B)
 
 end Pullback
+
+section OfMap
+
+/-- The orbits of any `G`-action are themselves each acted on by `G`. -/
+instance {X : Type*} [MulAction G X] {b} :
+    MulAction G (OfMap (Quotient.mk (MulAction.orbitRel G X)) b) where
+  smul g x := ⟨g • x.1, by simpa [-Subtype.coe_prop] using x.2⟩
+  mul_smul g g' x := Subtype.ext <| mul_smul _ _ _
+  one_smul x := Subtype.ext <| one_smul _ _
+
+omit [TopologicalSpace G] [IsTopologicalGroup G] in
+@[simp]
+lemma Bundle.OfMap.totalSpaceHomeomorph_smul {X : Type*} [TopologicalSpace X] [MulAction G X]
+    {g : G} {x} : totalSpaceHomeomorph G (Quotient.mk (MulAction.orbitRel G X)) (g • x) =
+      g • totalSpaceHomeomorph G (Quotient.mk (MulAction.orbitRel G X)) x :=
+  rfl
+
+instance {X : Type*} [TopologicalSpace X] [MulAction G X] [ContinuousSMul G X] {b} :
+    ContinuousSMul G (OfMap (Quotient.mk (MulAction.orbitRel G X)) b) where
+  continuous_smul := .subtype_mk (by fun_prop) _
+
+/-- The orbits of any free `G`-action are `G`-torsors. -/
+noncomputable instance {X : Type*} [MulAction G X] [IsCancelSMul G X] {b} :
+    Torsor G (OfMap (Quotient.mk (MulAction.orbitRel G X)) b) where
+  sdiv x x' := Exists.choose <|
+    Quotient.exact (s := MulAction.orbitRel G X) (a := x.1) (b := x'.1) (by grind)
+  sdiv_smul' x x' := Subtype.ext <| Exists.choose_spec <|
+    Quotient.exact (s := MulAction.orbitRel G X) (a := x.1) (b := x'.1) (by grind)
+  smul_sdiv' g x := IsCancelSMul.right_cancel _ _ x.1 <|
+    Exists.choose_spec (p := fun g' : G ↦ g' • x.1 = (g • x).1) ⟨g, rfl⟩
+
+variable {X : Type*} [TopologicalSpace X] [MulAction G X] [LocallyTrivialSMul G X]
+
+instance {b} : IsTopologicalTorsor (OfMap (Quotient.mk (MulAction.orbitRel G X)) b) where
+  continuous_sdiv := by
+    have ⟨e, he, he'⟩ : ∃ e : Trivialization G (π G (OfMap (Quotient.mk (MulAction.orbitRel G X)))),
+        b ∈ e.baseSet ∧ e.IsEquivariant G := by
+      have ⟨e, he, he'⟩ := LocallyTrivialSMul.exists_equivariant_trivialization (G := G) (X := X) b
+      rw [show π G _ = Quotient.mk _ ∘ (OfMap.totalSpaceHomeomorph G _) by
+        ext x; simp [OfMap.totalSpaceHomeomorph_apply, show ⟦x.snd.1⟧ = x.proj from x.snd.2]]
+      refine ⟨e.compHomeomorph _, he, he'.compHomeomorph _ fun g x ↦ ?_⟩
+      simp only [OfMap.totalSpaceHomeomorph_apply, smul_proj, smul_snd]
+      rfl
+    refine .congr (f := fun x ↦ (e x.1).2 / (e x.2).2) ?_ fun x ↦ ?_
+    · suffices h : Continuous fun x : OfMap (Quotient.mk (MulAction.orbitRel G X)) b ↦ e x from
+        (continuous_snd.comp <| h.comp continuous_fst).div'
+          (continuous_snd.comp <| h.comp continuous_snd)
+      refine e.continuousOn.comp_continuous ?_ (by simp [e.source_eq, he])
+      exact (OfMap.totalSpaceHomeomorph _ _).comp_continuous_iff.1 continuous_subtype_val
+    · rw [Eq.comm, ← eq_smul_iff_sdiv_eq]
+      refine Subtype.ext ?_
+      change _ = _ • x.2.1
+      rw [← sdiv_eq_div]
+      have _ b : Zero (OfMap (Quotient.mk (MulAction.orbitRel G X)) b) := ⟨Classical.arbitrary _⟩
+      rw [e.map_sdiv_map (x := x.1) (x' := x.2) he]
+      exact congrArg Subtype.val <| (sdiv_smul x.1 x.2).symm
+
+instance : IsPrincipalBundle G G (OfMap (Quotient.mk (MulAction.orbitRel G X))) := by
+  refine .mk' (fun b ↦ ?_) fun b ↦ ?_
+  · exact (OfMap.totalSpaceHomeomorph _ _).isInducing.of_comp_iff.1 .subtypeVal
+  · have ⟨e, he, he'⟩ := LocallyTrivialSMul.exists_equivariant_trivialization (G := G) (X := X) b
+    rw [show π G _ = Quotient.mk _ ∘ (OfMap.totalSpaceHomeomorph G _) by
+      ext x; simp [OfMap.totalSpaceHomeomorph_apply, show ⟦x.snd.1⟧ = x.proj from x.snd.2]]
+    refine ⟨e.compHomeomorph _, he, he'.compHomeomorph _ fun g x ↦ ?_⟩
+    simp only [OfMap.totalSpaceHomeomorph_apply, smul_proj, smul_snd]
+    rfl
+
+end OfMap

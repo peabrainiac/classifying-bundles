@@ -177,6 +177,15 @@ lemma Bundle.Trivialization.IsEquivariant.transFiberHomeomorph {e : Trivializati
   smul_mem_source := IsEquivariant.smul_mem_source (e := e)
   map_smul hx := by simp [IsEquivariant.map_smul (e := e) hx, h]
 
+lemma Bundle.Trivialization.IsEquivariant.compHomeomorph {e : Trivialization F proj}
+    (he : e.IsEquivariant G) {Z' : Type*} [TopologicalSpace Z'] [SMul G Z'] {e' : Z' ≃ₜ Z}
+    (he' : ∀ (g : G) x, e' (g • x) = g • e' x) :
+    (e.compHomeomorph e').IsEquivariant G where
+  smul_mem_source {g x} hx := by
+    simpa [Trivialization.compHomeomorph, he'] using he.smul_mem_source (g := g) (x := e' x) hx
+  map_smul {g x} hx := by
+    simp [Trivialization.compHomeomorph, ← he.map_smul (g := g) (x := e' x) hx, he']
+
 lemma Bundle.Trivialization.IsEquivariant.homeomorphComp {e : Trivialization F proj}
     (he : e.IsEquivariant G) {B' : Type*} [TopologicalSpace B'] {e' : B ≃ₜ B'} :
     (e.homeomorphComp e').IsEquivariant G where
