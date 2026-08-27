@@ -273,11 +273,13 @@ lemma _root_.Option.isOpenEmbedding_some_excludedPointTopology' :
 lemma _root_.Option.some_preimage_none {X : Type*} : (some ⁻¹' {none} : Set X) = ∅ :=
   (Set.preimage_singleton_eq_empty (f := Option.some) (y := none)).2 <| by simp
 
+lemma _root_.Option.isClosed_none_excludedPointTopology' : IsClosed ({none} : Set (Option X)) := by
+  simp [← isOpen_compl_iff, Option.isOpen_excludedPointTopology'_iff]
+
 lemma _root_.Option.continuous_excludedPointTopology'_iff {f : Y → Option X} :
     Continuous f ↔ IsOpen (Set.preimage f {none}ᶜ) ∧ ContinuousOn f (Set.preimage f {none}ᶜ) := by
   refine ⟨fun h ↦ ⟨?_, h.continuousOn⟩, fun ⟨h, h'⟩ ↦ ?_⟩
-  · refine IsOpen.preimage h ?_
-    simp [-isOpen_compl_iff, Option.isOpen_excludedPointTopology'_iff]
+  · exact Option.isClosed_none_excludedPointTopology'.isOpen_compl.preimage h
   · refine ⟨fun u hu ↦ ?_⟩
     by_cases h'' : none ∈ u
     · simp [hu.2 h'']

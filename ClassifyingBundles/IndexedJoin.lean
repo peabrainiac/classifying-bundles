@@ -288,6 +288,184 @@ lemma _root_.Homeomorph.ijoinCongr_symm_apply_points {ι' : Type*} {X' : ι' →
   rw [Homeomorph.symm_apply_apply]
   simp
 
+section ConvexComb
+
+lemma _root_.Finsupp.sum_eq_zero_iff_of_nonneg {α M N : Type*} [Zero M] [AddCommMonoid N]
+    [PartialOrder N] [IsOrderedCancelAddMonoid N] {f : α →₀ M} {g : α → M → N}
+    (hg : ∀ a ∈ f.support, 0 ≤ g a (f a)) :
+    f.sum g = 0 ↔ ∀ a ∈ f.support, g a (f a) = 0 :=
+  Finset.sum_eq_zero_iff_of_nonneg hg
+
+lemma _root_.Finsupp.mapDomain_support_of_nonneg {α β M : Type*} [DecidableEq β] [AddCommMonoid M]
+    [PartialOrder M] [IsOrderedCancelAddMonoid M] {f : α → β} {s : α →₀ M} (hs : ∀ a, 0 ≤ s a) :
+    (s.mapDomain f).support = Finset.image f s.support := by
+  ext a
+  rw [← not_iff_not, Finsupp.notMem_support_iff, Finsupp.mapDomain, Finsupp.sum_apply,
+    Finsupp.sum_eq_zero_iff_of_nonneg fun a' _ ↦ by
+      simp [Finsupp.single_apply, ite_nonneg (hs a') le_rfl]]
+  grind
+
+lemma _root_.Convexity.StdSimplex.weights_pos_iff {R : Type*} [Semiring R] [PartialOrder R]
+    [IsOrderedRing R] {x : StdSimplex R ι} {i : ι} :
+    0 < x.weights i ↔ x.weights i ≠ 0 :=
+  (x.nonneg i).lt_iff_ne'
+
+lemma _root_.Convexity.StdSimplex.weights_sConvexComb_support [DecidableEq ι]
+    {R : Type*} [Semiring R] [PartialOrder R] [IsStrictOrderedRing R] [NoZeroDivisors R]
+    {f : StdSimplex R (StdSimplex R ι)} :
+    (Convexity.sConvexComb f).weights.support =
+      f.weights.support.biUnion fun f' ↦ f'.weights.support := by
+  ext i
+  rw [← not_iff_not, StdSimplex.weights_sConvexComb, Finsupp.notMem_support_iff, Finsupp.sum_apply,
+    Finsupp.sum_eq_zero_iff_of_nonneg fun f' ↦ by simp [mul_nonneg (f.nonneg f') (f'.nonneg i)]]
+  simp only [Finset.mem_biUnion, not_exists, not_and, Finsupp.mem_support_iff]
+  exact forall₂_congr fun f' hf' ↦ by simp [hf']
+
+lemma _root_.Convexity.StdSimplex.weights_map_support {R : Type*} [PartialOrder R] [Semiring R]
+    [IsStrictOrderedRing R] {M N : Type*} [DecidableEq N] {g : M → N} {f : StdSimplex R M} :
+    (StdSimplex.map g f).weights.support = Finset.image g f.weights.support := by
+  rw [StdSimplex.weights_map, Finsupp.mapDomain_support_of_nonneg fun i ↦ f.nonneg i]
+
+lemma _root_.Convexity.StdSimplex.weights_duple_support {R : Type*} [PartialOrder R] [Semiring R]
+    {M : Type*} [DecidableEq M] [IsStrictOrderedRing R]
+    {x y : M} {s t : R} (hs : 0 ≤ s) (ht : 0 ≤ t) (h : s + t = 1) :
+    (StdSimplex.duple x y hs ht h).weights.support ⊆ {x, y} :=
+  Finsupp.support_add.trans <| by grind
+
+/-- Take a convex combination of finitely many points in `IJoin X`, provided that for any two
+points `x`, `x'` among them `x.points` and `x'.points` agree where both are defined.
+
+Notably, restriction means that `IJoin X` is not a `ConvexSpace` in the sense of the convexity API -
+we nonetheless try to keep the API here similar to the convexity API. -/
+@[simps! toStdSimplex]
+noncomputable def sConvexComb [DecidableEq ι] (f : StdSimplex ℝ (IJoin X))
+    (_hf : ∀ x ∈ f.weights.support, ∀ x' ∈ f.weights.support,
+      ∀ i ∈ (x.weights.support ∩ x'.weights.support), x.points i = x'.points i) : IJoin X where
+  toStdSimplex := iConvexComb f (fun x ↦ x.toStdSimplex)
+  points i :=
+    if h : ∃ x ∈ f.weights.support, i ∈ x.weights.support then h.choose.points i else none
+  points_eq_none_iff {i} := by
+    classical
+    rw [← Finsupp.notMem_support_iff, iConvexComb, StdSimplex.weights_sConvexComb_support,
+      Finset.mem_biUnion, StdSimplex.weights_map_support]
+    simp [points_eq_none_iff, show ∀ (h : ∃ a, (fun x ↦ ¬f.weights x = 0 ∧ ¬x.weights i = 0) a),
+      h.choose.weights i ≠ 0 from fun h ↦ h.choose_spec.2]
+
+omit [∀ i, TopologicalSpace (X i)] in
+lemma sConvexComb_points_apply [DecidableEq ι] (f : StdSimplex ℝ (IJoin X))
+    (hf : ∀ x ∈ f.weights.support, ∀ x' ∈ f.weights.support,
+      ∀ i ∈ (x.weights.support ∩ x'.weights.support), x.points i = x'.points i)
+    {x : IJoin X} (hx : x ∈ f.weights.support) {i : ι} (hi : i ∈ x.weights.support) :
+    (sConvexComb f hf).points i = x.points i := by
+  dsimp [sConvexComb]
+  have h : ∃ x ∈ f.weights.support, i ∈ x.weights.support := ⟨x, hx, hi⟩
+  rw [dif_pos h]
+  exact hf _ h.choose_spec.1 x hx _ <| Finset.mem_inter_of_mem h.choose_spec.2 hi
+
+/-- Take a convex combination of two points `x`, `x'` in `IJoin X`, provided that
+`x.points` and `x'.points` agree where both are defined. -/
+noncomputable def convexCombPair [DecidableEq ι] (x x' : IJoin X) (t : unitInterval)
+    (h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i) : IJoin X :=
+  sConvexComb (.duple x x' (unitInterval.symm t).2.1 t.2.1 (by simp)) <| by
+    intro x'' hx'' x''' hx'''
+    classical
+    replace hx'' : x'' = x ∨ x'' = x' := by simpa using StdSimplex.weights_duple_support _ _ _ hx''
+    replace hx''' : x''' = x ∨ x''' = x' := by
+      simpa using StdSimplex.weights_duple_support _ _ _ hx'''
+    grind
+
+omit [∀ i, TopologicalSpace (X i)] in
+@[simp]
+lemma convexCombPair_toStdSimplex [DecidableEq ι] {x x' : IJoin X} {t : unitInterval}
+    {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} :
+    (convexCombPair x x' t h).toStdSimplex =
+      Convexity.convexCombPair _ _ (unitInterval.symm t).2.1 t.2.1 (by simp)
+        x.toStdSimplex x'.toStdSimplex := by
+  simp [convexCombPair, iConvexComb, Convexity.convexCombPair]
+
+omit [∀ i, TopologicalSpace (X i)] in
+lemma convexCombPair_points_apply_left [DecidableEq ι] {x x' : IJoin X} {t : unitInterval}
+    {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} (ht : t ≠ 1)
+    {i : ι} (hi : i ∈ x.weights.support) : (convexCombPair x x' t h).points i = x.points i := by
+  refine sConvexComb_points_apply _ _ ?_ hi
+  classical
+  simp only [StdSimplex.weights_duple, Finsupp.mem_support_iff, Finsupp.coe_add, Pi.add_apply,
+    Finsupp.single_apply]
+  grind [unitInterval.coe_ne_one.2 ht]
+
+omit [∀ i, TopologicalSpace (X i)] in
+lemma convexCombPair_points_apply_right [DecidableEq ι] {x x' : IJoin X} {t : unitInterval}
+    {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} (ht : t ≠ 0)
+    {i : ι} (hi : i ∈ x'.weights.support) : (convexCombPair x x' t h).points i = x'.points i := by
+  refine sConvexComb_points_apply _ _ ?_ hi
+  classical
+  simp only [StdSimplex.weights_duple, Finsupp.mem_support_iff, Finsupp.coe_add, Pi.add_apply,
+    Finsupp.single_apply]
+  grind [unitInterval.coe_ne_zero.2 ht]
+
+omit [∀ i, TopologicalSpace (X i)] in
+@[simp]
+lemma convexCombPair_zero [DecidableEq ι] {x x' : IJoin X}
+    {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} :
+    convexCombPair x x' 0 h = x := by
+  refine ext (by simp) fun i hi ↦ convexCombPair_points_apply_left (by simp) ?_
+  replace hi : 0 < x.weights i := by simpa [iConvexComb] using hi
+  exact Finsupp.mem_support_iff.2 hi.ne'
+
+omit [∀ i, TopologicalSpace (X i)] in
+@[simp]
+lemma convexCombPair_one [DecidableEq ι] {x x' : IJoin X}
+    {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} :
+    convexCombPair x x' 1 h = x' := by
+  refine ext (by simp) fun i hi ↦ convexCombPair_points_apply_right (by simp) ?_
+  replace hi : 0 < x'.weights i := by simpa [iConvexComb] using hi
+  exact Finsupp.mem_support_iff.2 hi.ne'
+
+lemma continuous_convexCombPair [DecidableEq ι] {Y : Type*} [TopologicalSpace Y]
+    {f f' : Y → IJoin X} (hf : Continuous f) (hf' : Continuous f')
+    {f'' : Y → unitInterval} (hf'' : Continuous f'')
+    {h : ∀ y, ∀ i ∈ (f y).weights.support ∩ (f' y).weights.support,
+      (f y).points i = (f' y).points i} :
+    Continuous (fun y ↦ convexCombPair (f y) (f' y) (f'' y) (h y)) := by
+  refine continuous_iff.2 ⟨fun i ↦ ?_, fun i ↦ ?_⟩
+  · simp only [convexCombPair_toStdSimplex, StdSimplex.weights_convexCombPair, Finsupp.coe_add,
+      Finsupp.coe_smul, Pi.add_apply, Pi.smul_apply]
+    have : Continuous fun y ↦ (f y).weights i := continuous_weights.comp hf
+    have : Continuous fun y ↦ (f' y).weights i := continuous_weights.comp hf'
+    fun_prop
+  · have h : (fun y ↦ ((f y).convexCombPair (f' y) (f'' y) (h y)).points i) ⁻¹' {none}ᶜ =
+        ((fun y ↦ (f y).points i) ⁻¹' {none}ᶜ ∩ f'' ⁻¹' {1}ᶜ) ∪
+          ((fun y ↦ (f' y).points i) ⁻¹' {none}ᶜ ∩ f'' ⁻¹' {0}ᶜ) := by
+      ext y
+      simp only [Set.preimage_compl, Set.mem_compl_iff, Set.mem_preimage, Set.mem_singleton_iff,
+        points_eq_none_iff, convexCombPair_toStdSimplex, unitInterval.coe_symm_eq,
+        StdSimplex.weights_convexCombPair, Finsupp.coe_add, Finsupp.coe_smul, Pi.add_apply,
+        Pi.smul_apply, smul_eq_mul, ← ne_eq, Set.mem_union, Set.mem_inter_iff,
+        ← unitInterval.coe_ne_one, ← unitInterval.coe_ne_zero]
+      refine ⟨by grind, fun h ↦ h.rec (fun _ ↦ LT.lt.ne' ?_) (fun _ ↦ LT.lt.ne' ?_)⟩
+      · grind [add_pos_of_pos_of_nonneg, mul_pos, mul_nonneg, (f y).nonneg i, (f' y).nonneg i]
+      · grind [add_pos_of_nonneg_of_pos, mul_pos, mul_nonneg, (f y).nonneg i, (f' y).nonneg i]
+    refine Option.continuous_excludedPointTopology'_iff.2 ⟨?_, ?_⟩
+    · rw [h]
+      refine .union (.inter (Option.isClosed_none_excludedPointTopology'.isOpen_compl.preimage ?_)
+          (isOpen_compl_singleton.preimage hf''))
+        (.inter (Option.isClosed_none_excludedPointTopology'.isOpen_compl.preimage ?_)
+          (isOpen_compl_singleton.preimage hf'')) <;> fun_prop
+    · rw [h]
+      refine .union_of_isOpen ?_ ?_
+        (.inter (Option.isClosed_none_excludedPointTopology'.isOpen_compl.preimage (by fun_prop))
+          (isOpen_compl_singleton.preimage hf''))
+        (.inter (Option.isClosed_none_excludedPointTopology'.isOpen_compl.preimage (by fun_prop))
+          (isOpen_compl_singleton.preimage hf''))
+      · refine .congr (f := fun y ↦ (f y).points i) (by fun_prop) fun y hy ↦ by
+          rw [convexCombPair_points_apply_left hy.2]
+          simpa [points_eq_none_iff] using hy.1
+      · refine .congr (f := fun y ↦ (f' y).points i) (by fun_prop) fun y hy ↦ by
+          rw [convexCombPair_points_apply_right hy.2]
+          simpa [points_eq_none_iff] using hy.1
+
+end ConvexComb
+
 section SMul
 
 instance _root_.Option.smul {G X : Type*} [SMul G X] : SMul G (Option X) where
