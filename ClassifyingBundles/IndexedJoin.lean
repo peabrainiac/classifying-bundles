@@ -3,6 +3,7 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
+import ClassifyingBundles.ContinuousMulActionHom
 import ClassifyingBundles.Equiv
 import ClassifyingBundles.Join
 import ClassifyingBundles.LocallyTrivialSMul
@@ -98,7 +99,7 @@ and `none` otherwise, but `g i'` is a map from `X i'` to `X' (f i')`, which is p
 not definitionally equal to `X' i`, so a cast is needed. To not expose this too much,
 we provide an API lemma applying `(map hf g x).points` to `f i` for some `i` instead of to a general
 `i`. -/
-@[simps! weights]
+@[simps! toStdSimplex weights]
 noncomputable def map {ι' : Type*} {X' : ι' → Type*} {f : ι → ι'} [∀ i, Decidable (∃ i', f i' = i)]
     (hf : f.Injective) (g : ∀ i, X i → X' (f i)) (x : IJoin X) : IJoin X' where
   points i := if h : ∃ i', f i' = i then
@@ -146,7 +147,7 @@ lemma map_ofJoin [DecidableEq ι] {ι' : Type*} [DecidableEq ι'] {X' : ι' → 
     (hf : f.Injective) (g : ∀ i, X i → X' (f i)) {i j : ι} (h : i ≠ j) (x : X i ⋆ X j) :
     map hf g (ofJoin h x) = ofJoin (hf.ne h) (x.map (g i) (g j)) := by
   ext i' hi' x'
-  · simp [ofJoin, Finsupp.mapDomain_add, Finsupp.mapDomain_sub]
+  · simp [ofJoin]
   · suffices h : i' = f i ∨ i' = f j by obtain rfl | rfl := h <;> simp [hf.ne h, h]
     obtain ⟨i'', rfl⟩ : ∃ i'', f i'' = i' := by
       by_contra h; exact hi'.ne' (Finsupp.mapDomain_notin_range _ _ h)
@@ -352,9 +353,9 @@ noncomputable def sConvexComb [DecidableEq ι] (f : StdSimplex ℝ (IJoin X))
       h.choose.weights i ≠ 0 from fun h ↦ h.choose_spec.2]
 
 omit [∀ i, TopologicalSpace (X i)] in
-lemma sConvexComb_points_apply [DecidableEq ι] (f : StdSimplex ℝ (IJoin X))
-    (hf : ∀ x ∈ f.weights.support, ∀ x' ∈ f.weights.support,
-      ∀ i ∈ (x.weights.support ∩ x'.weights.support), x.points i = x'.points i)
+lemma sConvexComb_points_apply [DecidableEq ι] {f : StdSimplex ℝ (IJoin X)}
+    {hf : ∀ x ∈ f.weights.support, ∀ x' ∈ f.weights.support,
+      ∀ i ∈ (x.weights.support ∩ x'.weights.support), x.points i = x'.points i}
     {x : IJoin X} (hx : x ∈ f.weights.support) {i : ι} (hi : i ∈ x.weights.support) :
     (sConvexComb f hf).points i = x.points i := by
   dsimp [sConvexComb]
@@ -387,7 +388,7 @@ omit [∀ i, TopologicalSpace (X i)] in
 lemma convexCombPair_points_apply_left [DecidableEq ι] {x x' : IJoin X} {t : unitInterval}
     {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} (ht : t ≠ 1)
     {i : ι} (hi : i ∈ x.weights.support) : (convexCombPair x x' t h).points i = x.points i := by
-  refine sConvexComb_points_apply _ _ ?_ hi
+  refine sConvexComb_points_apply ?_ hi
   classical
   simp only [StdSimplex.weights_duple, Finsupp.mem_support_iff, Finsupp.coe_add, Pi.add_apply,
     Finsupp.single_apply]
@@ -397,11 +398,30 @@ omit [∀ i, TopologicalSpace (X i)] in
 lemma convexCombPair_points_apply_right [DecidableEq ι] {x x' : IJoin X} {t : unitInterval}
     {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} (ht : t ≠ 0)
     {i : ι} (hi : i ∈ x'.weights.support) : (convexCombPair x x' t h).points i = x'.points i := by
-  refine sConvexComb_points_apply _ _ ?_ hi
+  refine sConvexComb_points_apply ?_ hi
   classical
   simp only [StdSimplex.weights_duple, Finsupp.mem_support_iff, Finsupp.coe_add, Pi.add_apply,
     Finsupp.single_apply]
   grind [unitInterval.coe_ne_zero.2 ht]
+
+omit [∀ i, TopologicalSpace (X i)] in
+lemma convexCombPair_points_apply_left' [DecidableEq ι] {x x' : IJoin X} {t : unitInterval}
+    {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} {i : ι}
+    (hi : x.points i = x'.points i) : (convexCombPair x x' t h).points i = x.points i := by
+  obtain hi' | hi' := or_not (p := i ∈ x.weights.support)
+  · have hi'' : i ∈ x'.weights.support := by simpa [← points_eq_none_iff, hi] using hi'
+    obtain ht | ht := show t ≠ 0 ∨ t ≠ 1 by grind [zero_ne_one]
+    · rw [convexCombPair_points_apply_right ht hi'', hi]
+    · rw [convexCombPair_points_apply_left ht hi']
+  · rw [Finsupp.notMem_support_iff] at hi'
+    rw [x.points_eq_none_iff.2 hi', Eq.comm, points_eq_none_iff] at hi
+    simp [x.points_eq_none_iff.2 hi', points_eq_none_iff, hi, hi']
+
+omit [∀ i, TopologicalSpace (X i)] in
+lemma convexCombPair_points_apply_right' [DecidableEq ι] {x x' : IJoin X} {t : unitInterval}
+    {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} {i : ι}
+    (hi : x.points i = x'.points i) : (convexCombPair x x' t h).points i = x'.points i := by
+  rw [convexCombPair_points_apply_left' hi, hi]
 
 omit [∀ i, TopologicalSpace (X i)] in
 @[simp]
@@ -421,6 +441,7 @@ lemma convexCombPair_one [DecidableEq ι] {x x' : IJoin X}
   replace hi : 0 < x'.weights i := by simpa [iConvexComb] using hi
   exact Finsupp.mem_support_iff.2 hi.ne'
 
+@[fun_prop]
 lemma continuous_convexCombPair [DecidableEq ι] {Y : Type*} [TopologicalSpace Y]
     {f f' : Y → IJoin X} (hf : Continuous f) (hf' : Continuous f')
     {f'' : Y → unitInterval} (hf'' : Continuous f'')
@@ -463,6 +484,62 @@ lemma continuous_convexCombPair [DecidableEq ι] {Y : Type*} [TopologicalSpace Y
       · refine .congr (f := fun y ↦ (f' y).points i) (by fun_prop) fun y hy ↦ by
           rw [convexCombPair_points_apply_right hy.2]
           simpa [points_eq_none_iff] using hy.1
+
+/-- TODO: remove next time mathlib is bumped -/
+lemma _root_.Finsupp.mem_range_of_mapDomain_ne_zero {α β M : Type*} [AddCommMonoid M] {f : α → β}
+    {x : α →₀ M} {b : β} (h : Finsupp.mapDomain f x b ≠ 0) :
+    b ∈ Set.range f := by contrapose! h; exact Finsupp.mapDomain_notin_range _ _ h
+
+lemma _root_.Finsupp.exists_of_mapDomain_ne_zero {α β M : Type*} [AddCommMonoid M] {f : α → β}
+    {x : α →₀ M} {b : β} (h : Finsupp.mapDomain f x b ≠ 0) : ∃ a, f a = b ∧ x a ≠ 0 := by
+  classical
+  simpa [and_comm] using Finsupp.mapDomain_support <| Finsupp.mem_support_iff.2 h
+
+omit [∀ i, TopologicalSpace (X i)] in
+lemma map_sConvexComb [DecidableEq ι] {ι' : Type*} [DecidableEq ι'] {X' : ι' → Type*}
+    {f : ι → ι'} [∀ i, Decidable (∃ i', f i' = i)] (hf : f.Injective) {f' : ∀ i, X i → X' (f i)}
+    {f'' : StdSimplex ℝ (IJoin X)} {hf'' : ∀ x ∈ f''.weights.support, ∀ x' ∈ f''.weights.support,
+      ∀ i ∈ (x.weights.support ∩ x'.weights.support), x.points i = x'.points i} :
+    map hf f' (sConvexComb f'' hf'') = sConvexComb (f''.map (map hf f')) fun x hx x' hx' i hi ↦ by
+      classical
+      obtain ⟨x, hx'', rfl⟩ := Finset.mem_image.1 <| Finsupp.mapDomain_support hx
+      obtain ⟨x', hx''', rfl⟩ := Finset.mem_image.1 <| Finsupp.mapDomain_support hx'
+      simp only [map_weights, Finset.mem_inter, Finsupp.mapDomain_support_of_injective hf,
+        Finset.mem_image] at hi
+      obtain ⟨⟨i, hi, rfl⟩, i', hi', hi''⟩ := hi
+      obtain rfl := hf hi''
+      simp only [map_points_apply]
+      exact congrArg _ <| hf'' _ hx'' _ hx''' _ <| Finset.mem_inter.2 ⟨hi, hi'⟩ := by
+  refine ext (by simp [-map_weights, map_iConvexComb]) fun i hi ↦ ?_
+  replace hi := Finset.mem_image.1 <| Finsupp.mapDomain_support <| Finsupp.mem_support_iff.2 hi.ne'
+  obtain ⟨i, hi, rfl⟩ := hi
+  simp only [sConvexComb_toStdSimplex, ← sConvexComb_map, StdSimplex.weights_sConvexComb] at hi
+  replace hi := Finset.mem_biUnion.1 <| Finsupp.support_sum hi
+  obtain ⟨x, hx, hx'⟩ := hi
+  classical
+  replace hx := Finset.mem_image.1 <| Finsupp.mapDomain_support hx
+  obtain ⟨x, hx, rfl⟩ := hx
+  rw [map_points_apply, sConvexComb_points_apply hx (Finsupp.support_smul hx'),
+    sConvexComb_points_apply (x := map hf f' x), map_points_apply]
+  · rw [StdSimplex.weights_map_support, Finset.mem_image]
+    refine ⟨x, hx, rfl⟩
+  · simp only [map_weights, Finsupp.mapDomain_support_of_injective,
+      Function.Injective.mem_finset_image, hf, Finsupp.support_smul hx']
+
+omit [∀ i, TopologicalSpace (X i)] in
+lemma map_convexCombPair [DecidableEq ι] {ι' : Type*} [DecidableEq ι'] {X' : ι' → Type*}
+    {f : ι → ι'} [∀ i, Decidable (∃ i', f i' = i)] (hf : f.Injective) {f' : ∀ i, X i → X' (f i)}
+    {x x' : IJoin X} {t : unitInterval}
+    {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} :
+    map hf f' (convexCombPair x x' t h) = convexCombPair (map hf f' x) (map hf f' x') t (by
+      intro i hi
+      simp only [map_weights, Finset.mem_inter, Finsupp.mapDomain_support_of_injective hf,
+        Finset.mem_image] at hi
+      obtain ⟨⟨i, hi, rfl⟩, i', hi', hi''⟩ := hi
+      obtain rfl := hf hi''
+      simp only [map_points_apply]
+      exact congrArg _ <| h _ <| Finset.mem_inter.2 ⟨hi, hi'⟩) := by
+  simp [convexCombPair, map_sConvexComb]
 
 end ConvexComb
 
@@ -538,6 +615,30 @@ lemma smul_eq_map [∀ i : ι, Decidable (∃ i', id i' = i)] {G : Type*} [∀ i
     {g : G} {x : IJoin X} :
     g • x = map Function.injective_id (fun _ x ↦ g • x) x := by
   refine ext (by simp) fun i _ ↦ (map_points_apply Function.injective_id (fun i x ↦ g • x)).symm
+
+omit [∀ i, TopologicalSpace (X i)] in
+lemma smul_sConvexComb [DecidableEq ι] {G : Type*} [∀ i, SMul G (X i)]
+    [∀ i, IsCancelSMul G (X i)] {f : StdSimplex ℝ (IJoin X)}
+    {hf : ∀ x ∈ f.weights.support, ∀ x' ∈ f.weights.support,
+      ∀ i ∈ (x.weights.support ∩ x'.weights.support), x.points i = x'.points i} {g : G} :
+    g • sConvexComb f hf = sConvexComb (f.map (fun x ↦ g • x)) fun x hx x' hx' i hi ↦ by
+      classical
+      obtain ⟨x, hx'', rfl⟩ := Finset.mem_image.1 <| Finsupp.mapDomain_support hx
+      obtain ⟨x', hx''', rfl⟩ := Finset.mem_image.1 <| Finsupp.mapDomain_support hx'
+      simp only [smul_eq_map, map_weights, Finset.mem_inter,
+        Finsupp.mapDomain_id] at hi
+      simp [hf _ hx'' _ hx''' _ <| Finset.mem_inter.2 ⟨hi.1, hi.2⟩] := by
+  classical
+  simp only [smul_eq_map, map_sConvexComb]
+
+omit [∀ i, TopologicalSpace (X i)] in
+@[simp]
+lemma smul_convexCombPair [DecidableEq ι] {G : Type*} [∀ i, SMul G (X i)]
+    [∀ i, IsCancelSMul G (X i)] {x x' : IJoin X} {t : unitInterval}
+    {h : ∀ i ∈ x.weights.support ∩ x'.weights.support, x.points i = x'.points i} {g : G} :
+    g • convexCombPair x x' t h = convexCombPair (g • x) (g • x') t (by simpa using h) := by
+  classical
+  simp only [smul_eq_map, map_convexCombPair]
 
 instance {G : Type*} [Monoid G] [∀ i, MulAction G (X i)] : MulAction G (IJoin X) where
   mul_smul _ _ _ := by ext <;> simp [mul_smul]
@@ -664,6 +765,82 @@ instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G] {ι :
     · simp
     · simp only [Set.mem_setOf_eq] at hx
       simp [hx]
+
+@[simp]
+lemma _root_.ContinuousMap.HomotopyWith.coe_mk {X Y : Type*} [TopologicalSpace X]
+    [TopologicalSpace Y] {f₀ f₁ : C(X, Y)} {P : C(X, Y) → Prop} (toHomotopy : f₀.Homotopy f₁)
+    (prop' : ∀ t, P ⟨fun x ↦ toHomotopy.toFun (t, x),
+      toHomotopy.continuous_toFun.comp (by fun_prop)⟩) :
+    ⇑(ContinuousMap.HomotopyWith.mk toHomotopy prop') = toHomotopy := rfl
+
+@[simp]
+lemma _root_.ContinuousMap.Homotopy.coe_mk {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    {f₀ f₁ : C(X, Y)} (toContinuousMap : C(I × X, Y))
+    (map_zero_left : ∀ x, toContinuousMap.toFun (0, x) = f₀ x)
+    (map_one_left : ∀ x, toContinuousMap.toFun (1, x) = f₁ x) :
+    ⇑(ContinuousMap.Homotopy.mk toContinuousMap map_zero_left map_one_left) = toContinuousMap := rfl
+
+/-- Any two continuous equivariant maps from a `G`-space into a join of countably many
+copies of `G` are homotopic.
+
+TODO: generalise from `ℕ` to arbitrary index sets -/
+lemma continuousMulActionHom_homotopic
+    {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
+    {X : Type*} [SMul G X] [TopologicalSpace X] [ContinuousSMul G X]
+    (f f' : C[G](X, IJoin fun _ : ℕ ↦ G)) : f.Homotopic f' := by
+  /- The proof involves reindexing the values of `f` and `f'` by composing those functions with
+  `map hf (fun _ ↦ id) : (IJoin fun _ ↦ G) → (IJoin fun _ ↦ G)` for injective functions `f : ℕ → ℕ`;
+  to make working with these maps easier we first define `map' hf` to be those maps upgraded to
+  equivariant continuous maps, and then prove that linear interpolation gives an equivariant
+  homotopy from `(map' hf).comp f''` and `(map' hf').comp f'''` when `f` and `f'` as well as
+  `(f'' x).points` and `(f''' x).points` agree on `f ⁻¹' range f'`. This is in particular the
+  case when `range f` and `range f'` are disjoint. -/
+  classical
+  let map' {f : ℕ → ℕ} (hf : f.Injective) : C[G](IJoin fun _ : ℕ ↦ G, IJoin fun _ : ℕ ↦ G) :=
+    ⟨⟨map hf (fun _ ↦ id), (by fun_prop)⟩, fun g x ↦ by
+      refine ext (by simp) fun i hi ↦ ?_
+      obtain ⟨i, rfl⟩ := Finsupp.mem_range_of_mapDomain_ne_zero hi.ne'
+      simp⟩
+  have hmap' {f f' : ℕ → ℕ} (hf : f.Injective) (hf' : f'.Injective)
+      (h : (f ⁻¹' Set.range f').EqOn f f') {f'' f''' : C[G](X, IJoin fun _ : ℕ ↦ G)}
+      (h' : ∀ i ∈ f ⁻¹' Set.range f', ∀ x, (f'' x).points i = (f''' x).points i):
+        ∃ F : ((map' hf).comp f'').Homotopy ((map' hf').comp f'''),
+          ∀ i ∈ Set.range f ∩ Set.range f', ∀ x t,
+            (F (t, x)).points i = (map' hf (f'' x)).points i := by
+    refine ⟨{
+      toFun x := convexCombPair (map' hf (f'' x.2)) (map' hf' (f''' x.2)) x.1 <| fun i hi ↦ by
+        simp only [ContinuousMulActionHom.coe_mk, ContinuousMap.coe_mk, map_weights,
+          Finset.mem_inter, Finsupp.mem_support_iff, map'] at hi
+        replace hi : ∃ i', f i' = i ∧ i' ∈ f ⁻¹' Set.range f' := by
+          grind [Finsupp.mem_range_of_mapDomain_ne_zero hi.1,
+            Finsupp.mem_range_of_mapDomain_ne_zero hi.2]
+        obtain ⟨i, rfl, hi⟩ := hi
+        simp only [map', ContinuousMulActionHom.coe_mk, ContinuousMap.coe_mk, map_points_apply]
+        simp [h hi, h' i hi x.2]
+      map_zero_left := by simp
+      map_one_left := by simp
+      prop' t g x := by simp
+    }, fun i hi x t ↦ ?_⟩
+    simp only [ContinuousMap.HomotopyWith.coe_mk, ContinuousMap.Homotopy.coe_mk,
+      ContinuousMap.coe_mk]
+    refine convexCombPair_points_apply_left' ?_
+    obtain ⟨⟨i, rfl⟩, hi⟩ := hi
+    simp only [map', ContinuousMulActionHom.coe_mk, ContinuousMap.coe_mk, map_points_apply]
+    simp [h hi, h' _ hi]
+  /- Let `even` be the (continuous, equivariant) map `(IJoin fun _ ↦ G) → (IJoin fun _ ↦ G)`
+  induced by the map `fun n ↦ 2 * n`. By applying `hmap'` to `even` and the similarly defined `odd`,
+  it suffices to prove that every `f : C[G](X, IJoin fun _ ↦ G)` is equivariantly homotopic
+  to `even.comp f`. -/
+  let even := (map' (show (fun n ↦ 2 * n).Injective from fun _ _ ↦ by grind))
+  revert f f'
+  suffices h : ∀ f : C[G](X, IJoin fun _ : ℕ ↦ G), f.Homotopic (even.comp f) by
+    let odd := (map' (show Function.Injective (fun n ↦ 2 * n + 1) from fun _ _ ↦ by grind))
+    suffices h' : ∀ f f' : C[G](X, IJoin fun _ : ℕ ↦ G), (even.comp f).Homotopic (odd.comp f') from
+      fun f f' ↦ (h f).trans <| (h' f f).trans (h' f' f).symm |>.trans (h f').symm
+    exact fun f f' ↦ ⟨(hmap' (by grind) (fun _ ↦ by grind) (fun _ ↦ by grind) (by grind)).choose⟩
+  /- Even simpler, it suffices to prove that `even` is equivariantly homotopic to the identity.-/
+  suffices h : even.Homotopic (.id _ _) from fun f ↦ h.symm.comp (.refl f)
+  sorry
 
 end SMul
 

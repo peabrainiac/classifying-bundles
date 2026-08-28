@@ -108,6 +108,19 @@ noncomputable def trans {f f' f'' : Cₑ[φ](X, Y)} (F : f.Homotopy f') (F' : f'
     f.Homotopy f'' :=
   ContinuousMap.HomotopyWith.trans F F'
 
+/-- The composition of two homotopies of equivariant maps. -/
+def comp {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+    [SMul M X] [SMul M Y] [SMul M Z] {f f' : C[M](Y, Z)} (F : f.Homotopy f')
+    {f'' f''' : C[M](X, Y)} (F' : f''.Homotopy f''') : (f.comp f'').Homotopy (f'.comp f''') where
+  toHomotopy := F.toHomotopy.comp F'.toHomotopy
+  prop' t m x := by
+    simp only [ContinuousMap.Homotopy.comp, id_eq, ContinuousMap.HomotopyWith.coe_toHomotopy,
+      ContinuousMap.toFun_eq_coe, ContinuousMap.coe_mk]
+    have h := F.prop t m; have h' := F'.prop t m
+    simp only [id_eq, ContinuousMap.Homotopy.curry_apply,
+      ContinuousMap.HomotopyWith.coe_toHomotopy] at h h'
+    simp [h, h']
+
 /-- Every homotopy of equivariant maps defines a continuous map from the unit interval to
 the space of continuous equivariant maps. None that while the converse requires additional
 topological assumptions, this does not. -/
@@ -130,6 +143,11 @@ lemma symm {f f' : Cₑ[φ](X, Y)} (h : f.Homotopic f') : f'.Homotopic f := ⟨h
 
 lemma trans {f f' f'' : Cₑ[φ](X, Y)} (h : f.Homotopic f') (h' : f'.Homotopic f'') :
     f.Homotopic f'' := ⟨h.some.trans h'.some⟩
+
+lemma comp {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+    [SMul M X] [SMul M Y] [SMul M Z] {f f' : C[M](Y, Z)} (h : f.Homotopic f')
+    {f'' f''' : C[M](X, Y)} (h' : f''.Homotopic f''') : (f.comp f'').Homotopic (f'.comp f''') :=
+  ⟨h.some.comp h'.some⟩
 
 end Homotopic
 
