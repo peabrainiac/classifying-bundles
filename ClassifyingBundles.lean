@@ -5,6 +5,7 @@ import ClassifyingBundles.ContinuousBundleHom
 import ClassifyingBundles.ContinuousBundleIso
 import ClassifyingBundles.ContinuousMulActionHom
 import ClassifyingBundles.ContinuousSection
+import ClassifyingBundles.CountableTrans
 import ClassifyingBundles.Equiv
 import ClassifyingBundles.GBundle
 import ClassifyingBundles.IndexedJoin

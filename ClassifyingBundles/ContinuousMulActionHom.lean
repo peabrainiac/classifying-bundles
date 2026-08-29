@@ -3,6 +3,7 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
+import ClassifyingBundles.CountableTrans
 import Mathlib.GroupTheory.GroupAction.Hom
 import Mathlib.Topology.Homotopy.Basic
 
@@ -94,6 +95,11 @@ abbrev Homotopy (f g : Cₑ[φ](X, Y)) :=
 
 namespace Homotopy
 
+@[simp]
+lemma map_smul {f g : Cₑ[φ](X, Y)} {F : f.Homotopy g} {t : unitInterval} {m : M} {x : X} :
+    F (t, m • x) = (φ m) • F (t, x) := by
+  simpa using F.prop t m x
+
 /-- The constant homotopy from any continuous equivariant map to itself. -/
 def refl (f : Cₑ[φ](X, Y)) : f.Homotopy f :=
   ContinuousMap.HomotopyWith.refl _ (by simp)
@@ -128,6 +134,17 @@ def curry {f f' : Cₑ[φ](X, Y)} (F : f.Homotopy f') : C(unitInterval, Cₑ[φ]
   toFun t := ⟨F.toHomotopy.curry t, F.prop t⟩
   continuous_toFun :=
     isInducing_toContinuousMap.continuous_iff.2 <| map_continuous F.toHomotopy.curry
+
+open Filter unitInterval Topology in
+/-- The concatenation of countably many equivariant homotopies `F n : (f n).Homotopy (f (n + 1))`
+leading up to a single equivariant map `g`. -/
+noncomputable def countableTrans {f : ℕ → Cₑ[φ](X, Y)} (F : (n : ℕ) → (f n).Homotopy (f (n + 1)))
+    (g : Cₑ[φ](X, Y))
+    (hFg : ∀ x, Tendsto (fun x : ℕ × I × X ↦ F x.1 x.2) (atTop ×ˢ ⊤ ×ˢ 𝓝 x) (𝓝 (g x))) :
+    (f 0).Homotopy g where
+  toHomotopy := .countableTrans (fun n ↦ (F n).toHomotopy) g hFg
+  prop' t g x := by
+    simp [ContinuousMap.Homotopy.countableTrans, ContinuousMap.Homotopy.countableTransFun]
 
 end Homotopy
 
