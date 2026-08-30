@@ -27,6 +27,7 @@ In this file we define joins of families of topological spaces.
 * When `G` acts on each `X i`, it also acts on `IJoin X`. This action is effective / free /
   continuous whenever the actions on the `X i` are.
 * Arbitrary joins `IJoin fun _ ↦ G` of copies of a single topological group `G` are locally trivial
+* Any two equivariant maps into `IJoin fun _ : ℕ ↦ G` are equivariantly homotopic
 
 ## TODO
 * Prove that `IJoin.of` and `IJoin.ofJoin` are closed embeddings
@@ -203,6 +204,19 @@ lemma continuousOn_iff {Y : Type*} [TopologicalSpace Y] {f : Y → IJoin X} {s :
       ∀ i, ContinuousOn (fun y ↦ (f y).points i) s := by
   simp only [continuousOn_iff_continuous_restrict]
   exact continuous_iff
+
+lemma nhds_eq_inf {x : IJoin X} :
+    𝓝 x = (⨅ i, .comap (fun x ↦ x.weights i) (𝓝 (x.weights i))) ⊓
+      (⨅ i, .comap (fun x ↦ x.points i) (𝓝 (x.points i))) := by
+  rw [nhds_inf (t₁ := ⨅ i, .induced (fun x ↦ x.weights i) inferInstance)
+    (t₂ := ⨅ i, Option.excludedPointTopology'.induced fun x ↦ x.points i) (a := x)]
+  simp only [nhds_iInf, nhds_induced]
+
+lemma tendsto_nhds_iff {α : Type*} {f : α → IJoin X} {l : Filter α} {x : IJoin X} :
+    Filter.Tendsto f l (𝓝 x) ↔ ∀ i,
+      Filter.Tendsto ((fun x ↦ x.weights i) ∘ f) l (𝓝 (x.weights i)) ∧
+        Filter.Tendsto ((fun x ↦ x.points i) ∘ f) l (𝓝 (x.points i)) := by
+  simp [nhds_eq_inf, Filter.tendsto_inf, Filter.tendsto_iInf, forall_and]
 
 @[fun_prop]
 lemma continuous_weights {i : ι} : Continuous fun x : IJoin X ↦ x.weights i :=
@@ -790,11 +804,10 @@ lemma continuousMulActionHom_homotopic
     (f f' : C[G](X, IJoin fun _ : ℕ ↦ G)) : f.Homotopic f' := by
   /- The proof involves reindexing the values of `f` and `f'` by composing those functions with
   `map hf (fun _ ↦ id) : (IJoin fun _ ↦ G) → (IJoin fun _ ↦ G)` for injective functions `f : ℕ → ℕ`;
-  to make working with these maps easier we first define `map' hf` to be those maps upgraded to
+  to make working with these maps easier we define `map' hf` to be those maps upgraded to
   equivariant continuous maps, and then prove that linear interpolation gives an equivariant
-  homotopy from `(map' hf).comp f''` and `(map' hf').comp f'''` when `f` and `f'` as well as
-  `(f'' x).points` and `(f''' x).points` agree on `f ⁻¹' range f'`. This is in particular the
-  case when `range f` and `range f'` are disjoint. -/
+  homotopy from `map' hf` to `map' hf'` when `f` and `f'` agree on `f ⁻¹' range f'`. This is in
+  particular the case when `range f` and `range f'` are disjoint. -/
   classical
   let map' {f : ℕ → ℕ} (hf : f.Injective) : C[G](IJoin fun _ : ℕ ↦ G, IJoin fun _ : ℕ ↦ G) :=
     ⟨⟨map hf (fun _ ↦ id), (by fun_prop)⟩, fun g x ↦ by
@@ -802,13 +815,12 @@ lemma continuousMulActionHom_homotopic
       obtain ⟨i, rfl⟩ := Finsupp.mem_range_of_mapDomain_ne_zero hi.ne'
       simp⟩
   have hmap' {f f' : ℕ → ℕ} (hf : f.Injective) (hf' : f'.Injective)
-      (h : (f ⁻¹' Set.range f').EqOn f f') {f'' f''' : C[G](X, IJoin fun _ : ℕ ↦ G)}
-      (h' : ∀ i ∈ f ⁻¹' Set.range f', ∀ x, (f'' x).points i = (f''' x).points i):
-        ∃ F : ((map' hf).comp f'').Homotopy ((map' hf').comp f'''),
-          ∀ i ∈ Set.range f ∩ Set.range f', ∀ x t,
-            (F (t, x)).points i = (map' hf (f'' x)).points i := by
+      (h : (f ⁻¹' Set.range f').EqOn f f') :
+        ∃ F : (map' hf).Homotopy (map' hf'), ∀ i ∈ Set.range f ∩ Set.range f', ∀ x t,
+          (F (t, x)).weights i = (map' hf x).weights i ∧
+            (F (t, x)).points i = (map' hf x).points i := by
     refine ⟨{
-      toFun x := convexCombPair (map' hf (f'' x.2)) (map' hf' (f''' x.2)) x.1 <| fun i hi ↦ by
+      toFun x := convexCombPair (map' hf x.2) (map' hf' x.2) x.1 <| fun i hi ↦ by
         simp only [ContinuousMulActionHom.coe_mk, ContinuousMap.coe_mk, map_weights,
           Finset.mem_inter, Finsupp.mem_support_iff, map'] at hi
         replace hi : ∃ i', f i' = i ∧ i' ∈ f ⁻¹' Set.range f' := by
@@ -816,17 +828,20 @@ lemma continuousMulActionHom_homotopic
             Finsupp.mem_range_of_mapDomain_ne_zero hi.2]
         obtain ⟨i, rfl, hi⟩ := hi
         simp only [map', ContinuousMulActionHom.coe_mk, ContinuousMap.coe_mk, map_points_apply]
-        simp [h hi, h' i hi x.2]
+        simp [h hi]
       map_zero_left := by simp
       map_one_left := by simp
       prop' t g x := by simp
-    }, fun i hi x t ↦ ?_⟩
-    simp only [ContinuousMap.HomotopyWith.coe_mk, ContinuousMap.Homotopy.coe_mk,
-      ContinuousMap.coe_mk]
-    refine convexCombPair_points_apply_left' ?_
-    obtain ⟨⟨i, rfl⟩, hi⟩ := hi
-    simp only [map', ContinuousMulActionHom.coe_mk, ContinuousMap.coe_mk, map_points_apply]
-    simp [h hi, h' _ hi]
+    }, fun i hi x t ↦ ⟨?_, ?_⟩⟩
+    · suffices h : ((map' hf) x).weights i = ((map' hf') x).weights i by simp [h, sub_mul, -id_eq]
+      obtain ⟨⟨i, rfl⟩, hi⟩ := hi
+      simp [map', hf, @h i hi ▸ Finsupp.mapDomain_apply hf' x.weights i]
+    · simp only [ContinuousMap.HomotopyWith.coe_mk, ContinuousMap.Homotopy.coe_mk,
+        ContinuousMap.coe_mk]
+      refine convexCombPair_points_apply_left' ?_
+      obtain ⟨⟨i, rfl⟩, hi⟩ := hi
+      simp only [map', ContinuousMulActionHom.coe_mk, ContinuousMap.coe_mk, map_points_apply]
+      simp [h hi]
   /- Let `even` be the (continuous, equivariant) map `(IJoin fun _ ↦ G) → (IJoin fun _ ↦ G)`
   induced by the map `fun n ↦ 2 * n`. By applying `hmap'` to `even` and the similarly defined `odd`,
   it suffices to prove that every `f : C[G](X, IJoin fun _ ↦ G)` is equivariantly homotopic
@@ -837,10 +852,50 @@ lemma continuousMulActionHom_homotopic
     let odd := (map' (show Function.Injective (fun n ↦ 2 * n + 1) from fun _ _ ↦ by grind))
     suffices h' : ∀ f f' : C[G](X, IJoin fun _ : ℕ ↦ G), (even.comp f).Homotopic (odd.comp f') from
       fun f f' ↦ (h f).trans <| (h' f f).trans (h' f' f).symm |>.trans (h f').symm
-    exact fun f f' ↦ ⟨(hmap' (by grind) (fun _ ↦ by grind) (fun _ ↦ by grind) (by grind)).choose⟩
+    exact fun f f' ↦ ⟨{
+      toFun x := convexCombPair (even (f x.2)) (odd (f' x.2)) x.1 <| fun i hi ↦ by
+        simp only [even, odd, map', Finset.mem_inter, ContinuousMulActionHom.coe_mk,
+          ContinuousMap.coe_mk, map_weights, Finsupp.mem_support_iff] at hi
+        grind [Finsupp.mem_range_of_mapDomain_ne_zero hi.1,
+          Finsupp.mem_range_of_mapDomain_ne_zero hi.2]
+      map_zero_left := by simp
+      map_one_left := by simp
+      prop' := by simp }⟩
   /- Even simpler, it suffices to prove that `even` is equivariantly homotopic to the identity.-/
   suffices h : even.Homotopic (.id _ _) from fun f ↦ h.symm.comp (.refl f)
-  sorry
+  /- We can pick a sequence of injective functions `f n : ℕ → ℕ` such that `f 0` is `fun n ↦ 2 * n`,
+  `f n` and `f (n + 1)` agree on `f n ⁻¹' Set.range (f (n + 1))`, and `f` converges to the identity
+  in the sense that `∀ n, ∀ m ≤ n, f n m = m`. Applying `hmap'` to these functions then gives a
+  sequence of equivariant homotopies which we can concatenate into a single equivariant homotopy
+  from `even` to the identity. -/
+  have ⟨f, hf, hf', hf''⟩ : ∃ f : ℕ → ℕ → ℕ, (∀ n, (f n).Injective) ∧ f 0 = (fun n ↦ 2 * n) ∧ ∀ n,
+      (f n ⁻¹' Set.range (f (n + 1))).EqOn (f n) (f (n + 1)) ∧ ∀ m ≤ n, f n m = m := by
+    refine ⟨fun n m ↦ if m ≤ n then m else 2 * m, fun _ _ ↦ ?_, ?_, fun _ ↦ ⟨fun _ ↦ ?_, ?_⟩⟩
+      <;> grind
+  choose F hF using fun n ↦ hmap' (hf n) (hf (n + 1)) (hf'' n).1
+  unfold even; rw! [← hf']
+  refine ⟨.countableTrans F _ fun x ↦ ?_⟩
+  rw [ContinuousMulActionHom.id_apply]
+  refine tendsto_nhds_iff.2 fun i ↦ ⟨?_, ?_⟩
+  · refine .congr' (f₁ := fun x ↦ x.2.2.weights i) ?_ ?_
+    · refine Set.EqOn.eventuallyEq_of_mem ?_ <|
+        Filter.prod_mem_prod (Filter.Ici_mem_atTop i) Filter.univ_mem
+      rintro ⟨i', t, x⟩ ⟨hi', ⟨⟩⟩
+      rw [Set.mem_Ici] at hi'
+      simp [Function.comp_apply, (hF i' i ⟨⟨i, by grind⟩, ⟨i, by grind⟩⟩ x t).1, map',
+        (hf'' i').2 i hi' ▸ Finsupp.mapDomain_apply (hf i') x.weights i]
+    · exact .comp (g := (fun x : (IJoin _) ↦ x.weights i) ∘ Prod.snd)
+        (.comp continuous_weights.continuousAt Filter.tendsto_snd) Filter.tendsto_snd
+  · refine .congr' (f₁ := fun x ↦ x.2.2.points i) ?_ ?_
+    · refine Set.EqOn.eventuallyEq_of_mem ?_ <|
+        Filter.prod_mem_prod (Filter.Ici_mem_atTop i) Filter.univ_mem
+      rintro ⟨i', t, x⟩ ⟨hi', ⟨⟩⟩
+      rw [Set.mem_Ici] at hi'
+      simp [Function.comp_apply, (hF i' i ⟨⟨i, by grind⟩, ⟨i, by grind⟩⟩ x t).2, map',
+        (hf'' i').2 i hi' ▸ map_points_apply (X := fun _ ↦ G) (X' := fun _ ↦ G) (hf i')
+        (fun _ ↦ id) (x := x) (i := i)]
+    · exact .comp (g := (fun x : (IJoin _) ↦ x.points i) ∘ Prod.snd)
+        (.comp continuous_points.continuousAt Filter.tendsto_snd) Filter.tendsto_snd
 
 end SMul
 
