@@ -8,6 +8,7 @@ import ClassifyingBundles.Equiv
 import ClassifyingBundles.Join
 import ClassifyingBundles.LocallyTrivialSMul
 import Mathlib.Geometry.Convex.ConvexSpace.Defs
+import Mathlib.Topology.Homotopy.Contractible
 
 /-! # Joins of topological spaces
 In this file we define joins of families of topological spaces.
@@ -28,6 +29,7 @@ In this file we define joins of families of topological spaces.
   continuous whenever the actions on the `X i` are.
 * Arbitrary joins `IJoin fun _ ↦ G` of copies of a single topological group `G` are locally trivial
 * Any two equivariant maps into `IJoin fun _ : ℕ ↦ G` are equivariantly homotopic
+* `IJoin fun _ : ℕ ↦ G` is contractible
 
 ## TODO
 * Prove that `IJoin.of` and `IJoin.ofJoin` are closed embeddings
@@ -35,6 +37,11 @@ In this file we define joins of families of topological spaces.
 * prove that joins of Hausdorff spaces are Hausdorff
 * define Fσ sets, prove that Fσ sets in paracompact spaces are paracompact, use that to prove that
   infinite joins of compact Hausdorff spaces are paracompact
+* prove that for every nonempty space `X` and infinite type `ι`, `IJoin fun _ : ι ↦ X` is
+  contractible. We already obtained this for countable joins of groups as a corollary of the fact
+  that any two equivariant maps into `IJoin fun _ : ℕ ↦ G` are equivariantly homotopic; the proof
+  of contractibilit for general spaces will have to repeat part of the proof of that fact instead
+  of building on top of it.
 -/
 
 namespace Topology
@@ -182,6 +189,16 @@ lemma map_injective {ι' : Type*} {X' : ι' → Type*} {f : ι → ι'} [∀ i, 
   · have h' := congrArg (fun x ↦ x.points (f i)) h
     simp only [map_points_apply] at h'
     exact Option.map_injective (hg i) h'
+
+lemma nonempty_iff : Nonempty (IJoin X) ↔ ∃ i, Nonempty (X i) := by
+  classical
+  refine ⟨fun ⟨x⟩ ↦ ?_, fun ⟨i, ⟨x⟩⟩ ↦ ⟨of i x⟩⟩
+  have ⟨i, hi⟩ := x.support_weights_nonempty
+  exact ⟨i, ⟨(Option.ne_none_iff_exists.1 <| x.points_eq_none_iff.not.2 <|
+    Finsupp.mem_support_iff.1 hi).choose⟩⟩
+
+instance [Nonempty ι] [∀ i, Nonempty (X i)] : Nonempty (IJoin X) :=
+  nonempty_iff.2 ⟨Classical.arbitrary _, inferInstance⟩
 
 attribute [local instance] Option.excludedPointTopology'
 
@@ -896,6 +913,28 @@ lemma continuousMulActionHom_homotopic
         (fun _ ↦ id) (x := x) (i := i)]
     · exact .comp (g := (fun x : (IJoin _) ↦ x.points i) ∘ Prod.snd)
         (.comp continuous_points.continuousAt Filter.tendsto_snd) Filter.tendsto_snd
+
+/-- TODO: move -/
+lemma _root_.ContinuousMap.Homotopic.of_comp_homeomorph {X Y Z : Type*} [TopologicalSpace X]
+    [TopologicalSpace Y] [TopologicalSpace Z] {f f' : C(Y, Z)} {e : X ≃ₜ Y}
+    (h : (f.comp e : C(X, Z)).Homotopic (f'.comp e)) : f.Homotopic f' := by
+  rw [← f.comp_id, ← f'.comp_id, ← Homeomorph.coe_refl, ← e.symm_trans_self, Homeomorph.coe_trans]
+  exact h.comp (.refl _)
+
+/-- TODO: move -/
+@[simp]
+lemma _root_.ContinuousMap.Homotopic.comp_homeomorph_iff {X Y Z : Type*} [TopologicalSpace X]
+    [TopologicalSpace Y] [TopologicalSpace Z] {f f' : C(Y, Z)} (e : X ≃ₜ Y) :
+    (f.comp e : C(X, Z)).Homotopic (f'.comp e) ↔ f.Homotopic f' :=
+  ⟨fun h ↦ h.of_comp_homeomorph, fun h ↦ h.comp (.refl _)⟩
+
+/-- TODO: generalise this to arbitrary infinite joins of any nonempty space `X`. -/
+instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G] :
+    ContractibleSpace (IJoin fun _ : ℕ ↦ G) := by
+  refine (contractible_iff_id_nullhomotopic _).2 ⟨Classical.arbitrary _, ?_⟩
+  refine .of_comp_homeomorph (e := WithTrivialSMul.homeomorph G _) ?_
+  rw [← ContinuousMulActionHom.Homotopic.relIsoContinuousMap (φ := .id G).symm.map_rel_iff]
+  exact continuousMulActionHom_homotopic _ _
 
 end SMul
 

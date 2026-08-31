@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.CountableTrans
+import ClassifyingBundles.TrivialSMul
 import Mathlib.GroupTheory.GroupAction.Hom
 import Mathlib.Topology.Homotopy.Basic
 
@@ -88,6 +89,20 @@ lemma isInducing_toContinuousMap :
     Topology.IsInducing fun f : Cₑ[φ](X, Y) ↦ toContinuousMap f :=
   ⟨rfl⟩
 
+/-- When `M` acts trivially on `X`, `M`-equivariant functions out of `X × M` are equivalently just
+continuous functions out of `X`. -/
+@[simps!]
+def equivContinuousMap [TopologicalSpace M] [TopologicalSpace N] [Monoid M] [Monoid N] {φ : M →ₜ* N}
+    {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] [SMul M X] [TrivialSMul M X]
+    [MulAction N Y] [ContinuousSMul N Y] :
+    Cₑ[φ](X × M, Y) ≃ C(X, Y) where
+  toFun f := (toContinuousMap f).comp <| .prodMk (.id _) (.const _ 1)
+  invFun f := {
+    toFun x := φ x.2 • f x.1
+    map_smul' := by simp [mul_smul] }
+  left_inv _ := by ext; simp [← ContinuousMulActionHom.map_smul'']
+  right_inv _ := by ext; simp
+
 /-- Homotopies of continuous equivariant maps. -/
 abbrev Homotopy (f g : Cₑ[φ](X, Y)) :=
   ContinuousMap.HomotopyWith (toContinuousMap f) (toContinuousMap g)
@@ -154,6 +169,10 @@ def Homotopic (f g : Cₑ[φ](X, Y)) := Nonempty (Homotopy f g)
 
 namespace Homotopic
 
+lemma toContinuousMap {f g : Cₑ[φ](X, Y)} (h : f.Homotopic g) :
+    (toContinuousMap f).Homotopic (toContinuousMap g) :=
+  ⟨h.some.toHomotopy⟩
+
 lemma refl (f : Cₑ[φ](X, Y)) : f.Homotopic f := ⟨.refl f⟩
 
 lemma symm {f f' : Cₑ[φ](X, Y)} (h : f.Homotopic f') : f'.Homotopic f := ⟨h.some.symm⟩
@@ -165,6 +184,23 @@ lemma comp {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y] [Topologica
     [SMul M X] [SMul M Y] [SMul M Z] {f f' : C[M](Y, Z)} (h : f.Homotopic f')
     {f'' f''' : C[M](X, Y)} (h' : f''.Homotopic f''') : (f.comp f'').Homotopic (f'.comp f''') :=
   ⟨h.some.comp h'.some⟩
+
+/-- The bijection between equivariant maps `Cₑ[φ](X × M, Y)` and continuous maps `C(X, Y)` when `M`
+acts trivially on `X`, as an isomorphism of the equivalence relations
+`ContinuousMulActionHom.Homotopic` and `ContinuousMap.Homotopic`. -/
+def relIsoContinuousMap [TopologicalSpace M] [TopologicalSpace N] [Monoid M] [Monoid N]
+    {φ : M →ₜ* N} {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] [SMul M X]
+    [TrivialSMul M X] [MulAction N Y] [ContinuousSMul N Y] :
+    (Homotopic (φ := φ) (X := X × M) (Y := Y)) ≃r
+      (ContinuousMap.Homotopic (X := X) (Y := Y)) where
+  toEquiv := equivContinuousMap
+  map_rel_iff' {f f'} := by
+    refine ⟨fun ⟨F⟩ ↦ ⟨?_⟩, fun h ↦ h.toContinuousMap.comp <| .refl _⟩
+    exact {
+      toFun x := φ x.2.2 • F (x.1, x.2.1)
+      map_zero_left := by simp [← f.map_smul'']
+      map_one_left := by simp [← f'.map_smul'']
+      prop' _ _ _ := by simp [mul_smul] }
 
 end Homotopic
 

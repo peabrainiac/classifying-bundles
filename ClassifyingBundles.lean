@@ -27,3 +27,4 @@ import ClassifyingBundles.PositivePartition
 import ClassifyingBundles.PrincipalBundle
 import ClassifyingBundles.RealInduction
 import ClassifyingBundles.TopologicalCategory
+import ClassifyingBundles.TrivialSMul
