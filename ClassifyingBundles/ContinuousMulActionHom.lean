@@ -4,13 +4,15 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.CountableTrans
+import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.TrivialSMul
 import Mathlib.GroupTheory.GroupAction.Hom
 import Mathlib.Topology.Homotopy.Basic
 
 /-! # Equivariant continuous maps
 
-In this file we define a type `ContinuousMulActionHom` of equivariant continuous maps.
+In this file we define a type `ContinuousMulActionHom` of equivariant continuous maps,
+and a type `ContinuousMulActionEquiv` of equivariant homeomorphisms.
 -/
 
 /-- A continuous `φ`-equivariant map. -/
@@ -81,6 +83,16 @@ protected def comp {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y] [To
     [SMul M X] [SMul M Y] [SMul M Z] (f : C[M](Y, Z)) (g : C[M](X, Y)) : C[M](X, Z) where
   toContinuousMap := (toContinuousMap f).comp (toContinuousMap g)
   map_smul' := by simp
+
+@[simp]
+lemma comp_id {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] [SMul M X] [SMul M Y]
+    {f : C[M](X, Y)} : f.comp (.id _ _) = f := by
+  ext; simp
+
+@[simp]
+lemma id_comp {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] [SMul M X] [SMul M Y]
+    {f : C[M](X, Y)} : .comp (.id _ _) f = f := by
+  ext; simp
 
 /-- We equip `Cₑ[φ](X, Y)` with the topology induced by the compact-open topology on `C(X, Y)`. -/
 instance : TopologicalSpace Cₑ[φ](X, Y) := .induced (fun f ↦ toContinuousMap f) inferInstance
@@ -205,3 +217,125 @@ def relIsoContinuousMap [TopologicalSpace M] [TopologicalSpace N] [Monoid M] [Mo
 end Homotopic
 
 end ContinuousMulActionHom
+
+structure ContinuousMulActionEquiv {M N : Type*} (φ : M ≃ N)
+    (X Y : Type*) [TopologicalSpace X] [TopologicalSpace Y] [SMul M X] [SMul N Y] extends
+  X ≃ₜ Y, X ≃ₑ[φ] Y
+
+/-- Equivariant homeomorphisms `X ≃ₜ Y` along a bijection `M ≃ N`. -/
+notation:25 X " ≃ₜₑ[" φ:25 "] " Y:0 => ContinuousMulActionEquiv φ X Y
+
+/-- `M`-equivariant homeomorphisms `X ≃ₜ Y`. This is the same as `X ≃ₜₑ[Equiv.refl M] Y`. -/
+notation:25 X " ≃ₜ[" M:25 "] " Y:0 => ContinuousMulActionEquiv (Equiv.refl M) X Y
+
+namespace ContinuousMulActionEquiv
+
+variable {M N : Type*} {φ : M ≃ N} {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [SMul M X] [SMul N Y]
+
+lemma toHomeomorph_injective : (toHomeomorph : (X ≃ₜₑ[φ] Y) → X ≃ₜ Y).Injective
+  | ⟨_, _⟩, ⟨_, _⟩, h => by grind
+
+instance : EquivLike (X ≃ₜₑ[φ] Y) X Y where
+  coe e := e.toFun
+  inv e := e.invFun
+  left_inv e := e.left_inv
+  right_inv e := e.right_inv
+  coe_injective' _ _ h h' := toHomeomorph_injective <| EquivLike.coe_injective' _ _ h h'
+
+instance : MulActionSemiHomClass (X ≃ₜₑ[φ] Y) φ X Y where
+  map_smulₛₗ e m x := e.map_smul' m x
+
+instance : HomeomorphClass (X ≃ₜₑ[φ] Y) X Y where
+  map_continuous e := e.continuous_toFun
+  inv_continuous e := e.continuous_invFun
+
+@[simp]
+lemma coe_toHomeomorph {e : X ≃ₜₑ[φ] Y} : ⇑e.toHomeomorph = e := rfl
+
+/-- The continuous equivariant map underlying a continuous equivariant homeomorphism. -/
+def toContinuousMulActionHom (e : X ≃ₜₑ[φ] Y) : Cₑ[φ](X, Y) where
+  __ := e
+
+@[simp]
+lemma coe_toContinuousMulActionHom {e : X ≃ₜₑ[φ] Y} : ⇑e.toContinuousMulActionHom = e := rfl
+
+@[simp]
+lemma coe_mk {toHomeomorph : X ≃ₜ Y}
+    {map_smul' : ∀ m x, toHomeomorph.toFun (m • x) = φ m • toHomeomorph.toFun x} :
+    ⇑(ContinuousMulActionEquiv.mk toHomeomorph map_smul') = toHomeomorph := rfl
+
+@[ext]
+lemma ext {e e' : X ≃ₜₑ[φ] Y} (h : ∀ x, e x = e' x) : e = e' :=
+  DFunLike.ext _ _ h
+
+lemma map_smul'' (e : X ≃ₜₑ[φ] Y) (m : M) (x : X) : e (m • x) = φ m • e x :=
+  e.map_smul' m x
+
+lemma map_smul {M : Type*} {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [SMul M X] [SMul M Y] (e : X ≃ₜ[M] Y) (m : M) (x : X) : e (m • x) = m • e x := by
+  simp
+
+variable (M) (X) in
+/-- The identity map on `X` as an equivariant homeomorphism. -/
+def refl : X ≃ₜ[M] X where
+  toHomeomorph := .refl _
+  map_smul' := by simp
+
+@[simp]
+lemma coe_refl : ⇑(refl M X) = id := rfl
+
+@[simp]
+lemma toContinuousMulActionHom_refl : (refl M X).toContinuousMulActionHom = .id M X := rfl
+
+/-- The inverse of an equivariant homeomorphism.
+
+TODO: generalise this to homeomorphisms that are equivariant along isomorphisms of the groups -/
+def symm {M : Type*} {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [SMul M X] [SMul M Y] (e : X ≃ₜ[M] Y) : Y ≃ₜ[M] X where
+  toHomeomorph := .symm e
+  map_smul' := e.toMulActionEquiv.symm.map_smul
+
+@[simp]
+lemma apply_symm_apply {M : Type*} {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [SMul M X] [SMul M Y] {e : X ≃ₜ[M] Y} {y : Y} : e (e.symm y) = y :=
+  e.toHomeomorph.apply_symm_apply y
+
+@[simp]
+lemma symm_apply_apply {M : Type*} {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [SMul M X] [SMul M Y] {e : X ≃ₜ[M] Y} {x : X} : e.symm (e x) = x :=
+  e.toHomeomorph.symm_apply_apply x
+
+/-- The composition of equivariant homeomorphisms.
+
+TODO: generalise this to homeomorphisms that are equivariant along isomorphisms of the groups -/
+def trans {M : Type*} {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+    [SMul M X] [SMul M Y] [SMul M Z] (e : X ≃ₜ[M] Y) (e' : Y ≃ₜ[M] Z) : X ≃ₜ[M] Z where
+  toHomeomorph := .trans e e'.toHomeomorph
+  map_smul' := by simp
+
+@[simp]
+lemma coe_trans {M : Type*} {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [TopologicalSpace Z] [SMul M X] [SMul M Y] [SMul M Z] {e : X ≃ₜ[M] Y} {e' : Y ≃ₜ[M] Z} :
+    ⇑(e.trans e') = e' ∘ e :=
+  rfl
+
+@[simp]
+lemma toContinuousMulActionHom_trans {M : Type*} {X Y Z : Type*} [TopologicalSpace X]
+    [TopologicalSpace Y] [TopologicalSpace Z] [SMul M X] [SMul M Y] [SMul M Z]
+    {e : X ≃ₜ[M] Y} {e' : Y ≃ₜ[M] Z} :
+    (e.trans e').toContinuousMulActionHom =
+      e'.toContinuousMulActionHom.comp e.toContinuousMulActionHom :=
+  rfl
+
+@[simp]
+lemma symm_trans_self {M : Type*} {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [SMul M X] [SMul M Y] {e : X ≃ₜ[M] Y} : e.symm.trans e = .refl _ _ := by
+  ext; simp
+
+@[simp]
+lemma self_trans_symm {M : Type*} {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+    [SMul M X] [SMul M Y] {e : X ≃ₜ[M] Y} : e.trans e.symm = .refl _ _ := by
+  ext; simp
+
+end ContinuousMulActionEquiv
