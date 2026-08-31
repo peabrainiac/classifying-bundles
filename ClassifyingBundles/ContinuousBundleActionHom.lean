@@ -155,6 +155,39 @@ lemma _root_.ContinuousMulActionHom.baseMap_apply [Nonempty F] [∀ b, Nonempty 
   have ⟨g, h⟩ := MulAction.exists_smul_eq G x.snd (Classical.arbitrary _)
   simp [ContinuousMulActionHom.baseMap, ← h, ← TotalSpace.smul_mk, f.map_smul'']
 
+variable {G F B : Type*} {E : B → Type*} [TopologicalSpace F] [TopologicalSpace B]
+  [∀ b, TopologicalSpace (E b)] [TopologicalSpace (TotalSpace F E)] [IsFiberBundle F E]
+  {F' B' : Type*} {E' : B' → Type*} [TopologicalSpace F'] [TopologicalSpace B']
+  [∀ b, TopologicalSpace (E' b)] [TopologicalSpace (TotalSpace F' E')] [IsFiberBundle F' E']
+  {F'' B'' : Type*} {E'' : B'' → Type*} [TopologicalSpace F''] [TopologicalSpace B'']
+  [∀ b, TopologicalSpace (E'' b)] [TopologicalSpace (TotalSpace F'' E'')] [IsFiberBundle F'' E'']
+  [∀ b, SMul G (E b)] [∀ b', SMul G (E' b')] [∀ b'', SMul G (E'' b'')] in
+@[simp]
+lemma _root_.ContinuousMulActionHom.baseMap_comp
+    [Nonempty F] [∀ b, Nonempty (E b)] [∀ b, MulAction.IsPretransitive G (E b)]
+    [Nonempty F'] [∀ b, Nonempty (E' b)] [∀ b, MulAction.IsPretransitive G (E' b)]
+    [Nonempty F''] [∀ b, Nonempty (E'' b)] [∀ b, MulAction.IsPretransitive G (E'' b)]
+    {f : C[G](TotalSpace F E, TotalSpace F' E')} {f' : C[G](TotalSpace F' E', TotalSpace F'' E'')} :
+    (f'.comp f).baseMap = f'.baseMap.comp f.baseMap := by
+  ext b
+  obtain ⟨x, rfl⟩ : ∃ x : TotalSpace F E, x.proj = b := ⟨⟨b, Classical.arbitrary _⟩, rfl⟩
+  simp
+
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)]
+  [IsFiberBundle F' E'] in
+lemma _root_.ContinuousMulActionHom.Homotopic.baseMap [Nonempty F] [∀ b, Nonempty (E b)]
+    [∀ b, MulAction.IsPretransitive G (E b)] {φ : G → H}
+    {f f' : Cₑ[φ](TotalSpace F E, TotalSpace F' E')} (h : f.Homotopic f') :
+    f.baseMap.Homotopic f'.baseMap := by
+  obtain ⟨F⟩ := h
+  exact ⟨{
+    toFun x := (F.curry x.1).baseMap x.2
+    continuous_toFun := (IsFiberBundle.isQuotientMap_proj _ E).continuous_lift_prod_right <|
+      .congr (f := fun p ↦ (F p).proj) (by fun_prop) (by simp)
+    map_zero_left := by simp
+    map_one_left := by simp }⟩
+
 variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
   [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)]
   [IsFiberBundle F' E'] in
@@ -163,6 +196,15 @@ lemma toContinuousMulActionHom_baseMap [Nonempty F] [∀ b, Nonempty (E b)]
     [∀ b, MulAction.IsPretransitive G (E b)] (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) :
     f'.toContinuousMulActionHom.baseMap = f := by
   simp [ContinuousMulActionHom.baseMap]
+
+variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
+  [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)]
+  [IsFiberBundle F' E'] in
+@[simp]
+lemma toContinuousMulActionHom_baseMap' [Nonempty F] [∀ b, Nonempty (E b)]
+    [∀ b, MulAction.IsPretransitive G (E b)] {f : C(B, B')} (f' : Cᶠₑ[φ, f]⟮F, E; F', E'⟯) :
+    f'.toContinuousMulActionHom.baseMap = f := by
+  ext; simp
 
 variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]
   [TopologicalSpace F'] [TopologicalSpace B'] [∀ b, TopologicalSpace (E' b)]
@@ -198,6 +240,12 @@ variable [TopologicalSpace F] [TopologicalSpace B] [∀ b, TopologicalSpace (E b
 
 instance {f : B' → B} {b' : B'} [SMul G (E (f b'))] : SMul G ((f *ᵖ E) b') :=
   inferInstanceAs (SMul G (E (f b')))
+
+/-- `Bundle.Pullback.lift` as a continuous fibrewise map. -/
+@[simps!]
+def pullbackLift {f : B' → B} : Cᶠₑ[@id G, f]⟮F, f *ᵖ E; F, E⟯ where
+  toContinuousBundleHom := .pullbackLift
+  map_smul' _ _ _ := rfl
 
 /-- Continuous fibrewise equivariant maps from a bundle `E` over `B` to a bundle `E'` over `B'`
 relative to a map `B → B'` are equivalently continuous fibrewise equivariant maps from `E` to the
@@ -264,6 +312,13 @@ TODO: upgrade this to a `ContinuousMulActionEquiv` once that is defined. -/
 def mulActionEquivAt (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') (b : B) : E b ≃ₑ[φ] E' (e b) where
   toEquiv := (e'.homeomorphAt b).toEquiv
   __ := e'.continuousMulActionHomAt b
+
+/-- The equivariant homeomorphism of total spaces induced by an equivariant
+isomorphism of bundles. -/
+def toContinuousMulActionEquiv (e' : E ≃ₜᶠₑ[φ, e; F, F'] E') :
+    TotalSpace F E ≃ₜₑ[φ] TotalSpace F' E' where
+  toHomeomorph := e'.toHomeomorph
+  map_smul' := e'.toContinuousBundleActionHom.toContinuousMulActionHom.map_smul''
 
 set_option backward.isDefEq.respectTransparency false in
 variable [TopologicalSpace F] [∀ b, TopologicalSpace (E b)] [IsFiberBundle F E]

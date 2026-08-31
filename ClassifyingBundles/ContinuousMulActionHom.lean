@@ -162,6 +162,18 @@ def curry {f f' : Cₑ[φ](X, Y)} (F : f.Homotopy f') : C(unitInterval, Cₑ[φ]
   continuous_toFun :=
     isInducing_toContinuousMap.continuous_iff.2 <| map_continuous F.toHomotopy.curry
 
+@[simp]
+lemma curry_apply {f f' : Cₑ[φ](X, Y)} {F : f.Homotopy f'} {t : unitInterval} {x : X} :
+    F.curry t x = F (t, x) := rfl
+
+@[simp]
+lemma curry_zero {f f' : Cₑ[φ](X, Y)} {F : f.Homotopy f'} : F.curry 0 = f := by
+  simp [curry]
+
+@[simp]
+lemma curry_one {f f' : Cₑ[φ](X, Y)} {F : f.Homotopy f'} : F.curry 1 = f' := by
+  simp [curry]
+
 open Filter unitInterval Topology in
 /-- The concatenation of countably many equivariant homotopies `F n : (f n).Homotopy (f (n + 1))`
 leading up to a single equivariant map `g`. -/
@@ -339,3 +351,25 @@ lemma self_trans_symm {M : Type*} {X Y : Type*} [TopologicalSpace X] [Topologica
   ext; simp
 
 end ContinuousMulActionEquiv
+
+@[simp]
+lemma ContinuousMulActionHom.Homotopic.comp_continuousMulActionEquiv_iff {M : Type*} {X Y Z : Type*}
+    [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+    [SMul M X] [SMul M Y] [SMul M Z] {f f' : C[M](Y, Z)} (e : X ≃ₜ[M] Y) :
+    (f.comp e.toContinuousMulActionHom).Homotopic (f'.comp e.toContinuousMulActionHom) ↔
+      f.Homotopic f' := by
+  refine ⟨fun ⟨F⟩ ↦ ?_, fun h ↦ h.comp (.refl _)⟩
+  rw [← f.comp_id, ← f'.comp_id, ← ContinuousMulActionEquiv.toContinuousMulActionHom_refl,
+    ← e.symm_trans_self, ContinuousMulActionEquiv.toContinuousMulActionHom_trans]
+  exact ⟨F.comp (.refl _)⟩
+
+@[simp]
+lemma ContinuousMulActionHom.Homotopic.continuousMulActionEquiv_comp_iff {M : Type*} {X Y Z : Type*}
+    [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+    [SMul M X] [SMul M Y] [SMul M Z] {f f' : C[M](X, Y)} (e : Y ≃ₜ[M] Z) :
+    (e.toContinuousMulActionHom.comp f).Homotopic (e.toContinuousMulActionHom.comp f') ↔
+      f.Homotopic f' := by
+  refine ⟨fun ⟨F⟩ ↦ ?_, fun h ↦ .comp (.refl _) h⟩
+  rw [← f.id_comp, ← f'.id_comp, ← ContinuousMulActionEquiv.toContinuousMulActionHom_refl,
+    ← e.self_trans_symm, ContinuousMulActionEquiv.toContinuousMulActionHom_trans]
+  exact ⟨.comp (.refl e.symm.toContinuousMulActionHom) F⟩

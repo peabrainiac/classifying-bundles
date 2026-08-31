@@ -643,6 +643,14 @@ lemma Bundle.OfMap.totalSpaceHomeomorph_smul {X : Type*} [TopologicalSpace X] [M
       g • totalSpaceHomeomorph G (Quotient.mk (MulAction.orbitRel G X)) x :=
   rfl
 
+variable (G) in
+/-- The equivariant homeomorphism between the total space of the bundle constructed out of a
+`G`-space `X` and the original space `X`. -/
+def Bundle.OfMap.totalSpaceContinuousMulActionEquiv (X : Type*) [TopologicalSpace X]
+    [MulAction G X] : TotalSpace G (OfMap (Quotient.mk (MulAction.orbitRel G X))) ≃ₜ[G] X where
+  toHomeomorph := totalSpaceHomeomorph _ _
+  map_smul' _ _ := totalSpaceHomeomorph_smul
+
 instance {X : Type*} [TopologicalSpace X] [MulAction G X] [ContinuousSMul G X] {b} :
     ContinuousSMul G (OfMap (Quotient.mk (MulAction.orbitRel G X)) b) where
   continuous_smul := .subtype_mk (by fun_prop) _

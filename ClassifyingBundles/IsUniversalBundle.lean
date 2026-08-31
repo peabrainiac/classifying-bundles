@@ -3,6 +3,7 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
+import ClassifyingBundles.IndexedJoin
 import ClassifyingBundles.PrincipalBundle
 
 /-! # Universal bundles
@@ -15,9 +16,7 @@ later to figure out how exactly `IsUniversalBundle` should be stated in a more u
 way if needed.
 -/
 
-open Bundle
-
-open scoped Topology
+open Bundle Topology
 
 universe u
 
@@ -155,3 +154,38 @@ lemma contractibleSpace [IsUniversalBundle G F E] : ContractibleSpace (TotalSpac
   sorry
 
 end IsUniversalBundle
+
+section MilnorConstruction
+
+/-- Milnor's construction of the classifying space of any topological group `G`. This is
+an abbreviation for the orbit space of the locally trivial `G`-space that is the countable join
+`IJoin fun _ : ℕ ↦ G`. -/
+abbrev Bundle.MilnorBG (G : Type*) [Group G] [TopologicalSpace G] [IsTopologicalGroup G] :=
+  Quotient (MulAction.orbitRel G (IJoin fun _ : ℕ ↦ G))
+
+/-- Milnor's construction of the classifying bundle of any topological group `G`. This is
+an abbreviation for the bundle constructed using `Bundle.OfMap` out of the locally trivial `G`-space
+that is the countable join `IJoin fun _ : ℕ ↦ G`. -/
+abbrev Bundle.MilnorEG (G : Type*) [Group G] [TopologicalSpace G] [IsTopologicalGroup G] :
+    MilnorBG G → Type _ :=
+  (OfMap (Quotient.mk (MulAction.orbitRel G (IJoin fun _ : ℕ ↦ G))))
+
+variable {B : Type*} [TopologicalSpace B] {f : C(B, MilnorBG G)}
+
+/-- As expected, `MilnorEG G` is indeed a universal `G`-principal bundle over `MilnorBG G`.
+
+TODO: finish this -/
+instance : IsUniversalBundle G G (MilnorEG G) where
+  numerableCover_isTrivialOn := by sorry
+  exists_classifyingMap := by sorry
+  homotopic_of_iso B' _ f f' e := by
+    suffices h : (ContinuousBundleActionHom.pullbackLift (G := G) (F := G) (E := MilnorEG G)
+        (f := f)).toContinuousMulActionHom.Homotopic ((ContinuousBundleActionHom.pullbackLift
+          (f := f')).toContinuousMulActionHom.comp e.toContinuousMulActionHom) by
+      convert h.baseMap <;> ext <;> simp
+    have _ b : Zero (MilnorEG G b) := ⟨Classical.arbitrary _⟩
+    rw [← ContinuousMulActionHom.Homotopic.continuousMulActionEquiv_comp_iff
+      (OfMap.totalSpaceContinuousMulActionEquiv _ _)]
+    exact IJoin.continuousMulActionHom_homotopic _ _
+
+end MilnorConstruction
