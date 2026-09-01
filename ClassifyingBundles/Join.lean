@@ -295,6 +295,12 @@ lemma _root_.Option.continuous_excludedPointTopology'_iff' {f : Y → X} {p : Y 
   rw [(Option.isOpenEmbedding_some_excludedPointTopology' (X := X)).continuousOn_iff]
   exact continuousOn_congr fun y ↦ by simp
 
+lemma _root_.Option.continuous_excludedPointTopology'_iff'' {f : Y → X} {p : Y → Prop}
+    [∀ y, Decidable (p y)] : Continuous (fun y ↦ if p y then some (f y) else none) ↔
+      IsOpen {y | p y} ∧ ContinuousOn f {y | p y} := by
+  simpa [← Set.compl_setOf] using
+    Option.continuous_excludedPointTopology'_iff' (f := f) (p := fun y ↦ ¬(p y))
+
 /-- The "strong topology" on `X ⋆ Y` as defined by Milnor, i.e. the coarsest topology making the
 projections to `unitInterval`, `X` and `Y` continuous where they are defined. -/
 instance : TopologicalSpace (X ⋆ Y) :=

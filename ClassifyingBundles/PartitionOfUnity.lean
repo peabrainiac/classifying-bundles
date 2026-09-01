@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
 import ClassifyingBundles.PositivePartition
+import Mathlib.Geometry.Convex.ConvexSpace.Defs
 
 /-! # Partitions of unity
 More API on continuous partitions of unity and bump coverings as already defined in mathlib.
@@ -337,3 +338,21 @@ lemma BumpCovering.isSubordinate_shrink (f : BumpCovering ι X) :
 lemma BumpCovering.isSubordinate_tsupport (f : BumpCovering ι X) :
     f.IsSubordinate fun i ↦ tsupport (f i) :=
   fun _ ↦ subset_rfl
+
+/-- The values of a partition of unity at a point as a finitely supported function.
+
+TODO: generalise this to `PositivePartition` once enough API for that is available. -/
+@[simps]
+noncomputable def PartitionOfUnity.toFinsupp (f : PartitionOfUnity ι X) (x : X) : ι →₀ ℝ where
+  support := f.finsupport x
+  toFun i := f i x
+  mem_support_toFun := by simp
+
+open Convexity in
+/-- The values of a partition of unity at a point as an element of `StdSimplex ℝ ι`. -/
+@[simps]
+noncomputable def PartitionOfUnity.toStdSimplex (f : PartitionOfUnity ι X) (x : X) :
+    StdSimplex ℝ ι where
+  weights := f.toFinsupp x
+  nonneg i := by simp [f.nonneg]
+  total := by simp [Finsupp.sum, f.sum_finsupport]

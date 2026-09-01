@@ -177,8 +177,47 @@ variable {B : Type*} [TopologicalSpace B] {f : C(B, MilnorBG G)}
 TODO: finish this -/
 instance : IsUniversalBundle G G (MilnorEG G) where
   numerableCover_isTrivialOn := by sorry
-  exists_classifyingMap := by sorry
+  exists_classifyingMap B' _ E' _ _ _ _ _ _ _ := by
+    /- It suffices to prove that an equivariant map to the total space of `MilnorEG G` exists. -/
+    suffices h : Nonempty C[G](TotalSpace G E', TotalSpace G (MilnorEG G)) by
+      obtain ⟨f⟩ := h
+      have _ b : Zero (E' b) := ⟨Classical.arbitrary _⟩
+      exact ⟨_, ⟨ContinuousBundleActionHom.pullbackEquivIso _ <| .ofContinuousMulActionHom f⟩⟩
+    /- This total space is identified with `IJoin fun _ : ℕ ↦ G`, so it suffices to prove the
+    existence of an equivariant map to that. -/
+    suffices h : Nonempty C[G](TotalSpace G E', IJoin fun _ : ℕ ↦ G) from
+      ⟨(OfMap.totalSpaceContinuousMulActionEquiv _ _).symm.toContinuousMulActionHom.comp h.some⟩
+    /- Since `E'` is numerable, we can obtain an `ℕ`-indexed family of equivariant trivialisations
+    with a partition of unity `f` subordinate to their base sets. -/
+    have ⟨u, hu, ⟨f, hf⟩, hu'⟩ := NumerableBundle.exists_countable_isTrivialOn_cover G E'
+    have _ b : Zero (E' b) := ⟨Classical.arbitrary _⟩
+    choose e he he' using fun i ↦
+      (isTrivialOn_iff_exists_equivariant_trivialization (hu' i).1).1 (hu' i).2
+    /- Now the obvious construction works. -/
+    exact ⟨{
+      toFun x := {
+        toStdSimplex := f.toStdSimplex x.proj
+        points n := if n ∈ f.finsupport x.proj then (e n x).2 else none
+        points_eq_none_iff := by simp }
+      continuous_toFun := by
+        refine IJoin.continuous_iff.2 ⟨?_, ?_⟩
+        · simp only [PartitionOfUnity.weights_toStdSimplex, PartitionOfUnity.toFinsupp_apply]
+          fun_prop
+        · simp only [PartitionOfUnity.mem_finsupport, Function.mem_support, ne_eq, ite_not,
+            Option.continuous_excludedPointTopology'_iff']
+          refine fun n ↦ ⟨Continuous.isOpen_support (by fun_prop),
+            continuous_snd.comp_continuousOn <| .mono (e n).continuousOn <|
+              (Set.preimage_mono (f := π G E') <| subset_closure.trans (hf n)).trans ?_⟩
+          simp [(e n).source_eq, he]
+      map_smul' g x := by
+        refine IJoin.ext (by simp) fun n hn ↦ ?_
+        simp only [smul_proj, PartitionOfUnity.weights_toStdSimplex,
+          PartitionOfUnity.toFinsupp_apply] at hn
+        simp [hn.ne', (he' n).map_smul (g := g) (x := x)
+          (by simp [(e n).source_eq, he, subset_closure.trans (hf n) hn.ne'])] }⟩
   homotopic_of_iso B' _ f f' e := by
+    /- It suffices to prove that any two `G`-equivariant maps into the total space of `MilnorEG G`
+    are `G`-equivariantly homotopic, which we have already have proven in a separate lemma. -/
     suffices h : (ContinuousBundleActionHom.pullbackLift (G := G) (F := G) (E := MilnorEG G)
         (f := f)).toContinuousMulActionHom.Homotopic ((ContinuousBundleActionHom.pullbackLift
           (f := f')).toContinuousMulActionHom.comp e.toContinuousMulActionHom) by
