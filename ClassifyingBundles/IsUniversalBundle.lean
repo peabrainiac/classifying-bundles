@@ -172,11 +172,43 @@ abbrev Bundle.MilnorEG (G : Type*) [Group G] [TopologicalSpace G] [IsTopological
 
 variable {B : Type*} [TopologicalSpace B] {f : C(B, MilnorBG G)}
 
+/-- TODO: move -/
+lemma _root_.Finsupp.sum_eq_finsum {α M N : Type*} [Zero M] [AddCommMonoid N] (f : α →₀ M)
+    {g : α → M → N} (h : ∀ a, g a 0 = 0) : f.sum g = ∑ᶠ a, g a (f a) := by
+  rw [Finsupp.sum, finsum_eq_sum_of_support_subset]
+  grind [Function.support_subset_iff]
+
+/-- Arbitrary joins of `G` are numerable bundles over their orbit spaces. -/
+instance {ι : Type*} :
+    NumerableBundle G (OfMap (Quotient.mk (MulAction.orbitRel G (IJoin fun _ : ι ↦ G)))) := by
+  let f i : C(Quotient (MulAction.orbitRel G (IJoin fun _ : ι ↦ G)), ℝ) :=
+    ⟨fun x ↦ x.lift (fun x ↦ x.weights i) <| by rintro _ x' ⟨g, rfl⟩; simp, by fun_prop⟩
+  refine NumerableCover.numerableBundle _ _ (u := fun i ↦ Function.support (f i)) ?_ fun i ↦ ?_
+  · exact NumerableCover.iff_exists_generalizedPositivePartition'.2 ⟨{
+      toFun i := f i
+      point_finite' := by rintro ⟨x⟩; exact x.weights.hasFiniteSupport
+      continuous_finsum' := (continuous_const (y := 1)).congr fun x ↦ by
+        obtain ⟨x, rfl⟩ := x.exists_rep
+        simpa [f] using x.total.symm.trans <| x.weights.sum_eq_finsum (by simp)
+      nonneg' i x := by obtain ⟨x, rfl⟩ := x.exists_rep; simp [f]
+      exists_pos' x _ := by obtain ⟨x, rfl⟩ := x.exists_rep; exact x.exists_pos
+    }, by simp⟩
+  · have ⟨e, he, he'⟩ := IJoin.exists_equivariant_trivialization G i
+    suffices h : ∃ e' : Trivialization G (π G (OfMap (Quotient.mk
+        (MulAction.orbitRel G (IJoin fun _ : ι ↦ G))))), e'.baseSet = Function.support (f i) by
+      have ⟨e', he''⟩ := h; exact he'' ▸ e'.isTrivialOn_baseSet
+    rw [show π G (OfMap _) = Quotient.mk _ ∘ OfMap.totalSpaceHomeomorph G _ by
+      ext x; simp [show ⟦x.snd.1⟧ = x.proj from x.snd.2]]
+    refine ⟨e.compHomeomorph (OfMap.totalSpaceHomeomorph G _), he'.trans ?_⟩
+    ext x
+    simp only [f, Set.mem_setOf, ContinuousMap.coe_mk, Function.mem_support]
+    rw [← x.out_eq, Quotient.lift_mk]
+    simp [(x.out.nonneg i).lt_iff_ne' (b := 0)]
+
 /-- As expected, `MilnorEG G` is indeed a universal `G`-principal bundle over `MilnorBG G`.
 
 TODO: finish this -/
-instance : IsUniversalBundle G G (MilnorEG G) where
-  numerableCover_isTrivialOn := by sorry
+instance Bundle.MilnorEG.instIsUniversalBundle : IsUniversalBundle G G (MilnorEG G) where
   exists_classifyingMap B' _ E' _ _ _ _ _ _ _ := by
     /- It suffices to prove that an equivariant map to the total space of `MilnorEG G` exists. -/
     suffices h : Nonempty C[G](TotalSpace G E', TotalSpace G (MilnorEG G)) by

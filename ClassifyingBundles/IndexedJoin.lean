@@ -735,67 +735,77 @@ lemma _root_.Option.isContinuousOn_getD_excludedPointTopology' {X : Type*} [Topo
     {x : X} : ContinuousOn (Option.getD · x) (Set.range Option.some) := by
   simp [Option.isOpenEmbedding_some_excludedPointTopology'.continuousOn_range_iff, continuous_id]
 
+/-- For every index `i : ι`, the projection of the infinite Join `IJoin (fun _ : ι ↦ G)` to its
+orbit space is equivariantly trivial on the set where the `i`-th weight is nonzero. -/
+lemma exists_equivariant_trivialization (G : Type*) [Group G] [TopologicalSpace G]
+    [IsTopologicalGroup G] {ι : Type*} (i : ι) :
+    ∃ e : Bundle.Trivialization G (Quotient.mk (MulAction.orbitRel G (IJoin fun _ : ι ↦ G))),
+      e.IsEquivariant G ∧ e.baseSet = {x | 0 < x.out.weights i} := by
+  have h :
+      IsOpen {x : Quotient (MulAction.orbitRel G (IJoin fun _ ↦ G)) | 0 < x.out.weights i} := by
+    refine isOpen_lt continuous_const <| isQuotientMap_quotient_mk'.continuous_iff.2 <|
+      (continuous_weights (i := i)).congr fun x ↦ ?_
+    have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
+    simp [Quotient.mk', ← hg]
+  refine ⟨{
+    toFun x := (⟦x⟧, (x.points i).getD 1)
+    invFun x := (x.2 / (x.1.out.points i).getD 1) • x.1.out
+    source := {x | 0 < x.weights i}
+    target := {x | 0 < x.out.weights i} ×ˢ Set.univ
+    map_source' x := by
+      have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
+      simp [← hg]
+    map_target' x := by simp
+    left_inv' x hx := by
+      have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
+      simp [← hg, x.points_isSome_iff.2 hx]
+    right_inv' x hx := Prod.ext (by simp) <| by
+      simp [x.1.out.points_isSome_iff.2 hx.1]
+    open_source := isOpen_lt continuous_const continuous_weights
+    open_target := h.prod isOpen_univ
+    continuousOn_toFun := .prodMk (by fun_prop) <|
+      Option.isContinuousOn_getD_excludedPointTopology'.comp (by fun_prop) fun x hx ↦
+        Option.ne_none_iff_exists.1 <| x.points_eq_none_iff.not.2 (Set.mem_setOf.1 hx).ne'
+    continuousOn_invFun := by
+      rw [MulAction.isOpenQuotientMap_quotientMk.prodMap .id
+        |>.isQuotientMap.continuousOn_isOpen_iff (h.prod isOpen_univ)]
+      refine continuousOn_iff.2 ⟨fun i' ↦ ?_, fun i' ↦ ?_⟩
+      · refine (continuous_weights (i := i').comp continuous_fst).continuousOn.congr fun x hx ↦ ?_
+        have ⟨g, (hg : g • x.1 = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x.1
+        simp [← hg]
+      · refine .congr (f := fun y ↦ (y.2 / (y.1.points i).getD 1) • y.1.points i') ?_
+          fun x hx ↦ ?_
+        · refine .smul (.div' (by fun_prop) ?_) (by fun_prop)
+          refine Option.isContinuousOn_getD_excludedPointTopology'.comp (by fun_prop)
+            fun x hx ↦ ?_
+          have ⟨g, (hg : g • x.1 = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x.1
+          exact Option.ne_none_iff_exists.1 <| x.1.points_eq_none_iff.not.2
+            (show 0 < x.1.weights i by simpa [← hg] using hx).ne'
+        · have ⟨g, (hg : g • x.1 = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x.1
+          simp [← hg, show (x.1.points i).isSome by simpa [← hg] using hx,
+            div_eq_mul_inv, mul_smul]
+    baseSet := {x | 0 < x.out.weights i}
+    open_baseSet := h
+    source_eq := by
+      ext x
+      have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
+      simp [← hg]
+    target_eq := by ext; simp
+    proj_toFun := by simp }, ⟨?_, fun hx ↦ ?_⟩, rfl⟩
+  · simp
+  · simp only [Set.mem_setOf_eq] at hx
+    simp [hx]
+
+/-- Arbitrary joins of any topological group `G` are locally trivial `G`-spaces. -/
 instance {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G] {ι : Type*} :
     LocallyTrivialSMul G (IJoin (fun _ : ι ↦ G)) where
   exists_equivariant_trivialization b := by
     obtain ⟨x, rfl⟩ := Quotient.mk_surjective b
     have ⟨i, hi⟩ := x.exists_pos
-    have h :
-        IsOpen {x : Quotient (MulAction.orbitRel G (IJoin fun i ↦ G)) | 0 < x.out.weights i} := by
-      refine isOpen_lt continuous_const <| isQuotientMap_quotient_mk'.continuous_iff.2 <|
-        (continuous_weights (i := i)).congr fun x ↦ ?_
-      have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
-      simp [Quotient.mk', ← hg]
-    refine ⟨{
-      toFun x := (⟦x⟧, (x.points i).getD 1)
-      invFun x := (x.2 / (x.1.out.points i).getD 1) • x.1.out
-      source := {x | 0 < x.weights i}
-      target := {x | 0 < x.out.weights i} ×ˢ Set.univ
-      map_source' x := by
-        have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
-        simp [← hg]
-      map_target' x := by simp
-      left_inv' x hx := by
-        have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
-        simp [← hg, x.points_isSome_iff.2 hx]
-      right_inv' x hx := Prod.ext (by simp) <| by
-        simp [x.1.out.points_isSome_iff.2 hx.1]
-      open_source := isOpen_lt continuous_const continuous_weights
-      open_target := h.prod isOpen_univ
-      continuousOn_toFun := .prodMk (by fun_prop) <|
-        Option.isContinuousOn_getD_excludedPointTopology'.comp (by fun_prop) fun x hx ↦
-          Option.ne_none_iff_exists.1 <| x.points_eq_none_iff.not.2 (Set.mem_setOf.1 hx).ne'
-      continuousOn_invFun := by
-        rw [MulAction.isOpenQuotientMap_quotientMk.prodMap .id
-          |>.isQuotientMap.continuousOn_isOpen_iff (h.prod isOpen_univ)]
-        refine continuousOn_iff.2 ⟨fun i' ↦ ?_, fun i' ↦ ?_⟩
-        · refine (continuous_weights (i := i').comp continuous_fst).continuousOn.congr fun x hx ↦ ?_
-          have ⟨g, (hg : g • x.1 = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x.1
-          simp [← hg]
-        · refine .congr (f := fun y ↦ (y.2 / (y.1.points i).getD 1) • y.1.points i') ?_
-            fun x hx ↦ ?_
-          · refine .smul (.div' (by fun_prop) ?_) (by fun_prop)
-            refine Option.isContinuousOn_getD_excludedPointTopology'.comp (by fun_prop)
-              fun x hx ↦ ?_
-            have ⟨g, (hg : g • x.1 = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x.1
-            exact Option.ne_none_iff_exists.1 <| x.1.points_eq_none_iff.not.2
-              (show 0 < x.1.weights i by simpa [← hg] using hx).ne'
-          · have ⟨g, (hg : g • x.1 = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x.1
-            simp [← hg, show (x.1.points i).isSome by simpa [← hg] using hx,
-              div_eq_mul_inv, mul_smul]
-      baseSet := {x | 0 < x.out.weights i}
-      open_baseSet := h
-      source_eq := by
-        ext x
-        have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
-        simp [← hg]
-      target_eq := by ext; simp
-      proj_toFun := by simp }, ?_, ?_, fun hx ↦ ?_⟩
-    · have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
-      simp [← hg, hi]
-    · simp
-    · simp only [Set.mem_setOf_eq] at hx
-      simp [hx]
+    have ⟨e, he, he'⟩ := exists_equivariant_trivialization (G := G) (i := i)
+    refine ⟨e, ?_, he⟩
+    have ⟨g, (hg : g • x = _)⟩ := Quotient.mk_out (s := MulAction.orbitRel G _) x
+    simp [he', ← hg, hi]
 
 @[simp]
 lemma _root_.ContinuousMap.HomotopyWith.coe_mk {X Y : Type*} [TopologicalSpace X]
