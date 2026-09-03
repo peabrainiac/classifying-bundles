@@ -28,53 +28,23 @@ lemma PartitionOfUnity.fintsupport_nonempty {s : Set X} (f : PartitionOfUnity ι
     {x : X} (hx : x ∈ s := by trivial) : (f.fintsupport x).Nonempty :=
   (f.finsupport_nonempty hx).mono (f.finsupport_subset_fintsupport x)
 
-lemma PartitionOfUnity.ciSup_pos (f : PartitionOfUnity ι X) {x : X} : 0 < ⨆ i, f i x := by
-  have ⟨i, hi⟩ := f.exists_pos (mem_univ x)
-  exact hi.trans_le <| le_ciSup (f := fun i ↦ f i x) ⟨1, fun _ ⟨_, h⟩ ↦ h ▸ f.le_one _ _⟩ i
+lemma PartitionOfUnity.ciSup_pos (f : PartitionOfUnity ι X) {x : X} : 0 < ⨆ i, f i x :=
+  f.toPositivePartition.ciSup_pos
 
 open Classical in
 lemma PartitionOfUnity.cbiSup_eq (f : PartitionOfUnity ι X) {s : Set ι} {x : X}
     {s' : Finset ι} (hs' : f.finsupport x ⊆ s') :
     ⨆ i ∈ s, f i x =
-      if h : Finset.Nonempty {i ∈ s' | i ∈ s} then Finset.sup' _ h fun i ↦ f i x else 0 := by
-  refine s.eq_empty_or_nonempty.rec (fun h ↦ by simp [h]) fun hs ↦ ?_
-  have h' : BddAbove (range fun i : s ↦ f i x) := ⟨1, fun _ ⟨_, h⟩ ↦ h ▸ f.le_one _ _⟩
-  rw [← csSup_image h' (le_ciSup_of_le h' _ <| by simpa using f.nonneg hs.to_subtype.some x)]
-  obtain h | h := Finset.eq_empty_or_nonempty {i ∈ s' | i ∈ s}
-  · simp only [h, Finset.not_nonempty_empty, ↓reduceDIte]
-    suffices (fun i ↦ f i x) '' s = {0} by simp [*]
-    suffices h : ∀ i ∈ s, f i x = 0 by
-      refine subset_antisymm (fun _ ⟨i, hi⟩ ↦ hi.2 ▸ h i hi.1) fun x hx ↦ ?_
-      exact ⟨_, hs.choose_spec, hx ▸ h _ hs.choose_spec⟩
-    intro i hi
-    replace h : Disjoint s s' := by
-      rw [disjoint_iff_inter_eq_empty, inter_comm]
-      simpa [← Finset.coe_inj, Set.inter_def] using h
-    simp only [finsupport, Function.mem_support, Finite.toFinset_subset] at hs'
-    grind
-  · simp only [h, ↓reduceDIte]
-    refine le_antisymm ?_ ?_
-    · simp only [Finset.sup'_eq_csSup_image]
-      refine csSup_le (hs.image _) ?_
-      rintro _ ⟨i, hi, rfl⟩
-      by_cases hi' : i ∈ s'
-      · exact le_csSup ⟨1, fun _ ⟨_, h⟩ ↦ h.2 ▸ f.le_one _ _⟩ ⟨i, by simp [*], rfl⟩
-      · simp only [show (f i) x = 0 by simpa using Finset.notMem_mono hs' hi']
-        exact le_csSup_of_le ⟨1, fun _ ⟨_, h⟩ ↦ h.2 ▸ f.le_one _ _⟩ ⟨_, h.choose_spec, rfl⟩ <|
-          f.nonneg _ _
-    · rw [Finset.sup'_le_iff]
-      exact fun i hi ↦ le_csSup ⟨1, fun _ ⟨_, h⟩ ↦ h.2 ▸ f.le_one _ _⟩ <|
-        mem_image_of_mem _ (by simp_all)
+      if h : Finset.Nonempty {i ∈ s' | i ∈ s} then Finset.sup' _ h fun i ↦ f i x else 0 :=
+  f.toPositivePartition.cbiSup_eq hs'
 
 lemma PartitionOfUnity.ciSup_eq_finset_sup' (f : PartitionOfUnity ι X) (x : X) :
-    ⨆ i, f i x = (f.finsupport x).sup' f.finsupport_nonempty fun i ↦ f i x := by
-  simpa [f.finsupport_nonempty] using f.cbiSup_eq (s := .univ) (s' := f.finsupport x) (x := x)
+    ⨆ i, f i x = (f.finsupport x).sup' f.finsupport_nonempty fun i ↦ f i x :=
+  f.toPositivePartition.ciSup_eq_finset_sup' x
 
 lemma PartitionOfUnity.exists_eq_ciSup (f : PartitionOfUnity ι X) (x : X) :
-    ∃ i, f i x = ⨆ i, f i x := by
-  rw [ciSup_eq_finset_sup']
-  have ⟨i, hi⟩ := Finset.exists_mem_eq_sup' (f.finsupport_nonempty (x := x)) (f := fun i ↦ f i x)
-  exact ⟨i, hi.2.symm⟩
+    ∃ i, f i x = ⨆ i, f i x :=
+  f.toPositivePartition.exists_eq_ciSup x
 
 -- taken from mathlib PR #40745
 -- TODO: remove upon next bumping mathlib

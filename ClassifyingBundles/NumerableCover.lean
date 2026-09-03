@@ -67,9 +67,13 @@ lemma NumerableCover.of_locallyFinite_isCozeroSet (h : LocallyFinite u) (h' : �
       refine (BumpCovering.tsupport_shrink_subset _).trans_eq ?_
       simp [hf']
     exact hf''.numerableCover
-  refine ⟨⟨fun i ↦ |f i|, by simp [hf, h], fun i ↦ by simp, fun x _ ↦ ?_⟩, by simp [hf]⟩
-  refine (iUnion_eq_univ_iff.1 h' x).imp fun i ↦ ?_
-  simp [← hf]
+  exact ⟨{
+    toFun i := |f i|
+    nonneg' _ := by simp
+    exists_pos' x _ := by
+      refine (iUnion_eq_univ_iff.1 h' x).imp fun i ↦ ?_
+      simp [← hf]
+    locallyFinite' := by simp [hf, h] }, by simp [hf]⟩
 
 /-- Any cover that is refined by a numerable cover is numerable. -/
 lemma NumerableCover.mono (hu : NumerableCover u) {u' : ι → Set X} (h : ∀ i, u i ⊆ u' i) :
@@ -83,6 +87,36 @@ lemma NumerableCover.mono' (hu : NumerableCover u) {ι' : Type*} {u' : ι' → S
   choose g hg using h
   exact ⟨f.map g, hf.map hg⟩
 
+/-- A cover is already numerable if there exists a generalised positive partition that is weakly
+subordinate to it, i.e. if there exists a point-finite family of nonnegative continuous functions
+such that the sum of all functions is continuous and positive, and the support of the `i`-th
+function is a subset of `u i`. -/
+lemma NumerableCover.iff_exists_generalizedPositivePartition' :
+    NumerableCover u ↔
+      ∃ f : GeneralizedPositivePartition ι X, ∀ i, Function.support (f i) ⊆ u i := by
+  refine ⟨fun ⟨f, hf⟩ ↦ ⟨f.toPositivePartition.toGeneralizedPositivePartition,
+    fun i ↦ subset_closure.trans (hf i)⟩, fun ⟨f, hf⟩ ↦ ?_⟩
+  refine PositivePartition.IsSubordinate.numerableCover (f := {
+      toFun i := 0 ⊔ (f i - (2⁻¹ : ℝ) • ContinuousMap.mk _ (f.continuous_ciSup))
+      nonneg' _ := by simp
+      exists_pos' x _ := by
+        refine (f.exists_eq_ciSup x).imp fun i hi ↦ ?_
+        suffices 2⁻¹ * (f i) x < (f i) x by simpa [← hi]
+        linarith [(f.ciSup_pos (mem_univ x)).trans_eq hi.symm]
+      locallyFinite' x := by
+        refine ⟨_, (isOpen_lt (f.continuous_cbiSup (f.finsupport x)ᶜ)
+          (f.continuous_ciSup.const_smul (2⁻¹ : ℝ))).mem_nhds ?_,
+            (f.finsupport x).finite_toSet.subset ?_⟩
+        · rw [mem_setOf_eq, f.cbiSup_eq subset_rfl, dite_cond_eq_false (by simp), smul_eq_mul]
+          linarith [f.ciSup_pos (mem_univ x)]
+        · rintro i ⟨x', h, h'⟩
+          contrapose h
+          simpa using ((f.le_cbiSup_of_mem h).trans_lt h').le }) ?_
+  refine fun i ↦ .trans (.trans (b := {x | (2⁻¹ : ℝ) * ⨆ i, f i x ≤ f i x}) ?_
+    fun x hx ↦ by grind [Function.mem_support, f.ciSup_pos (mem_univ x)]) (hf i)
+  exact (IsClosed.closure_subset_iff (isClosed_le (by fun_prop) (by fun_prop))).2
+    fun x hx ↦ mem_setOf.2 <| LT.lt.le <| by simpa using hx
+
 /-- For a family of sets `u i`, the following are equivalent:
 * `u` is a numerable cover
 * `u` admits a subordinate partition of unity
@@ -94,16 +128,18 @@ lemma NumerableCover.tfae :
       ∃ f : PartitionOfUnity ι X, f.IsSubordinate u,
       ∃ f : BumpCovering ι X, f.IsSubordinate u,
       ∃ f : PositivePartition ι X, f.IsSubordinate u,
+      ∃ f : GeneralizedPositivePartition ι X, ∀ i, Function.support (f i) ⊆ u i,
       ∃ v : ι → Set X, LocallyFinite v ∧ ⋃ i, v i = univ ∧ ∀ i, IsCozeroSet (v i) ∧ v i ⊆ u i] := by
   tfae_have 1 ↔ 2 := Iff.rfl
   tfae_have 1 → 3 := fun hu ↦ hu.exists_bumpCovering
   tfae_have 3 → 1 := fun ⟨_, hf⟩ ↦ hf.numerableCover
   tfae_have 1 → 4 := fun hu ↦ hu.exists_positivePartition
   tfae_have 4 → 1 := fun ⟨_, hf⟩ ↦ hf.numerableCover
-  tfae_have 1 → 5 := fun ⟨f, hf⟩ ↦ ⟨_, f.locallyFinite,
+  tfae_have 1 ↔ 5 := iff_exists_generalizedPositivePartition'
+  tfae_have 1 → 6 := fun ⟨f, hf⟩ ↦ ⟨_, f.locallyFinite,
     eq_univ_of_forall fun x ↦ mem_iUnion.2 <| (f.exists_pos (mem_univ x)).imp fun i hi ↦ hi.ne',
     fun i ↦ ⟨(map_continuous (f i)).isCozeroSet_support, subset_closure.trans (hf i)⟩⟩
-  tfae_have 5 → 1 := fun ⟨v, hv, hv', hv''⟩ ↦
+  tfae_have 6 → 1 := fun ⟨v, hv, hv', hv''⟩ ↦
     .mono (.of_locallyFinite_isCozeroSet hv hv' fun i ↦ (hv'' i).1) (fun i ↦ (hv'' i).2)
   tfae_finish
 
@@ -374,7 +410,7 @@ lemma NumerableCover.exists_of_prod_unitInterval {ι : Type u} {u : ι → Set (
       ∀ i' t, ∃ w ∈ 𝓝 t, ∃ i, v i' ×ˢ w ⊆ u i := by
   -- since `u` is numerable, we can replace it with a locally finite cover by cozero sets
   wlog hu' : LocallyFinite u ∧ ∀ i, IsCozeroSet (u i) generalizing u with h
-  · have ⟨v, hv, hv', hv''⟩ := (((NumerableCover.tfae (u := u)).out 0 4).1 hu:)
+  · have ⟨v, hv, hv', hv''⟩ := (((NumerableCover.tfae (u := u)).out 0 5).1 hu:)
     grw [← fun i ↦ (hv'' i).2]
     exact h (.of_locallyFinite_isCozeroSet hv hv' (fun i ↦ (hv'' i).1)) ⟨hv, fun i ↦ (hv'' i).1⟩
   /- let `w n` for each `n` be a cover of `I` by `n + 1` overlapping closed intervals of size
