@@ -7,13 +7,15 @@ import ClassifyingBundles.CountableTrans
 import ClassifyingBundles.MulActionEquiv
 import ClassifyingBundles.TrivialSMul
 import Mathlib.GroupTheory.GroupAction.Hom
-import Mathlib.Topology.Homotopy.Basic
+import Mathlib.Topology.Homotopy.Equiv
 
 /-! # Equivariant continuous maps
 
 In this file we define a type `ContinuousMulActionHom` of equivariant continuous maps,
 and a type `ContinuousMulActionEquiv` of equivariant homeomorphisms.
 -/
+
+open scoped ContinuousMap
 
 /-- A continuous `φ`-equivariant map. -/
 structure ContinuousMulActionHom {M N : Type*} (φ : M → N)
@@ -93,6 +95,12 @@ lemma comp_id {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] [SMul M X]
 lemma id_comp {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] [SMul M X] [SMul M Y]
     {f : C[M](X, Y)} : .comp (.id _ _) f = f := by
   ext; simp
+
+lemma comp_assoc {X Y Z W : Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+    [TopologicalSpace W] [SMul M X] [SMul M Y] [SMul M Z] [SMul M W]
+    (f : C[M](Z, W)) (f' : C[M](Y, Z)) (f'' : C[M](X, Y)) :
+    (f.comp f').comp f'' = f.comp (f'.comp f'') :=
+  rfl
 
 /-- We equip `Cₑ[φ](X, Y)` with the topology induced by the compact-open topology on `C(X, Y)`. -/
 instance : TopologicalSpace Cₑ[φ](X, Y) := .induced (fun f ↦ toContinuousMap f) inferInstance
@@ -191,22 +199,31 @@ end Homotopy
 equivariant maps between them. -/
 def Homotopic (f g : Cₑ[φ](X, Y)) := Nonempty (Homotopy f g)
 
+lemma Homotopy.homotopic {f f' : Cₑ[φ](X, Y)} (F : f.Homotopy f') : f.Homotopic f' := ⟨F⟩
+
 namespace Homotopic
 
 lemma toContinuousMap {f g : Cₑ[φ](X, Y)} (h : f.Homotopic g) :
     (toContinuousMap f).Homotopic (toContinuousMap g) :=
   ⟨h.some.toHomotopy⟩
 
+@[refl]
 lemma refl (f : Cₑ[φ](X, Y)) : f.Homotopic f := ⟨.refl f⟩
 
+@[symm]
 lemma symm {f f' : Cₑ[φ](X, Y)} (h : f.Homotopic f') : f'.Homotopic f := ⟨h.some.symm⟩
 
 lemma trans {f f' f'' : Cₑ[φ](X, Y)} (h : f.Homotopic f') (h' : f'.Homotopic f'') :
     f.Homotopic f'' := ⟨h.some.trans h'.some⟩
 
+/-- Transitivity of `Homotopic`, in the form needed for `gcongr` and `grw` to be able to rewrite
+in both arguments of a `Homotopic` goal. -/
+instance : IsTrans Cₑ[φ](X, Y) Homotopic := ⟨fun _ _ _ ↦ trans⟩
+
+@[gcongr]
 lemma comp {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
-    [SMul M X] [SMul M Y] [SMul M Z] {f f' : C[M](Y, Z)} (h : f.Homotopic f')
-    {f'' f''' : C[M](X, Y)} (h' : f''.Homotopic f''') : (f.comp f'').Homotopic (f'.comp f''') :=
+    [SMul M X] [SMul M Y] [SMul M Z] {f f' : C[M](Y, Z)} {f'' f''' : C[M](X, Y)}
+    (h : f.Homotopic f') (h' : f''.Homotopic f''') : (f.comp f'').Homotopic (f'.comp f''') :=
   ⟨h.some.comp h'.some⟩
 
 /-- The bijection between equivariant maps `Cₑ[φ](X × M, Y)` and continuous maps `C(X, Y)` when `M`
@@ -373,3 +390,99 @@ lemma ContinuousMulActionHom.Homotopic.continuousMulActionEquiv_comp_iff {M : Ty
   rw [← f.id_comp, ← f'.id_comp, ← ContinuousMulActionEquiv.toContinuousMulActionHom_refl,
     ← e.self_trans_symm, ContinuousMulActionEquiv.toContinuousMulActionHom_trans]
   exact ⟨.comp (.refl e.symm.toContinuousMulActionHom) F⟩
+
+namespace ContinuousMulActionHom
+
+/-- A `G`-homotopy equivalence between `G`-spaces `X` and `Y` is a pair of `G`-equivariant functions
+`C[G](X, Y)`, `C[M](Y, X)` such that the two compositions of the two are both `G`-equivariantly
+homotopic to the identity. -/
+structure HomotopyEquiv (M : Type*) (X Y : Type*) [TopologicalSpace X]
+    [TopologicalSpace Y] [SMul M X] [SMul M Y] where
+  toFun : C[M](X, Y)
+  invFun : C[M](Y, X)
+  left_inv : (invFun.comp toFun).Homotopic (.id M X)
+  right_inv : (toFun.comp invFun).Homotopic (.id M Y)
+
+@[inherit_doc]
+notation:25 X " ≃ₕ[" G:25 "] " Y:0 => HomotopyEquiv G X Y
+
+namespace HomotopyEquiv
+
+variable {M : Type*} {X Y Z : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+  [TopologicalSpace Z] [SMul M X] [SMul M Y] [SMul M Z]
+
+instance : CoeFun (X ≃ₕ[M] Y) fun _ ↦ (X → Y) where
+  coe h := h.toFun
+
+@[simp]
+lemma coe_toFun (h : X ≃ₕ[M] Y) : ⇑h.toFun = h := rfl
+
+/-- Convert an equivariant homotopy equivalence to simply a homotopy equivalence. -/
+def toHomotopyEquiv (h : X ≃ₕ[M] Y) : X ≃ₕ Y where
+  toFun := h.toFun.toContinuousMap
+  invFun := h.invFun.toContinuousMap
+  left_inv := h.left_inv.toContinuousMap
+  right_inv := h.right_inv.toContinuousMap
+
+@[simp]
+lemma coe_toHomotopyEquiv (h : X ≃ₕ[M] Y) : ⇑h.toHomotopyEquiv = h := rfl
+
+/-- Convert an equivariant homeomorphism to an equivariant homotopy equivalence. -/
+def _root_.ContinuousMulActionEquiv.toHomotopyEquiv (e : X ≃ₜ[M] Y) : X ≃ₕ[M] Y where
+  toFun := e.toContinuousMulActionHom
+  invFun := e.symm.toContinuousMulActionHom
+  left_inv := by simp [← e.toContinuousMulActionHom_trans, Homotopic.refl]
+  right_inv := by simp [← e.symm.toContinuousMulActionHom_trans, Homotopic.refl]
+
+@[simp]
+lemma _root_.ContinuousMulActionEquiv.coe_toHomotopyEquiv (e : X ≃ₜ[M] Y) :
+    ⇑e.toHomotopyEquiv = e := rfl
+
+variable (M X) in
+/-- The identity as an equivariant homotopy equivalence. -/
+def refl : X ≃ₕ[M] X := (ContinuousMulActionEquiv.refl M X).toHomotopyEquiv
+
+@[simp]
+lemma coe_refl : ⇑(refl M X) = id := rfl
+
+/-- The inverse of an equivariant homotopy equivalence. -/
+def symm (h : X ≃ₕ[M] Y) : Y ≃ₕ[M] X where
+  toFun := h.invFun
+  invFun := h.toFun
+  left_inv := h.right_inv
+  right_inv := h.left_inv
+
+@[simp]
+lemma coe_invFun (h : X ≃ₕ[M] Y) : ⇑h.invFun = h.symm := rfl
+
+/-- The composition of two equivariant homotopy equivalences. -/
+def trans (h : X ≃ₕ[M] Y) (h' : Y ≃ₕ[M] Z) : X ≃ₕ[M] Z where
+  toFun := h'.toFun.comp h.toFun
+  invFun := h.invFun.comp h'.invFun
+  left_inv := .trans (by exact .comp (.refl _) (.comp h'.left_inv (.refl _))) h.left_inv
+  right_inv := .trans (by exact .comp (.refl _) (.comp h.right_inv (.refl _))) h'.right_inv
+
+@[simp]
+lemma coe_trans (h : X ≃ₕ[M] Y) (h' : Y ≃ₕ[M] Z) : ⇑(h.trans h') = h' ∘ h := rfl
+
+end HomotopyEquiv
+
+end ContinuousMulActionHom
+
+@[simp]
+lemma ContinuousMulActionHom.Homotopic.comp_homotopyEquiv_iff {M : Type*} {X Y Z : Type*}
+    [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+    [SMul M X] [SMul M Y] [SMul M Z] {f f' : C[M](Y, Z)} (e : X ≃ₕ[M] Y) :
+    (f.comp e.toFun).Homotopic (f'.comp e.toFun) ↔
+      f.Homotopic f' := by
+  refine ⟨fun ⟨F⟩ ↦ ?_, fun h ↦ h.comp (.refl _)⟩
+  grw [← f.comp_id, ← f'.comp_id, ← e.right_inv, ← comp_assoc, ← comp_assoc, F.homotopic]
+
+@[simp]
+lemma ContinuousMulActionHom.Homotopic.homotopyEquiv_comp_iff {M : Type*} {X Y Z : Type*}
+    [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+    [SMul M X] [SMul M Y] [SMul M Z] {f f' : C[M](X, Y)} (e : Y ≃ₕ[M] Z) :
+    (e.toFun.comp f).Homotopic (e.toFun.comp f') ↔
+      f.Homotopic f' := by
+  refine ⟨fun ⟨F⟩ ↦ ?_, fun h ↦ .comp (.refl _) h⟩
+  grw [← f.id_comp, ← f'.id_comp, ← e.left_inv, comp_assoc, comp_assoc, F.homotopic]
