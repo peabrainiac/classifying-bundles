@@ -3,12 +3,21 @@ Copyright (c) 2026 Ben Eltschig. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ben Eltschig
 -/
+import Mathlib.Topology.Algebra.Indicator
 import Mathlib.Topology.ContinuousMap.Lattice
 import Mathlib.Topology.Separation.PerfectlyNormal
 import Mathlib.Topology.UnitInterval
 
 /-! # Cozero sets
 In this file cozero sets as sets that are the support of a continuous function to `ℝ`.
+
+## Main definitions & results:
+* `IsCozeroSet u`: predicate stating that `u` is the cozero set of some continuous function to `ℝ`.
+* Every cozero set is open, and in perfectly normal spaces every open set is a cozero set.
+* Every clopen set is a cozero set.
+* Finite intersections and locally finite unions of cozero sets are cozero sets.
+* Preimages of cozero sets under continuous maps are cozero sets.
+* Images and coimages of cozero sets under open proper maps are cozero sets.
 -/
 
 open Set Function
@@ -62,6 +71,9 @@ lemma IsOpen.isCozeroSet [PerfectlyNormalSpace X] (hu : IsOpen u) : IsCozeroSet 
   refine ⟨f, ?_⟩
   rw [compl_eq_comm] at hf
   grind [support]
+
+lemma IsClopen.isCozeroSet (hu : IsClopen u) : IsCozeroSet u :=
+  ⟨⟨u.indicator 1, hu.continuous_indicator continuous_const⟩, by simp⟩
 
 lemma IsCozeroSet.preimage (hu : IsCozeroSet u) {f : Y → X} (hf : Continuous f) :
     IsCozeroSet (f ⁻¹' u) := by
@@ -177,6 +189,16 @@ lemma continuous_parametric_iInf [CompactSpace Y]
   (continuous_sInf_fiber isProperMap_fst_of_compactSpace isOpenMap_fst hf).congr fun x ↦
     le_antisymm (le_iInf fun y ↦ iInf₂_le_of_le (x, y) rfl le_rfl)
       (le_iInf₂ fun ⟨x, y⟩ _ ↦ iInf_le_of_le y <| by grind)
+
+/-- The image of a cozero set `u` under any proper open map `f : X → Y` is a cozero set. -/
+lemma IsCozeroSet.image (hu : IsCozeroSet u) {f : X → Y} (hf : IsProperMap f)
+    (hf' : IsOpenMap f) : IsCozeroSet (f '' u) := by
+  rw [isCozeroSet_iff_unitInterval] at hu ⊢
+  obtain ⟨g, rfl⟩ := hu
+  use ⟨_, continuous_sSup_fiber hf hf' (map_continuous g)⟩
+  ext y
+  simp only [ContinuousMap.coe_mk, mem_support, mem_image, ← pos_iff_ne_zero, lt_biSup_iff]
+  grind
 
 /-- The coimage of a cozero set `u` under any proper open map `f : X → Y`, i.e. the set of all `y`
 whose fibre `f ⁻¹' {y}` is contained in `u`, is a cozero set. -/
