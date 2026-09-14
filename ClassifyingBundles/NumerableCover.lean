@@ -10,6 +10,25 @@ import Mathlib.Topology.GDelta.MetrizableSpace
 
 /-! # Numerable covers
 In this file we define numerable covers of topological spaces.
+
+## Main definitions & results
+* `NumerableCover u`: predicate stating that `u` admits a subordinate partition of unity.
+* `NumerableCover.mono'`: every cover that is refined by an numerable cover is itself numerable.
+* `NumerableCover.tfae`: equivalent characterisations of numerable covers in terms of
+  bump coverings, positive partitions, generalised positive partitions and locally finite covers by
+  cozero sets.
+* `NumerableCover.of_paracompactSpace`: on paracompact Hausdorff spaces, every open cover is
+  numerable.
+* `NumerableCover.countable_locallyFinite_replacement`: every numerable open cover admits a
+  countable locally finite replacement consisting of disjoint unions of open subsets of sets in the
+  original cover.
+* `NumerableCover.of_locallyFinite_isCozeroSet_refinements`: to prove that a cover `u : ι → Set X`
+  by cozero sets is numerable, it suffices to check local finiteness of `u` not on all of `ι` but
+  only on the classes of some countable partition of `ι`.
+* `NumerableCover.of_countable_isCozeroSet`: every countable cover by cozero sets is numerable.
+* `NumerableCover.exists_of_prod_unitInterval`: for every numerable cover `u` of `X × I`, there
+  exists a numerable cover `v` of `X` such that each `v i ×ˢ univ` decomposes into sets of the form
+  `v i ×ˢ w` contained in some `u i'`.
 -/
 
 universe u
@@ -396,6 +415,17 @@ lemma NumerableCover.of_locallyFinite_isCozeroSet_refinements
       le_antisymm ?_ <| (ContinuousMap.le_def.1 (hf m k) x)
     grind [hn.not_prop_of_lt (Finset.mem_Iio.1 hm)]
   · exact fun k ↦ (map_continuous (g k.1 k.2)).isCozeroSet_support
+
+/-- TODO: move. -/
+lemma Set.iUnion_unique {α ι : Type*} [Unique ι] {s : ι → Set α} : ⋃ i, s i = s default := by
+  ext; simp [Unique.exists_iff]
+
+/-- Every countable cover by cozero sets is numerable. -/
+lemma NumerableCover.of_countable_isCozeroSet {ι : Type*} [Countable ι] {u : ι → Set X}
+    (hu : ⋃ i, u i = univ) (hu' : ∀ i, IsCozeroSet (u i)) : NumerableCover u :=
+  .of_locallyFinite_isCozeroSet_refinements (κ := ι) (κ' := fun _ ↦ Unit)
+    (v := fun i _ ↦ u i) (fun _ ↦ locallyFinite_of_finite _) (by simp [Set.iUnion_unique, hu])
+    (by grind) (by grind)
 
 attribute [local gcongr] Set.Finite.subset in
 /-- For every numerable cover `u` of `X × I`, there exists a numerable cover `v` of `X` such that
