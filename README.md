@@ -1,3 +1,3 @@
 # classifying-bundles
 
-The code I'm writing for my master thesis, in which my goal is to formalise the theory of principal bundles, classifying spaces and the principal bundle classification theorem in Lean.
+A formalisation of principal bundles, numerable bundles, universal bundles and classifying spaces in Lean 4, developed as part of my master thesis. The main achievement so far are the homotopy invariance results for numerable bundles in `NumerableBundle.lean` and the construction of universal bundles for arbitrary topological groups using Milnor's construction in `IsUniversalBundle.lean`.
